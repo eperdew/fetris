@@ -96,18 +96,22 @@ impl Game {
         self.lock_piece();
     }
 
+    // A cell is unoccupied if
+    //
+    // 1. It is out of bounds, or...
+    // 2. It is in bounds, but the cell is empty.
+    fn unoccupied(&self, col: i32, row: i32) -> bool {
+        self.board
+            .get(row as usize)
+            .and_then(|row| row.get(col as usize))
+            .map(Option::is_none)
+            .unwrap_or(false)
+    }
+
     fn fits(&self, col: i32, row: i32, rotation: usize) -> bool {
-        for (dc, dr) in crate::piece::cells(self.active.kind, rotation) {
-            let c = col + dc;
-            let r = row + dr;
-            if c < 0 || c >= BOARD_COLS as i32 || r >= BOARD_ROWS as i32 {
-                return false;
-            }
-            if r >= 0 && self.board[r as usize][c as usize].is_some() {
-                return false;
-            }
-        }
-        true
+        crate::piece::cells(self.active.kind, rotation)
+            .iter()
+            .all(|(dc, dr)| self.unoccupied(col + dc, row + dr))
     }
 
     fn lock_piece(&mut self) {
