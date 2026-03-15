@@ -20,7 +20,7 @@ fn rotation_snap(kind: PieceKind) -> String {
         game.handle_action(GameAction::RotateCw);
         boards.push((
             format!("{}→{}", rot, (rot + 1) % 4),
-            board_lines(&game, Some(&prev)),
+            board_lines(&game, &prev),
         ));
     }
     side_by_side(&boards)
@@ -28,7 +28,7 @@ fn rotation_snap(kind: PieceKind) -> String {
 
 /// Renders the board as a Vec of lines. If `prev_cells` is given (absolute board positions),
 /// those cells show `. `; current active piece shows `[]`; overlap shows `[]` (current wins).
-fn board_lines(game: &Game, prev_cells: Option<&[(i32, i32)]>) -> Vec<String> {
+fn board_lines(game: &Game, prev_cells: &[(i32, i32)]) -> Vec<String> {
     let active: [(i32, i32); 4] = game
         .active
         .cells()
@@ -46,7 +46,7 @@ fn board_lines(game: &Game, prev_cells: Option<&[(i32, i32)]>) -> Vec<String> {
             let pos = (c as i32, r as i32);
             row.push_str(if active.contains(&pos) {
                 "[]"
-            } else if prev_cells.is_some_and(|p| p.contains(&pos)) {
+            } else if prev_cells.contains(&pos) {
                 "'."
             } else if game.board[r][c].is_some() {
                 "[]"
@@ -111,7 +111,7 @@ fn movement_snap(kind: PieceKind, action: GameAction) -> String {
         if curr == prev {
             break;
         }
-        boards.push((format!("{step}"), board_lines(&game, Some(&prev))));
+        boards.push((format!("{step}"), board_lines(&game, &prev)));
         step += 1;
     }
     side_by_side(&boards)

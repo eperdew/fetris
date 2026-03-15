@@ -12,8 +12,17 @@ pub enum PieceKind {
 }
 
 impl PieceKind {
+    #[cfg(test)]
     pub fn all() -> [Self; 7] {
-        [Self::I, Self::O, Self::T, Self::S, Self::Z, Self::J, Self::L]
+        [
+            Self::I,
+            Self::O,
+            Self::T,
+            Self::S,
+            Self::Z,
+            Self::J,
+            Self::L,
+        ]
     }
 
     pub fn random() -> Self {
