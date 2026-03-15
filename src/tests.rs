@@ -12,26 +12,21 @@ fn make_i_game() -> Game {
     game
 }
 
-/// Renders just the board grid. If `prev_cells` is given (absolute board positions of the
-/// previous active piece), those cells are shown as `. `; the current active piece is `[]`.
-/// Overlapping cells show `[]` (current wins).
-fn board_str(game: &Game, prev_cells: Option<&[(i32, i32)]>) -> String {
+/// Renders the board as a Vec of lines. If `prev_cells` is given (absolute board positions),
+/// those cells show `. `; current active piece shows `[]`; overlap shows `[]` (current wins).
+fn board_lines(game: &Game, prev_cells: Option<&[(i32, i32)]>) -> Vec<String> {
     let active: [(i32, i32); 4] = game
         .active
         .cells()
         .map(|(dc, dr)| (game.active.col + dc, game.active.row + dr));
 
-    let mut out = String::from("  ┌────────────────────┐\n");
+    let mut lines = vec!["  ┌────────────────────┐".to_string()];
     for r in 0..BOARD_ROWS {
-        if r % 5 == 0 {
-            out.push_str(&format!("{r:2}"));
-        } else {
-            out.push_str("  ");
-        }
-        out.push('│');
+        let mut row = if r % 5 == 0 { format!("{r:2}") } else { "  ".to_string() };
+        row.push('│');
         for c in 0..BOARD_COLS {
             let pos = (c as i32, r as i32);
-            out.push_str(if active.contains(&pos) {
+            row.push_str(if active.contains(&pos) {
                 "[]"
             } else if prev_cells.is_some_and(|p| p.contains(&pos)) {
                 ". "
@@ -43,10 +38,11 @@ fn board_str(game: &Game, prev_cells: Option<&[(i32, i32)]>) -> String {
                 "  "
             });
         }
-        out.push_str("│\n");
+        row.push('│');
+        lines.push(row);
     }
-    out.push_str("20└────────────────────┘");
-    out
+    lines.push("20└────────────────────┘".to_string());
+    lines
 }
 
 fn active_abs(game: &Game) -> Vec<(i32, i32)> {
@@ -57,143 +53,61 @@ fn active_abs(game: &Game) -> Vec<(i32, i32)> {
         .collect()
 }
 
+fn side_by_side(boards: &[(String, Vec<String>)]) -> String {
+    const SEP: &str = "   ";
+    let board_width = boards[0].1[0].len();
+    let height = boards[0].1.len();
+
+    let mut out = String::new();
+    for (i, (label, _)) in boards.iter().enumerate() {
+        if i > 0 { out.push_str(SEP); }
+        out.push_str(&format!("{label:<board_width$}"));
+    }
+    out.push('\n');
+    for r in 0..height {
+        for (i, (_, lines)) in boards.iter().enumerate() {
+            if i > 0 { out.push_str(SEP); }
+            out.push_str(&lines[r]);
+        }
+        out.push('\n');
+    }
+    out.trim_end().to_string()
+}
+
 #[test]
 fn i_piece_rotations() {
     let mut game = make_i_game();
-    let mut snap = String::new();
+    let mut boards = Vec::new();
 
-    snap.push_str("── rotation 0 ──\n");
-    snap.push_str(&board_str(&game, None));
-
-    for rot in 1..=4 {
+    for rot in 0..4 {
         let prev = active_abs(&game);
         game.handle_action(GameAction::RotateCw);
-        snap.push_str(&format!(
-            "\n\n── rotation {rot} (diff from {prev_rot}) ──\n",
-            prev_rot = rot - 1,
-        ));
-        snap.push_str(&board_str(&game, Some(&prev)));
+        boards.push((format!("{}→{}", rot, (rot + 1) % 4), board_lines(&game, Some(&prev))));
     }
 
-    insta::assert_snapshot!(snap, @"
-    ── rotation 0 ──
-      ┌────────────────────┐
-     0│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-     5│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │      [][][][]      │
-    10│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-    15│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-    20└────────────────────┘
-
-    ── rotation 1 (diff from 0) ──
-      ┌────────────────────┐
-     0│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-     5│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │          []        │
-      │      . . [].       │
-    10│- - - - - []- - - - │
-      │          []        │
-      │                    │
-      │                    │
-      │                    │
-    15│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-    20└────────────────────┘
-
-    ── rotation 2 (diff from 1) ──
-      ┌────────────────────┐
-     0│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-     5│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │          .         │
-      │          .         │
-    10│- - - [][][][]- - - │
-      │          .         │
-      │                    │
-      │                    │
-      │                    │
-    15│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-    20└────────────────────┘
-
-    ── rotation 3 (diff from 2) ──
-      ┌────────────────────┐
-     0│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-     5│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │        []          │
-      │        []          │
-    10│- - - . []. . - - - │
-      │        []          │
-      │                    │
-      │                    │
-      │                    │
-    15│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-    20└────────────────────┘
-
-    ── rotation 4 (diff from 3) ──
-      ┌────────────────────┐
-     0│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-     5│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │        .           │
-      │      [][][][]      │
-    10│- - - - . - - - - - │
-      │        .           │
-      │                    │
-      │                    │
-      │                    │
-    15│- - - - - - - - - - │
-      │                    │
-      │                    │
-      │                    │
-      │                    │
-    20└────────────────────┘
+    insta::assert_snapshot!(side_by_side(&boards), @"
+    0→1                                                                    1→2                                                                    2→3                                                                    3→0                                                                 
+      ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
+     0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+     5│- - - - - - - - - - │    5│- - - - - - - - - - │    5│- - - - - - - - - - │    5│- - - - - - - - - - │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │          []        │     │          .         │     │        []          │     │        .           │
+      │      . . [].       │     │          .         │     │        []          │     │      [][][][]      │
+    10│- - - - - []- - - - │   10│- - - [][][][]- - - │   10│- - - . []. . - - - │   10│- - - - . - - - - - │
+      │          []        │     │          .         │     │        []          │     │        .           │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+    15│- - - - - - - - - - │   15│- - - - - - - - - - │   15│- - - - - - - - - - │   15│- - - - - - - - - - │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+    20└────────────────────┘   20└────────────────────┘   20└────────────────────┘   20└────────────────────┘
     ");
 }
