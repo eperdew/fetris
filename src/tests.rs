@@ -301,3 +301,21 @@ fn l_piece_rotations() {
     20└────────────────────┘   20└────────────────────┘   20└────────────────────┘   20└────────────────────┘
     ");
 }
+
+#[test]
+fn cw_ccw_equivalence() {
+    for kind in PieceKind::all() {
+        let rotated = |cw: usize, ccw: usize| {
+            let mut game = make_game(kind);
+            for _ in 0..cw  { game.handle_action(GameAction::RotateCw); }
+            for _ in 0..ccw { game.handle_action(GameAction::RotateCcw); }
+            active_abs(&game)
+        };
+
+        assert_eq!(rotated(1, 0), rotated(0, 3), "{kind:?}: 1 CW != 3 CCW");
+        assert_eq!(rotated(2, 0), rotated(0, 2), "{kind:?}: 2 CW != 2 CCW");
+        assert_eq!(rotated(3, 0), rotated(0, 1), "{kind:?}: 3 CW != 1 CCW");
+        assert_eq!(rotated(4, 0), rotated(0, 0), "{kind:?}: 4 CW != rotation 0");
+        assert_eq!(rotated(0, 4), rotated(0, 0), "{kind:?}: 4 CCW != rotation 0");
+    }
+}

@@ -12,6 +12,10 @@ pub enum PieceKind {
 }
 
 impl PieceKind {
+    pub fn all() -> [Self; 7] {
+        [Self::I, Self::O, Self::T, Self::S, Self::Z, Self::J, Self::L]
+    }
+
     pub fn random() -> Self {
         match rand::rng().random_range(0..7) {
             0 => Self::I,
