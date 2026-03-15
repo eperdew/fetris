@@ -66,51 +66,93 @@ impl Piece {
 }
 
 /// Returns the four (col, row) offsets for a given kind and rotation.
+/// Diagrams show all 4 rotations side by side, separated by `|`
+/// `O` = filled cell, `.` = empty. Rows top-to-bottom, cols left-to-right.
 pub fn cells(kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
-    // Rotations defined as (col, row) offsets from spawn top-left corner.
-    // 0 = spawn orientation.
-    match kind {
-        PieceKind::I => [
-            [(0, 1), (1, 1), (2, 1), (3, 1)],
-            [(2, 0), (2, 1), (2, 2), (2, 3)],
-            [(0, 2), (1, 2), (2, 2), (3, 2)],
-            [(1, 0), (1, 1), (1, 2), (1, 3)],
-        ][rotation % 4],
-        PieceKind::O => [
-            [(1, 0), (2, 0), (1, 1), (2, 1)],
-            [(1, 0), (2, 0), (1, 1), (2, 1)],
-            [(1, 0), (2, 0), (1, 1), (2, 1)],
-            [(1, 0), (2, 0), (1, 1), (2, 1)],
-        ][rotation % 4],
-        PieceKind::T => [
-            [(1, 0), (0, 1), (1, 1), (2, 1)],
-            [(1, 0), (1, 1), (2, 1), (1, 2)],
-            [(0, 1), (1, 1), (2, 1), (1, 2)],
-            [(1, 0), (0, 1), (1, 1), (1, 2)],
-        ][rotation % 4],
-        PieceKind::S => [
-            [(1, 0), (2, 0), (0, 1), (1, 1)],
-            [(1, 0), (1, 1), (2, 1), (2, 2)],
-            [(1, 1), (2, 1), (0, 2), (1, 2)],
-            [(0, 0), (0, 1), (1, 1), (1, 2)],
-        ][rotation % 4],
-        PieceKind::Z => [
-            [(0, 0), (1, 0), (1, 1), (2, 1)],
-            [(2, 0), (1, 1), (2, 1), (1, 2)],
-            [(0, 1), (1, 1), (1, 2), (2, 2)],
-            [(1, 0), (0, 1), (1, 1), (0, 2)],
-        ][rotation % 4],
-        PieceKind::J => [
-            [(0, 0), (0, 1), (1, 1), (2, 1)],
-            [(1, 0), (2, 0), (1, 1), (1, 2)],
-            [(0, 1), (1, 1), (2, 1), (2, 2)],
-            [(1, 0), (1, 1), (0, 2), (1, 2)],
-        ][rotation % 4],
-        PieceKind::L => [
-            [(2, 0), (0, 1), (1, 1), (2, 1)],
-            [(1, 0), (1, 1), (1, 2), (2, 2)],
-            [(0, 1), (1, 1), (2, 1), (0, 2)],
-            [(0, 0), (1, 0), (1, 1), (1, 2)],
-        ][rotation % 4],
+    parse_rotations(match kind {
+        //         rot 0  | rot 1  | rot 2  | rot 3
+        PieceKind::I => {
+            "
+            .... | ..O. | .... | .O..
+            OOOO | ..O. | .... | .O..
+            .... | ..O. | OOOO | .O..
+            .... | ..O. | .... | .O..
+        "
+        }
+        PieceKind::O => {
+            "
+            .OO. | .OO. | .OO. | .OO.
+            .OO. | .OO. | .OO. | .OO.
+            .... | .... | .... | ....
+            .... | .... | .... | ....
+        "
+        }
+        PieceKind::T => {
+            "
+            .O.. | .O.. | .... | .O..
+            OOO. | .OO. | OOO. | OO..
+            .... | .O.. | .O.. | .O..
+            .... | .... | .... | ....
+        "
+        }
+        PieceKind::S => {
+            "
+            .OO. | .O.. | .... | O...
+            OO.. | .OO. | .OO. | OO..
+            .... | ..O. | OO.. | .O..
+            .... | .... | .... | ....
+        "
+        }
+        PieceKind::Z => {
+            "
+            OO.. | ..O. | .... | .O..
+            .OO. | .OO. | OO.. | OO..
+            .... | .O.. | .OO. | O...
+            .... | .... | .... | ....
+        "
+        }
+        PieceKind::J => {
+            "
+            O... | .OO. | .... | .O..
+            OOO. | .O.. | OOO. | .O..
+            .... | .O.. | ..O. | OO..
+            .... | .... | .... | ....
+        "
+        }
+        PieceKind::L => {
+            "
+            ..O. | .O.. | .... | OO..
+            OOO. | .O.. | OOO. | .O..
+            .... | .OO. | O... | .O..
+            .... | .... | .... | ....
+        "
+        }
+    })[rotation % 4]
+}
+
+/// Parses a diagram of 4 rotations laid out side by side with `|` column separators.
+/// Returns one `[(col, row); 4]` array per rotation.
+fn parse_rotations(diagram: &str) -> [[(i32, i32); 4]; 4] {
+    let mut cells = [[(0i32, 0i32); 4]; 4];
+    let mut counts = [0usize; 4];
+    for (row, line) in diagram
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .enumerate()
+    {
+        for (rot, segment) in line.split('|').enumerate() {
+            for (col, ch) in segment.trim().chars().enumerate() {
+                if ch == 'O' {
+                    cells[rot][counts[rot]] = (col as i32, row as i32);
+                    counts[rot] += 1;
+                }
+            }
+        }
     }
+    debug_assert!(
+        counts.iter().all(|&n| n == 4),
+        "each rotation must have exactly 4 filled cells"
+    );
+    cells
 }
