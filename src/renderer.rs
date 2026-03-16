@@ -87,7 +87,7 @@ fn render_sidebar(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
 
     // Stats
     let stats = Paragraph::new(vec![
-        Line::from(format!("Score: {}", game.score)),
+        Line::from(""),
         Line::from(format!("Level: {}", game.level)),
         Line::from(format!("Lines: {}", game.lines)),
         Line::from(""),

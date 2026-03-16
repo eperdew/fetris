@@ -11,7 +11,6 @@ pub struct Game {
     pub board: Board,
     pub active: Piece,
     pub next: Piece,
-    pub score: u32,
     pub level: u32,
     pub lines: u32,
     pub game_over: bool,
@@ -28,7 +27,6 @@ impl Game {
             board: [[None; BOARD_COLS]; BOARD_ROWS],
             active: Piece::new(PieceKind::random()),
             next: Piece::new(PieceKind::random()),
-            score: 0,
             level: 1,
             lines: 0,
             game_over: false,
@@ -155,12 +153,6 @@ impl Game {
         }
         self.board = new_board;
         self.lines += count;
-        self.score += match count {
-            1 => 100,
-            2 => 300,
-            3 => 500,
-            _ => 800,
-        } * self.level;
         self.level = 1 + self.lines / 10;
     }
 }
