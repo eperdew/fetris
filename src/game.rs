@@ -97,11 +97,12 @@ impl Game {
         }
 
         // L/J/T center-column rule: from a 3-wide orientation (rot 0 or 2),
-        // if the first obstacle found scanning the bounding box left-to-right
-        // top-to-bottom is in the center column, suppress kicks entirely.
+        // if the first destination-rotation cell that collides with the board
+        // (scanning left-to-right, top-to-bottom) is in the center column,
+        // suppress kicks for this direction.
         if matches!(self.active.kind, PieceKind::L | PieceKind::J | PieceKind::T)
             && self.active.rotation % 2 == 0
-            && self.center_column_blocked_first()
+            && self.center_column_blocked_first(new_rot)
         {
             return;
         }
@@ -116,13 +117,16 @@ impl Game {
         }
     }
 
-    /// Scans the 3-column bounding box of the active piece left-to-right,
-    /// top-to-bottom. Returns true if the first occupied board cell is in the
-    /// center column (dc == 1), meaning a kick would not escape the obstacle.
-    fn center_column_blocked_first(&self) -> bool {
+    /// Scans the destination rotation's cells left-to-right, top-to-bottom.
+    /// Returns true if the first destination cell that collides with the board
+    /// is in the center column (dc == 1), meaning a kick would not escape the obstacle.
+    fn center_column_blocked_first(&self, new_rot: usize) -> bool {
+        let dest_cells = crate::piece::cells(self.active.kind, new_rot);
         for dr in 0..3i32 {
             for dc in 0..3i32 {
-                if !self.unoccupied(self.active.col + dc, self.active.row + dr) {
+                if dest_cells.iter().any(|&(ddc, ddr)| ddc == dc && ddr == dr)
+                    && !self.unoccupied(self.active.col + dc, self.active.row + dr)
+                {
                     return dc == 1;
                 }
             }

@@ -170,7 +170,7 @@ fn wall_kick_snap(kind: PieceKind) -> String {
 /// Places `kind` at col 3, row 8 in rotation `start_rot`, puts a single board
 /// obstacle at (col+obs_dc, row+obs_dr), then attempts CW and CCW rotations.
 /// Shows the two resulting board states side by side.
-fn center_col_snap(kind: PieceKind, start_rot: usize, obs_dc: i32, obs_dr: i32) -> String {
+fn center_col_snap(kind: PieceKind, start_rot: usize, obstacles: &[(i32, i32)]) -> String {
     let col = 3i32;
     let row = 8i32;
 
@@ -179,7 +179,9 @@ fn center_col_snap(kind: PieceKind, start_rot: usize, obs_dc: i32, obs_dr: i32) 
         game.active.rotation = start_rot;
         game.active.col = col;
         game.active.row = row;
-        game.board[(row + obs_dr) as usize][(col + obs_dc) as usize] = Some(PieceKind::O);
+        for &(obs_dc, obs_dr) in obstacles {
+            game.board[(row + obs_dr) as usize][(col + obs_dc) as usize] = Some(PieceKind::O);
+        }
         game
     };
 
@@ -564,7 +566,7 @@ fn z_piece_wall_kicks() {
 
 #[test]
 fn l_piece_center_col_blocks() {
-    let s = |rot, dc, dr| center_col_snap(PieceKind::L, rot, dc, dr);
+    let s = |rot, dc, dr| center_col_snap(PieceKind::L, rot, &[(dc, dr)]);
     insta::assert_snapshot!([
         ("rot0/pos2", s(0, 1, 0)),
         ("rot0/pos8", s(0, 1, 2)),
@@ -679,7 +681,7 @@ fn l_piece_center_col_blocks() {
 
 #[test]
 fn j_piece_center_col_blocks() {
-    let s = |rot, dc, dr| center_col_snap(PieceKind::J, rot, dc, dr);
+    let s = |rot, dc, dr| center_col_snap(PieceKind::J, rot, &[(dc, dr)]);
     insta::assert_snapshot!([
         ("rot0/pos2", s(0, 1, 0)),
         ("rot0/pos8", s(0, 1, 2)),
@@ -794,7 +796,7 @@ fn j_piece_center_col_blocks() {
 
 #[test]
 fn t_piece_center_col_blocks() {
-    let s = |rot, dc, dr| center_col_snap(PieceKind::T, rot, dc, dr);
+    let s = |rot, dc, dr| center_col_snap(PieceKind::T, rot, &[(dc, dr)]);
     insta::assert_snapshot!([
         ("rot0/pos2", s(0, 1, 0)),
         ("rot2/pos2", s(2, 1, 0)),
@@ -976,5 +978,138 @@ fn o_piece_move_right() {
       │                    │     │                    │     │                    │     │                    │
       │                    │     │                    │     │                    │     │                    │
     20└────────────────────┘   20└────────────────────┘   20└────────────────────┘   20└────────────────────┘
+    ");
+}
+
+// Asymmetric wall-kick tests: one direction kicks, the other is suppressed
+// because the center-column check is direction-aware (uses destination rotation cells).
+
+#[test]
+fn l_j_asymmetric_wall_kicks() {
+    // CW-only 1: L rot0, obstacles x../ooo/ox. → (dc=0,dr=0) and (dc=1,dr=2)
+    // CW first collision in rot1 is at dc=0 → kick allowed; CCW first collision in rot3 at dc=1 → suppressed
+    let cw_only_1 = center_col_snap(PieceKind::L, 0, &[(0, 0), (1, 2)]);
+
+    // CW-only 2: J rot2, obstacles ..x/ox./ooo → (dc=2,dr=0) and (dc=1,dr=1)
+    // CW first collision in rot3 is at dc=2 → kick allowed; CCW first collision in rot1 at dc=1 → suppressed
+    let cw_only_2 = center_col_snap(PieceKind::J, 2, &[(2, 0), (1, 1)]);
+
+    // CCW-only 1: J rot0, obstacles ..x/ooo/.xo → (dc=2,dr=0) and (dc=1,dr=2)
+    // CW first collision in rot1 at dc=1 → suppressed; CCW first collision in rot3 at dc=2 → kick allowed
+    let ccw_only_1 = center_col_snap(PieceKind::J, 0, &[(2, 0), (1, 2)]);
+
+    // CCW-only 2: L rot2, obstacles x../.xo/ooo → (dc=0,dr=0) and (dc=1,dr=1)
+    // CW first collision in rot3 at dc=1 → suppressed; CCW first collision in rot1 at dc=0 → kick allowed
+    let ccw_only_2 = center_col_snap(PieceKind::L, 2, &[(0, 0), (1, 1)]);
+
+    insta::assert_snapshot!([
+        ("CW-only/L-rot0", cw_only_1),
+        ("CW-only/J-rot2", cw_only_2),
+        ("CCW-only/J-rot0", ccw_only_1),
+        ("CCW-only/L-rot2", ccw_only_2),
+    ]
+    .iter()
+    .map(|(label, snap)| format!("=== {label} ===\n{snap}"))
+    .collect::<Vec<_>>()
+    .join("\n\n"), @"
+=== CW-only/L-rot0 ===
+           ↻                          ↺            
+  ┌────────────────────┐     ┌────────────────────┐
+ 0│- - - - - - - - - - │    0│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+ 5│- - - - - - - - - - │    5│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │      ##[][]        │     │      ##            │
+  │      '.'.[]        │     │      [][][]        │
+10│- - - '.##[]- - - - │   10│- - - []##- - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+15│- - - - - - - - - - │   15│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+20└────────────────────┘   20└────────────────────┘
+
+=== CW-only/J-rot2 ===
+           ↻                          ↺            
+  ┌────────────────────┐     ┌────────────────────┐
+ 0│- - - - - - - - - - │    0│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+ 5│- - - - - - - - - - │    5│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │      [][]##        │     │          ##        │
+  │      []##          │     │      []##          │
+10│- - - []'.'.- - - - │   10│- - - [][][]- - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+15│- - - - - - - - - - │   15│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+20└────────────────────┘   20└────────────────────┘
+
+=== CCW-only/J-rot0 ===
+           ↻                          ↺            
+  ┌────────────────────┐     ┌────────────────────┐
+ 0│- - - - - - - - - - │    0│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+ 5│- - - - - - - - - - │    5│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │          ##        │     │      [][]##        │
+  │      [][][]        │     │      []'.'.        │
+10│- - - - ##[]- - - - │   10│- - - []##'.- - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+15│- - - - - - - - - - │   15│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+20└────────────────────┘   20└────────────────────┘
+
+=== CCW-only/L-rot2 ===
+           ↻                          ↺            
+  ┌────────────────────┐     ┌────────────────────┐
+ 0│- - - - - - - - - - │    0│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+ 5│- - - - - - - - - - │    5│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │      ##            │     │      ##[][]        │
+  │        ##[]        │     │        ##[]        │
+10│- - - [][][]- - - - │   10│- - - '.'.[]- - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+15│- - - - - - - - - - │   15│- - - - - - - - - - │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+  │                    │     │                    │
+20└────────────────────┘   20└────────────────────┘
     ");
 }
