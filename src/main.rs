@@ -1,6 +1,7 @@
 mod game;
 mod input;
 mod piece;
+mod randomizer;
 mod renderer;
 #[cfg(test)]
 mod tests;

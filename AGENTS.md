@@ -8,6 +8,7 @@ Rust Tetris clone using [Ratatui](https://ratatui.rs/) for terminal rendering.
 |------|---------|
 | `src/piece.rs` | Piece shapes and rotation tables |
 | `src/game.rs` | Game state, physics, ARS rotation logic |
+| `src/randomizer.rs` | TGM-style piece randomizer |
 | `src/input.rs` | `GameAction` enum (keyboard → action) |
 | `src/renderer.rs` | Ratatui rendering |
 | `src/tests.rs` | All tests (inline snapshots only) |
@@ -17,6 +18,14 @@ Rust Tetris clone using [Ratatui](https://ratatui.rs/) for terminal rendering.
 - `Board = [[Option<PieceKind>; BOARD_COLS]; BOARD_ROWS]` — `None` = empty, `Some(kind)` = locked cell.
 - `Piece` — kind, rotation (0–3), and `(col, row)` of the bounding box top-left corner.
 - `piece::cells(kind, rotation) -> [(i32, i32); 4]` — `(dc, dr)` offsets from the piece's `(col, row)`. The shapes are defined as ASCII diagrams in `piece.rs` and parsed at compile time.
+
+## Randomizer (TGM)
+
+Implemented in `src/randomizer.rs`. `Game` owns a `Randomizer` instance and calls `randomizer.next()` each time a new piece is needed.
+
+- History of 4 pieces, initialized to `[Z; 4]`.
+- Each draw: try up to 4 times to pick a piece not in the history; settle with the last attempt if all fail.
+- First piece is restricted to `{I, T, J, L}` (never S, Z, or O) to avoid a forced overhang.
 
 ## Rotation system (ARS)
 

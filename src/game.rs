@@ -1,5 +1,6 @@
 use crate::input::GameAction;
 use crate::piece::{Piece, PieceKind};
+use crate::randomizer::Randomizer;
 
 pub const BOARD_COLS: usize = 10;
 pub const BOARD_ROWS: usize = 20;
@@ -14,6 +15,7 @@ pub struct Game {
     pub level: u32,
     pub lines: u32,
     pub game_over: bool,
+    pub randomizer: Randomizer,
 }
 
 pub enum RotationDirection {
@@ -23,13 +25,17 @@ pub enum RotationDirection {
 
 impl Game {
     pub fn new() -> Self {
+        let mut randomizer = Randomizer::new();
+        let active = Piece::new(randomizer.next());
+        let next = Piece::new(randomizer.next());
         Self {
             board: [[None; BOARD_COLS]; BOARD_ROWS],
-            active: Piece::new(PieceKind::random()),
-            next: Piece::new(PieceKind::random()),
+            active,
+            next,
             level: 1,
             lines: 0,
             game_over: false,
+            randomizer,
         }
     }
 
@@ -167,7 +173,7 @@ impl Game {
         }
         self.clear_lines();
         // Advance to next piece
-        let next_kind = PieceKind::random();
+        let next_kind = self.randomizer.next();
         self.active = std::mem::replace(&mut self.next, Piece::new(next_kind));
         self.active.col = 3;
         self.active.row = 0;
