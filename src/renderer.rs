@@ -9,11 +9,34 @@ use ratatui::{
 use crate::game::{BOARD_COLS, BOARD_ROWS, Game};
 use crate::piece::PieceKind;
 
+// Board: 20 rows + 2 borders tall; (10 cols * 2 chars) + 2 borders = 22 wide
+// Sidebar: 14 wide
+const GAME_WIDTH: u16 = 36;
+const GAME_HEIGHT: u16 = 22;
+
 pub fn render(frame: &mut Frame, game: &Game) {
+    let area = frame.area();
+
+    if area.width < GAME_WIDTH || area.height < GAME_HEIGHT {
+        let msg = Paragraph::new(format!(
+            "Window too small ({}x{}). Please resize to at least {}x{}.",
+            area.width, area.height, GAME_WIDTH, GAME_HEIGHT
+        ))
+        .block(Block::default().borders(Borders::ALL));
+        frame.render_widget(msg, area);
+        return;
+    }
+
+    // Center the game vertically so the play area doesn't float at the top
+    let v_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Fill(1), Constraint::Length(GAME_HEIGHT), Constraint::Fill(1)])
+        .split(area);
+
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Length(22), Constraint::Length(14)])
-        .split(frame.area());
+        .split(v_chunks[1]);
 
     render_board(frame, game, chunks[0]);
     render_sidebar(frame, game, chunks[1]);
