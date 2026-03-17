@@ -167,6 +167,62 @@ fn wall_kick_snap(kind: PieceKind) -> String {
     side_by_side(&boards)
 }
 
+/// Like wall_kick_snap but captures cases where the rotation was attempted and
+/// *failed* — the piece stayed at the same rotation and column. Shows before→after
+/// (which look identical) to make the blocked rotation visible.
+fn wall_no_kick_snap(kind: PieceKind) -> String {
+    let mut boards = Vec::new();
+
+    for &left_wall in &[true, false] {
+        for start_rot in 0usize..4 {
+            let rot_cells = crate::piece::cells(kind, start_rot);
+            let min_dc = rot_cells.iter().map(|&(dc, _)| dc).min().unwrap();
+            let max_dc = rot_cells.iter().map(|&(dc, _)| dc).max().unwrap();
+
+            let flush_col = if left_wall {
+                -min_dc
+            } else {
+                BOARD_COLS as i32 - 1 - max_dc
+            };
+
+            for &cw in &[true, false] {
+                let new_rot = if cw { (start_rot + 1) % 4 } else { (start_rot + 3) % 4 };
+                let action = if cw { GameAction::RotateCw } else { GameAction::RotateCcw };
+
+                // Check that the new rotation wouldn't fit in place at flush_col.
+                // We detect this by trying the rotation at the same flush position.
+                let mut probe = make_game(kind);
+                probe.active.rotation = start_rot;
+                probe.active.col = flush_col;
+                probe.handle_action(action);
+                let fits_in_place = probe.active.rotation == new_rot && probe.active.col == flush_col;
+                if fits_in_place {
+                    continue; // rotation fits without any kick — not an interesting blocked case
+                }
+
+                let mut game = make_game(kind);
+                game.active.rotation = start_rot;
+                game.active.col = flush_col;
+
+                let prev = active_abs(&game);
+                game.handle_action(action);
+
+                // Only include when rotation was blocked (no kick occurred)
+                if game.active.rotation == start_rot {
+                    let wall = if left_wall { "L" } else { "R" };
+                    let dir = if cw { "↻" } else { "↺" };
+                    boards.push((
+                        format!("{wall}{dir} {start_rot}✗"),
+                        board_lines(&game, &prev),
+                    ));
+                }
+            }
+        }
+    }
+
+    side_by_side(&boards)
+}
+
 /// Places `kind` at col 3, row 8 in rotation `start_rot`, puts a single board
 /// obstacle at (col+obs_dc, row+obs_dr), then attempts CW and CCW rotations.
 /// Shows the two resulting board states side by side.
@@ -969,6 +1025,64 @@ fn o_piece_move_right() {
       │        '.[][]      │     │          '.[][]    │     │            '.[][]  │     │              '.[][]│
     10│- - - - '.[][]- - - │   10│- - - - - '.[][]- - │   10│- - - - - - '.[][]- │   10│- - - - - - - '.[][]│
       │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+    15│- - - - - - - - - - │   15│- - - - - - - - - - │   15│- - - - - - - - - - │   15│- - - - - - - - - - │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+    20└────────────────────┘   20└────────────────────┘   20└────────────────────┘   20└────────────────────┘
+    ");
+}
+
+#[test]
+fn i_piece_no_wall_kicks() {
+    // I piece never kicks. Place it vertical (rot 1) flush against each wall
+    // and show that both CW and CCW rotation attempts leave it unchanged.
+    let make = |col: i32| {
+        let mut game = make_game(PieceKind::I);
+        game.active.rotation = 1;
+        game.active.col = col;
+        game
+    };
+    let rot1_cells = crate::piece::cells(PieceKind::I, 1);
+    let min_dc = rot1_cells.iter().map(|&(dc, _)| dc).min().unwrap();
+    let max_dc = rot1_cells.iter().map(|&(dc, _)| dc).max().unwrap();
+    let left_col = -min_dc;
+    let right_col = BOARD_COLS as i32 - 1 - max_dc;
+
+    let boards: Vec<(String, Vec<String>)> = [
+        ("L↻", left_col, GameAction::RotateCw),
+        ("L↺", left_col, GameAction::RotateCcw),
+        ("R↻", right_col, GameAction::RotateCw),
+        ("R↺", right_col, GameAction::RotateCcw),
+    ]
+    .iter()
+    .map(|&(label, col, action)| {
+        let prev = active_abs(&make(col));
+        let mut game = make(col);
+        game.handle_action(action);
+        (label.to_string(), board_lines(&game, &prev))
+    })
+    .collect();
+
+    insta::assert_snapshot!(side_by_side(&boards), @"
+               L↻                         L↺                         R↻                         R↺           
+      ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
+     0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+     5│- - - - - - - - - - │    5│- - - - - - - - - - │    5│- - - - - - - - - - │    5│- - - - - - - - - - │
+      │                    │     │                    │     │                    │     │                    │
+      │                    │     │                    │     │                    │     │                    │
+      │[]                  │     │[]                  │     │                  []│     │                  []│
+      │[]                  │     │[]                  │     │                  []│     │                  []│
+    10│[]- - - - - - - - - │   10│[]- - - - - - - - - │   10│- - - - - - - - - []│   10│- - - - - - - - - []│
+      │[]                  │     │[]                  │     │                  []│     │                  []│
       │                    │     │                    │     │                    │     │                    │
       │                    │     │                    │     │                    │     │                    │
       │                    │     │                    │     │                    │     │                    │
