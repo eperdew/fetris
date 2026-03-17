@@ -84,9 +84,50 @@ impl Game {
             RotationDirection::Counterclockwise => 3,
         };
         let new_rot = (self.active.rotation + offset) % 4;
+
+        // 1. Basic rotation.
         if self.fits(self.active.col, self.active.row, new_rot) {
             self.active.rotation = new_rot;
+            return;
         }
+
+        // I-piece never kicks.
+        if self.active.kind == PieceKind::I {
+            return;
+        }
+
+        // L/J/T center-column rule: from a 3-wide orientation (rot 0 or 2),
+        // if the first obstacle found scanning the bounding box left-to-right
+        // top-to-bottom is in the center column, suppress kicks entirely.
+        if matches!(self.active.kind, PieceKind::L | PieceKind::J | PieceKind::T)
+            && self.active.rotation % 2 == 0
+            && self.center_column_blocked_first()
+        {
+            return;
+        }
+
+        // 2. Kick right, then left.
+        for dcol in [1i32, -1] {
+            if self.fits(self.active.col + dcol, self.active.row, new_rot) {
+                self.active.col += dcol;
+                self.active.rotation = new_rot;
+                return;
+            }
+        }
+    }
+
+    /// Scans the 3-column bounding box of the active piece left-to-right,
+    /// top-to-bottom. Returns true if the first occupied board cell is in the
+    /// center column (dc == 1), meaning a kick would not escape the obstacle.
+    fn center_column_blocked_first(&self) -> bool {
+        for dr in 0..3i32 {
+            for dc in 0..3i32 {
+                if !self.unoccupied(self.active.col + dc, self.active.row + dr) {
+                    return dc == 1;
+                }
+            }
+        }
+        false
     }
 
     fn hard_drop(&mut self) {
