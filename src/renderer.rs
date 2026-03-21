@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::game::{BOARD_COLS, BOARD_ROWS, Game};
+use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
 use crate::piece::PieceKind;
 
 // Board: 20 rows + 2 borders tall; (10 cols * 2 chars) + 2 borders = 22 wide
@@ -43,13 +43,16 @@ pub fn render(frame: &mut Frame, game: &Game) {
 }
 
 fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
-    // Build a display grid: start from locked board, then overlay active piece
+    // Build a display grid: start from locked board, then overlay active piece.
+    // During spawn delay the old piece is already in the board; don't re-draw it.
     let mut display = game.board;
-    for (dc, dr) in game.active.cells() {
-        let c = (game.active.col + dc) as usize;
-        let r = (game.active.row + dr) as usize;
-        if r < BOARD_ROWS && c < BOARD_COLS {
-            display[r][c] = Some(game.active.kind);
+    if !matches!(game.piece_phase, PiecePhase::Spawning { .. }) {
+        for (dc, dr) in game.active.cells() {
+            let c = (game.active.col + dc) as usize;
+            let r = (game.active.row + dr) as usize;
+            if r < BOARD_ROWS && c < BOARD_COLS {
+                display[r][c] = Some(game.active.kind);
+            }
         }
     }
 
