@@ -8,6 +8,19 @@ pub const BOARD_ROWS: usize = 20;
 /// None = empty, Some(kind) = locked cell color
 pub type Board = [[Option<PieceKind>; BOARD_COLS]; BOARD_ROWS];
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PiecePhase {
+    Falling,
+    Locking { ticks_left: u32 },
+    Spawning { ticks_left: u32 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HorizDir {
+    Left,
+    Right,
+}
+
 pub struct Game {
     pub board: Board,
     pub active: Piece,
@@ -16,6 +29,11 @@ pub struct Game {
     pub lines: u32,
     pub game_over: bool,
     pub randomizer: Randomizer,
+    pub piece_phase: PiecePhase,
+    pub gravity_counter: u32,
+    pub das_direction: Option<HorizDir>,
+    pub das_counter: u32,
+    pub rotation_buffer: Option<RotationDirection>,
 }
 
 pub enum RotationDirection {
@@ -36,6 +54,11 @@ impl Game {
             lines: 0,
             game_over: false,
             randomizer,
+            piece_phase: PiecePhase::Falling,
+            gravity_counter: 0,
+            das_direction: None,
+            das_counter: 0,
+            rotation_buffer: None,
         }
     }
 
