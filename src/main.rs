@@ -97,8 +97,9 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Re
                         }
                         other => match map_game_key(other) {
                             Some(game_key) => match key.kind {
-                                KeyEventKind::Press | KeyEventKind::Repeat => AppEvent::KeyDown(game_key),
+                                KeyEventKind::Press => AppEvent::KeyDown(game_key),
                                 KeyEventKind::Release => AppEvent::KeyUp(game_key),
+                                KeyEventKind::Repeat => continue, // DAS handles held keys; OS repeat is noise
                             },
                             None => continue,
                         },
