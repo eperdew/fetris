@@ -7,12 +7,14 @@ mod renderer;
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashSet;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
 use crossterm::ExecutableCommand;
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyboardEnhancementFlags,
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
@@ -20,14 +22,14 @@ use ratatui::prelude::*;
 use std::io::stdout;
 
 use game::Game;
-#[allow(unused_imports)]
-use input::GameAction;
+use input::{GameKey, InputState, map_game_key};
 
-const TICK_RATE_MS: u64 = 500; // gravity tick interval
+const TICK_RATE_MS: u64 = 16; // ~60Hz
 
 #[derive(Debug)]
 enum AppEvent {
-    Input(GameAction),
+    KeyDown(GameKey),
+    KeyUp(GameKey),
     Tick,
     Quit,
 }
@@ -35,12 +37,16 @@ enum AppEvent {
 fn main() -> anyhow::Result<()> {
     // Terminal setup
     enable_raw_mode()?;
+    stdout().execute(PushKeyboardEnhancementFlags(
+        KeyboardEnhancementFlags::REPORT_EVENT_TYPES,
+    ))?;
     stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let result = run(&mut terminal);
 
     // Always restore terminal, even on error
+    stdout().execute(PopKeyboardEnhancementFlags)?;
     disable_raw_mode()?;
     stdout().execute(LeaveAlternateScreen)?;
 
@@ -50,7 +56,7 @@ fn main() -> anyhow::Result<()> {
 fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Result<()> {
     let (tx, rx) = mpsc::channel::<AppEvent>();
 
-    // Timer thread: sends Tick at a fixed interval
+    // Timer thread: sends Tick at a fixed interval (~60Hz)
     let tick_tx = tx.clone();
     thread::spawn(move || {
         loop {
@@ -61,21 +67,21 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Re
         }
     });
 
-    // Input thread: reads crossterm events and maps them to GameActions
+    // Input thread: reads crossterm events and sends KeyDown/KeyUp
     let input_tx = tx;
     thread::spawn(move || {
         loop {
-            if event::poll(Duration::from_millis(50)).unwrap_or(false) {
+            if event::poll(Duration::from_millis(5)).unwrap_or(false) {
                 if let Ok(Event::Key(key)) = event::read() {
                     let app_event = match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => AppEvent::Quit,
-                        other => {
-                            if let Some(action) = input::map_key(other) {
-                                AppEvent::Input(action)
-                            } else {
-                                continue;
-                            }
-                        }
+                        other => match map_game_key(other) {
+                            Some(game_key) => match key.kind {
+                                KeyEventKind::Press | KeyEventKind::Repeat => AppEvent::KeyDown(game_key),
+                                KeyEventKind::Release => AppEvent::KeyUp(game_key),
+                            },
+                            None => continue,
+                        },
                     };
                     if input_tx.send(app_event).is_err() {
                         break;
@@ -87,13 +93,50 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Re
 
     let mut game = Game::new();
 
-    loop {
-        terminal.draw(|frame| renderer::render(frame, &game))?;
+    let mut held: HashSet<GameKey> = HashSet::new();
+    let mut just_pressed: HashSet<GameKey> = HashSet::new();
+    let mut quit = false;
 
+    loop {
         match rx.recv()? {
             AppEvent::Quit => break,
-            AppEvent::Tick => { /* TODO: Task 5 */ }
-            AppEvent::Input(_action) => { /* TODO: Task 5 */ }
+            AppEvent::KeyDown(key) => {
+                held.insert(key);
+                just_pressed.insert(key);
+            }
+            AppEvent::KeyUp(key) => {
+                held.remove(&key);
+            }
+            AppEvent::Tick => {
+                // Drain remaining queued events (including stacked Ticks).
+                while let Ok(ev) = rx.try_recv() {
+                    match ev {
+                        AppEvent::KeyDown(key) => {
+                            held.insert(key);
+                            just_pressed.insert(key);
+                        }
+                        AppEvent::KeyUp(key) => {
+                            held.remove(&key);
+                        }
+                        AppEvent::Tick => {
+                            let input = InputState {
+                                held: held.clone(),
+                                just_pressed: just_pressed.clone(),
+                            };
+                            game.tick(&input);
+                            just_pressed.clear();
+                        }
+                        AppEvent::Quit => {
+                            quit = true;
+                        }
+                    }
+                }
+                if quit { break; }
+                let input = InputState { held: held.clone(), just_pressed };
+                game.tick(&input);
+                just_pressed = HashSet::new();
+                terminal.draw(|frame| renderer::render(frame, &game))?;
+            }
         }
     }
 
