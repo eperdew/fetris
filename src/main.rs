@@ -22,9 +22,22 @@ use ratatui::prelude::*;
 use std::io::stdout;
 
 use game::Game;
-use input::{GameKey, InputState, map_game_key};
+use input::{GameKey, InputState};
 
 const TICK_RATE_MS: u64 = 16; // ~60Hz
+
+/// Maps a KeyCode to a GameKey. Returns None for unrecognised keys.
+fn map_game_key(code: KeyCode) -> Option<GameKey> {
+    match code {
+        KeyCode::Left | KeyCode::Char('h')  => Some(GameKey::Left),
+        KeyCode::Right | KeyCode::Char('l') => Some(GameKey::Right),
+        KeyCode::Down | KeyCode::Char('j')  => Some(GameKey::SoftDrop),
+        KeyCode::Char(' ')                  => Some(GameKey::SonicDrop),
+        KeyCode::Char('x')                  => Some(GameKey::RotateCw),
+        KeyCode::Char('z')                  => Some(GameKey::RotateCcw),
+        _ => None,
+    }
+}
 
 #[derive(Debug)]
 enum AppEvent {
