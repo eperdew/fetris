@@ -48,20 +48,22 @@ enum AppEvent {
 }
 
 fn main() -> anyhow::Result<()> {
-    // Terminal setup
+    // Terminal setup — order matters: push keyboard enhancement AFTER entering
+    // alternate screen so it applies to the same screen buffer the game runs in.
     enable_raw_mode()?;
+    stdout().execute(EnterAlternateScreen)?;
     stdout().execute(PushKeyboardEnhancementFlags(
         KeyboardEnhancementFlags::REPORT_EVENT_TYPES,
     ))?;
-    stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let result = run(&mut terminal);
 
-    // Always restore terminal, even on error
+    // Restore in reverse order: pop enhancement before leaving alternate screen
+    // so the pop targets the same screen buffer as the push.
     let _ = stdout().execute(PopKeyboardEnhancementFlags);
+    let _ = stdout().execute(LeaveAlternateScreen);
     let _ = disable_raw_mode();
-    stdout().execute(LeaveAlternateScreen)?;
 
     result
 }
