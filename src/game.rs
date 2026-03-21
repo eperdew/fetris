@@ -177,23 +177,6 @@ impl Game {
         }
     }
 
-    /// Temporary shim for tests — will be removed in Task 6.
-    #[cfg(test)]
-    pub fn handle_action(&mut self, action: crate::input::GameAction) {
-        use crate::input::GameAction;
-        if self.game_over {
-            return;
-        }
-        match action {
-            GameAction::MoveLeft => { self.try_move(-1, 0); }
-            GameAction::MoveRight => { self.try_move(1, 0); }
-            GameAction::MoveDown => { self.try_move(0, 1); }
-            GameAction::RotateCw => self.try_rotate(RotationDirection::Clockwise),
-            GameAction::RotateCcw => self.try_rotate(RotationDirection::Counterclockwise),
-            GameAction::HardDrop => { while self.try_move(0, 1) {} }
-        }
-    }
-
     /// Attempts to move the active piece by (dcol, drow). Returns true on success.
     pub(crate) fn try_move(&mut self, dcol: i32, drow: i32) -> bool {
         let new_col = self.active.col + dcol;
