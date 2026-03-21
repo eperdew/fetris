@@ -20,6 +20,7 @@ use ratatui::prelude::*;
 use std::io::stdout;
 
 use game::Game;
+#[allow(unused_imports)]
 use input::GameAction;
 
 const TICK_RATE_MS: u64 = 500; // gravity tick interval
@@ -91,8 +92,8 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Re
 
         match rx.recv()? {
             AppEvent::Quit => break,
-            AppEvent::Tick => game.tick(),
-            AppEvent::Input(action) => game.handle_action(action),
+            AppEvent::Tick => { /* TODO: Task 5 */ }
+            AppEvent::Input(_action) => { /* TODO: Task 5 */ }
         }
     }
 

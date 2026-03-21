@@ -1,4 +1,5 @@
-use crate::input::GameAction;
+use crate::constants::{DAS_CHARGE, DAS_REPEAT, GRAVITY_DELAY, LOCK_DELAY, SPAWN_DELAY};
+use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
 
@@ -62,35 +63,133 @@ impl Game {
         }
     }
 
-    /// Called on every gravity tick.
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self, input: &InputState) {
         if self.game_over {
             return;
         }
-        if !self.try_move(0, 1) {
-            self.lock_piece();
+
+        // Phase 1: Spawn delay — buffer rotation inputs, count down, then spawn.
+        if let PiecePhase::Spawning { ticks_left } = &mut self.piece_phase {
+            if input.just_pressed.contains(&GameKey::RotateCw) {
+                self.rotation_buffer = Some(RotationDirection::Clockwise);
+            } else if input.just_pressed.contains(&GameKey::RotateCcw) {
+                self.rotation_buffer = Some(RotationDirection::Counterclockwise);
+            }
+            if *ticks_left == 0 {
+                self.spawn_piece();
+            } else {
+                *ticks_left -= 1;
+            }
+            return; // No other input processed during spawn delay.
+        }
+
+        // Phase 2: Rotation (instant, not held).
+        if input.just_pressed.contains(&GameKey::RotateCw) {
+            self.try_rotate(RotationDirection::Clockwise);
+        } else if input.just_pressed.contains(&GameKey::RotateCcw) {
+            self.try_rotate(RotationDirection::Counterclockwise);
+        }
+
+        // Phase 3: Horizontal DAS.
+        let horiz = if input.held.contains(&GameKey::Left) {
+            Some(HorizDir::Left)
+        } else if input.held.contains(&GameKey::Right) {
+            Some(HorizDir::Right)
+        } else {
+            None
+        };
+
+        match horiz {
+            None => {
+                self.das_direction = None;
+                self.das_counter = 0;
+            }
+            Some(dir) => {
+                if self.das_direction != Some(dir) {
+                    // Direction changed or newly pressed: move immediately, reset counter.
+                    self.das_direction = Some(dir);
+                    self.das_counter = 0;
+                    let dcol = if dir == HorizDir::Left { -1 } else { 1 };
+                    self.try_move(dcol, 0);
+                } else {
+                    self.das_counter += 1;
+                    if self.das_counter >= DAS_CHARGE
+                        && (self.das_counter - DAS_CHARGE) % DAS_REPEAT == 0
+                    {
+                        let dcol = if dir == HorizDir::Left { -1 } else { 1 };
+                        self.try_move(dcol, 0);
+                    }
+                }
+            }
+        }
+
+        // Phase 4: Sonic drop (Space) — drop to floor, enter lock delay.
+        if input.just_pressed.contains(&GameKey::SonicDrop) {
+            while self.try_move(0, 1) {}
+            self.piece_phase = PiecePhase::Locking {
+                ticks_left: LOCK_DELAY,
+            };
+            return;
+        }
+
+        // Phase 5: Soft drop (Down) — bypass lock delay or advance gravity.
+        if input.held.contains(&GameKey::SoftDrop) {
+            match self.piece_phase {
+                PiecePhase::Locking { .. } => {
+                    self.lock_piece(input);
+                    return;
+                }
+                _ => {
+                    self.try_move(0, 1);
+                }
+            }
+        }
+
+        // Phase 6: Gravity.
+        self.gravity_counter += 1;
+        if self.gravity_counter >= GRAVITY_DELAY {
+            self.gravity_counter = 0;
+            self.try_move(0, 1);
+        }
+
+        // Phase 7: Lock state transitions.
+        let on_floor = !self.fits(self.active.col, self.active.row + 1, self.active.rotation);
+        match self.piece_phase {
+            PiecePhase::Falling => {
+                if on_floor {
+                    self.piece_phase = PiecePhase::Locking {
+                        ticks_left: LOCK_DELAY,
+                    };
+                }
+            }
+            PiecePhase::Locking { ref mut ticks_left } => {
+                if !on_floor {
+                    // Piece moved off its resting surface.
+                    self.piece_phase = PiecePhase::Falling;
+                } else if *ticks_left == 0 {
+                    self.lock_piece(input);
+                } else {
+                    *ticks_left -= 1;
+                }
+            }
+            PiecePhase::Spawning { .. } => unreachable!(),
         }
     }
 
-    pub fn handle_action(&mut self, action: GameAction) {
+    /// Temporary shim for tests — will be removed in Task 6.
+    #[cfg(test)]
+    pub fn handle_action(&mut self, action: crate::input::GameAction) {
+        use crate::input::GameAction;
         if self.game_over {
             return;
         }
         match action {
-            GameAction::MoveLeft => {
-                self.try_move(-1, 0);
-            }
-            GameAction::MoveRight => {
-                self.try_move(1, 0);
-            }
-            GameAction::MoveDown => {
-                if !self.try_move(0, 1) {
-                    self.lock_piece();
-                }
-            }
+            GameAction::MoveLeft => { self.try_move(-1, 0); }
+            GameAction::MoveRight => { self.try_move(1, 0); }
+            GameAction::MoveDown => { self.try_move(0, 1); }
             GameAction::RotateCw => self.try_rotate(RotationDirection::Clockwise),
             GameAction::RotateCcw => self.try_rotate(RotationDirection::Counterclockwise),
-            GameAction::HardDrop => self.hard_drop(),
+            GameAction::HardDrop => { while self.try_move(0, 1) {} }
         }
     }
 
@@ -163,11 +262,6 @@ impl Game {
         false
     }
 
-    fn hard_drop(&mut self) {
-        while self.try_move(0, 1) {}
-        self.lock_piece();
-    }
-
     // A cell is unoccupied if
     //
     // 1. It is out of bounds, or...
@@ -186,7 +280,7 @@ impl Game {
             .all(|(dc, dr)| self.unoccupied(col + dc, row + dr))
     }
 
-    fn lock_piece(&mut self) {
+    fn lock_piece(&mut self, input: &InputState) {
         for (dc, dr) in self.active.cells() {
             let c = (self.active.col + dc) as usize;
             let r = (self.active.row + dr) as usize;
@@ -195,11 +289,33 @@ impl Game {
             }
         }
         self.clear_lines();
-        // Advance to next piece
+        // Buffer any held rotation key so it applies when the next piece spawns.
+        if input.held.contains(&GameKey::RotateCw) {
+            self.rotation_buffer = Some(RotationDirection::Clockwise);
+        } else if input.held.contains(&GameKey::RotateCcw) {
+            self.rotation_buffer = Some(RotationDirection::Counterclockwise);
+        }
+        // DAS charge carries over to the next piece (DAS buffering).
+        // das_direction and das_counter are intentionally NOT reset here.
+        // Queue the next piece; it will be spawned after SPAWN_DELAY ticks.
+        let next_kind = self.randomizer.next();
+        self.next = Piece::new(next_kind);
+        self.piece_phase = PiecePhase::Spawning {
+            ticks_left: SPAWN_DELAY,
+        };
+    }
+
+    fn spawn_piece(&mut self) {
         let next_kind = self.randomizer.next();
         self.active = std::mem::replace(&mut self.next, Piece::new(next_kind));
         self.active.col = 3;
         self.active.row = 0;
+        self.gravity_counter = 0;
+        self.piece_phase = PiecePhase::Falling;
+        // Apply buffered rotation if any.
+        if let Some(dir) = self.rotation_buffer.take() {
+            self.try_rotate(dir);
+        }
         if !self.fits(self.active.col, self.active.row, self.active.rotation) {
             self.game_over = true;
         }
