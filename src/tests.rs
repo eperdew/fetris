@@ -1,6 +1,8 @@
-use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game};
-use crate::input::GameAction;
+use std::collections::HashSet;
+use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, RotationDirection};
+use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
+use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY};
 
 fn make_game(kind: PieceKind) -> Game {
     let mut game = Game::new();
@@ -10,6 +12,33 @@ fn make_game(kind: PieceKind) -> Game {
     game.active.row = 8;
     game.next = Piece::new(kind);
     game
+}
+
+/// Simulate a single keypress (held + just_pressed for one tick).
+fn press(game: &mut Game, key: GameKey) {
+    game.tick(&InputState {
+        held: HashSet::from([key]),
+        just_pressed: HashSet::from([key]),
+    });
+}
+
+/// Simulate N ticks with a set of keys held (not newly pressed).
+fn hold(game: &mut Game, keys: &[GameKey], ticks: u32) {
+    let input = InputState {
+        held: keys.iter().copied().collect(),
+        just_pressed: HashSet::new(),
+    };
+    for _ in 0..ticks {
+        game.tick(&input);
+    }
+}
+
+/// Simulate N ticks with no input.
+fn idle(game: &mut Game, ticks: u32) {
+    let input = InputState::empty();
+    for _ in 0..ticks {
+        game.tick(&input);
+    }
 }
 
 /// Parses an ASCII diagram of `.` (empty) and `O` (occupied) into a board,
@@ -37,7 +66,7 @@ fn rotation_snap(kind: PieceKind) -> String {
     let mut boards = Vec::new();
     for rot in 0..4 {
         let prev = active_abs(&game);
-        game.handle_action(GameAction::RotateCw);
+        press(&mut game, GameKey::RotateCw);
         boards.push((
             format!("{}→{}", rot, (rot + 1) % 4),
             board_lines(&game, &prev),
@@ -141,7 +170,7 @@ fn wall_kick_snap(kind: PieceKind) -> String {
 
             for &cw in &[true, false] {
                 let new_rot = if cw { (start_rot + 1) % 4 } else { (start_rot + 3) % 4 };
-                let action = if cw { GameAction::RotateCw } else { GameAction::RotateCcw };
+                let key = if cw { GameKey::RotateCw } else { GameKey::RotateCcw };
 
                 let mut game = make_game(kind);
                 game.active.rotation = start_rot;
@@ -149,7 +178,7 @@ fn wall_kick_snap(kind: PieceKind) -> String {
 
                 let col_before = game.active.col;
                 let prev = active_abs(&game);
-                game.handle_action(action);
+                press(&mut game, key);
 
                 // Only include when a kick actually happened
                 if game.active.col != col_before && game.active.rotation == new_rot {
@@ -187,14 +216,14 @@ fn wall_no_kick_snap(kind: PieceKind) -> String {
 
             for &cw in &[true, false] {
                 let new_rot = if cw { (start_rot + 1) % 4 } else { (start_rot + 3) % 4 };
-                let action = if cw { GameAction::RotateCw } else { GameAction::RotateCcw };
+                let key = if cw { GameKey::RotateCw } else { GameKey::RotateCcw };
 
                 // Check that the new rotation wouldn't fit in place at flush_col.
                 // We detect this by trying the rotation at the same flush position.
                 let mut probe = make_game(kind);
                 probe.active.rotation = start_rot;
                 probe.active.col = flush_col;
-                probe.handle_action(action);
+                press(&mut probe, key);
                 let fits_in_place = probe.active.rotation == new_rot && probe.active.col == flush_col;
                 if fits_in_place {
                     continue; // rotation fits without any kick — not an interesting blocked case
@@ -205,7 +234,7 @@ fn wall_no_kick_snap(kind: PieceKind) -> String {
                 game.active.col = flush_col;
 
                 let prev = active_abs(&game);
-                game.handle_action(action);
+                press(&mut game, key);
 
                 // Only include when rotation was blocked (no kick occurred)
                 if game.active.rotation == start_rot {
@@ -244,10 +273,10 @@ fn center_col_snap(kind: PieceKind, start_rot: usize, obstacles: &[(i32, i32)]) 
     let init_cells = active_abs(&make());
 
     let mut cw = make();
-    cw.handle_action(GameAction::RotateCw);
+    press(&mut cw, GameKey::RotateCw);
 
     let mut ccw = make();
-    ccw.handle_action(GameAction::RotateCcw);
+    press(&mut ccw, GameKey::RotateCcw);
 
     side_by_side(&[
         ("↻".to_string(), board_lines(&cw, &init_cells)),
@@ -255,13 +284,15 @@ fn center_col_snap(kind: PieceKind, start_rot: usize, obstacles: &[(i32, i32)]) 
     ])
 }
 
-fn movement_snap(kind: PieceKind, action: GameAction) -> String {
+fn movement_snap(kind: PieceKind, key: GameKey) -> String {
     let mut game = make_game(kind);
     let mut boards = Vec::new();
     let mut step = 1;
     loop {
         let prev = active_abs(&game);
-        game.handle_action(action);
+        // Reset DAS so each press triggers an immediate move (simulates fresh key press).
+        game.das_direction = None;
+        press(&mut game, key);
         let curr = active_abs(&game);
         if curr == prev {
             break;
@@ -959,10 +990,10 @@ fn cw_ccw_equivalence() {
         let rotated = |cw: usize, ccw: usize| {
             let mut game = make_game(kind);
             for _ in 0..cw {
-                game.handle_action(GameAction::RotateCw);
+                press(&mut game, GameKey::RotateCw);
             }
             for _ in 0..ccw {
-                game.handle_action(GameAction::RotateCcw);
+                press(&mut game, GameKey::RotateCcw);
             }
             active_abs(&game)
         };
@@ -981,7 +1012,7 @@ fn cw_ccw_equivalence() {
 
 #[test]
 fn o_piece_move_left() {
-    insta::assert_snapshot!(movement_snap(PieceKind::O, GameAction::MoveLeft), @"
+    insta::assert_snapshot!(movement_snap(PieceKind::O, GameKey::Left), @"
                1                          2                          3                          4            
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -1010,7 +1041,7 @@ fn o_piece_move_left() {
 
 #[test]
 fn o_piece_move_right() {
-    insta::assert_snapshot!(movement_snap(PieceKind::O, GameAction::MoveRight), @"
+    insta::assert_snapshot!(movement_snap(PieceKind::O, GameKey::Right), @"
                1                          2                          3                          4            
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -1054,16 +1085,16 @@ fn i_piece_no_wall_kicks() {
     let right_col = BOARD_COLS as i32 - 1 - max_dc;
 
     let boards: Vec<(String, Vec<String>)> = [
-        ("L↻", left_col, GameAction::RotateCw),
-        ("L↺", left_col, GameAction::RotateCcw),
-        ("R↻", right_col, GameAction::RotateCw),
-        ("R↺", right_col, GameAction::RotateCcw),
+        ("L↻", left_col, GameKey::RotateCw),
+        ("L↺", left_col, GameKey::RotateCcw),
+        ("R↻", right_col, GameKey::RotateCw),
+        ("R↺", right_col, GameKey::RotateCcw),
     ]
     .iter()
-    .map(|&(label, col, action)| {
+    .map(|&(label, col, key)| {
         let prev = active_abs(&make(col));
         let mut game = make(col);
-        game.handle_action(action);
+        press(&mut game, key);
         (label.to_string(), board_lines(&game, &prev))
     })
     .collect();
@@ -1226,4 +1257,72 @@ fn l_j_asymmetric_wall_kicks() {
   │                    │     │                    │
 20└────────────────────┘   20└────────────────────┘
     ");
+}
+
+#[test]
+fn lock_delay_prevents_immediate_lock() {
+    let mut game = make_game(PieceKind::T);
+    // Drop piece to floor manually
+    while game.try_move(0, 1) {}
+    // Tick once — transitions from Falling to Locking { ticks_left: LOCK_DELAY }
+    idle(&mut game, 1);
+    assert!(matches!(game.piece_phase, PiecePhase::Locking { .. }),
+        "expected Locking, got {:?}", game.piece_phase);
+    // LOCK_DELAY ticks decrement ticks_left to 0; one more tick fires the lock.
+    idle(&mut game, LOCK_DELAY + 1);
+    assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }),
+        "expected Spawning, got {:?}", game.piece_phase);
+}
+
+#[test]
+fn sonic_drop_enters_lock_delay() {
+    let mut game = make_game(PieceKind::T);
+    press(&mut game, GameKey::SonicDrop);
+    assert!(matches!(game.piece_phase, PiecePhase::Locking { .. }),
+        "expected Locking after sonic drop, got {:?}", game.piece_phase);
+}
+
+#[test]
+fn soft_drop_on_floor_locks_immediately() {
+    let mut game = make_game(PieceKind::T);
+    // Drop to floor and enter locking state
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1); // enter Locking
+    // Soft drop bypasses lock delay
+    press(&mut game, GameKey::SoftDrop);
+    assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }),
+        "expected Spawning after soft drop on floor, got {:?}", game.piece_phase);
+}
+
+#[test]
+fn das_activates_after_charge() {
+    let mut game = make_game(PieceKind::T);
+    let start_col = game.active.col;
+    // First press moves immediately
+    press(&mut game, GameKey::Left);
+    assert_eq!(game.active.col, start_col - 1, "expected immediate move on press");
+    // Hold for DAS_CHARGE - 1 ticks: no additional movement (counter not yet at charge)
+    hold(&mut game, &[GameKey::Left], DAS_CHARGE - 1);
+    assert_eq!(game.active.col, start_col - 1, "no movement before DAS charge");
+    // One more tick triggers first auto-repeat
+    hold(&mut game, &[GameKey::Left], 1);
+    assert_eq!(game.active.col, start_col - 2, "first auto-repeat after DAS charge");
+}
+
+#[test]
+fn rotation_buffer_applied_on_spawn() {
+    let mut game = make_game(PieceKind::T);
+    // Move piece to floor
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1); // enter Locking { ticks_left: LOCK_DELAY }
+    idle(&mut game, LOCK_DELAY + 1); // decrement to 0, then lock → Spawning
+    assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }));
+    // Press rotate during spawn delay
+    press(&mut game, GameKey::RotateCw);
+    assert!(matches!(game.rotation_buffer, Some(RotationDirection::Clockwise)),
+        "rotation buffer should be set during spawn delay");
+    // After the press decremented ticks_left by 1, SPAWN_DELAY idle ticks finish the countdown and spawn.
+    idle(&mut game, SPAWN_DELAY);
+    assert_eq!(game.active.rotation, 1,
+        "spawned piece should be rotated CW");
 }

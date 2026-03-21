@@ -195,7 +195,7 @@ impl Game {
     }
 
     /// Attempts to move the active piece by (dcol, drow). Returns true on success.
-    fn try_move(&mut self, dcol: i32, drow: i32) -> bool {
+    pub(crate) fn try_move(&mut self, dcol: i32, drow: i32) -> bool {
         let new_col = self.active.col + dcol;
         let new_row = self.active.row + drow;
         if self.fits(new_col, new_row, self.active.rotation) {
