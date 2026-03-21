@@ -1,3 +1,4 @@
+mod constants;
 mod game;
 mod input;
 mod piece;
