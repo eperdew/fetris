@@ -70,9 +70,9 @@ impl Game {
 
         // Phase 1: Spawn delay — buffer rotation inputs, count down, then spawn.
         if let PiecePhase::Spawning { ticks_left } = &mut self.piece_phase {
-            if input.just_pressed.contains(&GameKey::RotateCw) {
+            if input.held.contains(&GameKey::RotateCw) {
                 self.rotation_buffer = Some(RotationDirection::Clockwise);
-            } else if input.just_pressed.contains(&GameKey::RotateCcw) {
+            } else if input.held.contains(&GameKey::RotateCcw) {
                 self.rotation_buffer = Some(RotationDirection::Counterclockwise);
             }
             if *ticks_left == 0 {
@@ -141,6 +141,7 @@ impl Game {
                 }
                 _ => {
                     self.try_move(0, 1);
+                    self.gravity_counter = 0; // soft drop resets gravity timer
                 }
             }
         }
@@ -297,9 +298,6 @@ impl Game {
         }
         // DAS charge carries over to the next piece (DAS buffering).
         // das_direction and das_counter are intentionally NOT reset here.
-        // Queue the next piece; it will be spawned after SPAWN_DELAY ticks.
-        let next_kind = self.randomizer.next();
-        self.next = Piece::new(next_kind);
         self.piece_phase = PiecePhase::Spawning {
             ticks_left: SPAWN_DELAY,
         };
