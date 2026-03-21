@@ -21,6 +21,7 @@ pub struct InputState {
 }
 
 impl InputState {
+    #[cfg(test)]
     pub fn empty() -> Self {
         Self {
             held: HashSet::new(),
