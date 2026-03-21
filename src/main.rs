@@ -46,8 +46,8 @@ fn main() -> anyhow::Result<()> {
     let result = run(&mut terminal);
 
     // Always restore terminal, even on error
-    stdout().execute(PopKeyboardEnhancementFlags)?;
-    disable_raw_mode()?;
+    let _ = stdout().execute(PopKeyboardEnhancementFlags);
+    let _ = disable_raw_mode();
     stdout().execute(LeaveAlternateScreen)?;
 
     result
@@ -74,7 +74,12 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Re
             if event::poll(Duration::from_millis(5)).unwrap_or(false) {
                 if let Ok(Event::Key(key)) = event::read() {
                     let app_event = match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => AppEvent::Quit,
+                        KeyCode::Char('q') | KeyCode::Esc => {
+                            if key.kind != KeyEventKind::Press {
+                                continue;
+                            }
+                            AppEvent::Quit
+                        }
                         other => match map_game_key(other) {
                             Some(game_key) => match key.kind {
                                 KeyEventKind::Press | KeyEventKind::Repeat => AppEvent::KeyDown(game_key),
