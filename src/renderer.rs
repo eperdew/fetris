@@ -14,6 +14,14 @@ use crate::piece::PieceKind;
 const GAME_WIDTH: u16 = 36;
 const GAME_HEIGHT: u16 = 22;
 
+pub fn format_time(ticks: u64) -> String {
+    let seconds = ticks / 60;
+    let ms = (ticks % 60) * 1000 / 60;
+    let mm = seconds / 60;
+    let ss = seconds % 60;
+    format!("{:02}:{:02}.{:03}", mm, ss, ms)
+}
+
 pub fn render(frame: &mut Frame, game: &Game) {
     let area = frame.area();
 
@@ -116,6 +124,7 @@ fn render_sidebar(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
         Line::from(""),
         Line::from(format!("Level: {}", game.level)),
         Line::from(format!("Lines: {}", game.lines)),
+        Line::from(format_time(game.ticks_elapsed)),
         Line::from(""),
         Line::from("←→  move"),
         Line::from("x   rotate ↻"),

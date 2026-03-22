@@ -1485,3 +1485,13 @@ fn line_clear_are_uses_spawn_delay_line_clear() {
         SPAWN_DELAY_LINE_CLEAR, game.piece_phase
     );
 }
+
+#[test]
+fn format_time_display() {
+    use crate::renderer::format_time;
+    assert_eq!(format_time(0),     "00:00.000");
+    assert_eq!(format_time(60),    "00:01.000");
+    assert_eq!(format_time(3600),  "01:00.000");
+    assert_eq!(format_time(90),    "00:01.500");
+    assert_eq!(format_time(5430),  "01:30.500");
+}
