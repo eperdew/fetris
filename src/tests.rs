@@ -1495,3 +1495,32 @@ fn format_time_display() {
     assert_eq!(format_time(90),    "00:01.500");
     assert_eq!(format_time(5430),  "01:30.500");
 }
+
+#[test]
+fn victory_screen_snapshot() {
+    use ratatui::{Terminal, backend::TestBackend};
+
+    let mut game = Game::new();
+    game.game_won = true;
+    game.ticks_elapsed = 5430; // 01:30.500
+    game.level = 999;
+    game.lines = 100;
+    game.next = Piece::new(PieceKind::O); // fix next piece for deterministic snapshot
+
+    let backend = TestBackend::new(36, 22);
+    let mut terminal = Terminal::new(backend).unwrap();
+    terminal.draw(|frame| crate::renderer::render(frame, &game)).unwrap();
+
+    let buffer = terminal.backend().buffer().clone();
+    let content: String = buffer
+        .content()
+        .chunks(36)
+        .map(|row| {
+            row.iter()
+                .map(|cell| cell.symbol().to_string())
+                .collect::<String>()
+                + "\n"
+        })
+        .collect();
+    insta::assert_snapshot!(content);
+}

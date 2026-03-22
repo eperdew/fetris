@@ -51,6 +51,21 @@ pub fn render(frame: &mut Frame, game: &Game) {
 }
 
 fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
+    if game.game_won {
+        let time_str = format_time(game.ticks_elapsed);
+        let victory = Paragraph::new(vec![
+            Line::from(""),
+            Line::from("  LEVEL 999"),
+            Line::from(""),
+            Line::from("  Time:"),
+            Line::from(format!("  {}", time_str)),
+            Line::from(""),
+        ])
+        .block(Block::default().title("fetris").borders(Borders::ALL));
+        frame.render_widget(victory, area);
+        return;
+    }
+
     // Build a display grid: start from locked board, then overlay active piece.
     // During spawn delay the old piece is already in the board; don't re-draw it.
     let mut display = game.board;
