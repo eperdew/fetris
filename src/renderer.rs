@@ -72,7 +72,7 @@ fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
     // Build a display grid: start from locked board, then overlay active piece.
     // During spawn delay the old piece is already in the board; don't re-draw it.
     let mut display = game.board;
-    if !matches!(game.piece_phase, PiecePhase::Spawning { .. }) {
+    if !matches!(game.piece_phase, PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }) {
         for (dc, dr) in game.active.cells() {
             let c = (game.active.col + dc) as usize;
             let r = (game.active.row + dr) as usize;
@@ -177,11 +177,11 @@ fn render_sidebar(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>, area:
 
 fn piece_color(kind: PieceKind) -> Color {
     match kind {
-        PieceKind::I => Color::Cyan,
+        PieceKind::I => Color::Red,
         PieceKind::O => Color::Yellow,
-        PieceKind::T => Color::Magenta,
-        PieceKind::S => Color::Green,
-        PieceKind::Z => Color::Red,
+        PieceKind::T => Color::Cyan,
+        PieceKind::S => Color::Magenta,
+        PieceKind::Z => Color::Green,
         PieceKind::J => Color::Blue,
         PieceKind::L => Color::LightRed,
     }

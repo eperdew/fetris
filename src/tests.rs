@@ -1474,15 +1474,29 @@ fn normal_are_uses_spawn_delay_normal() {
 }
 
 #[test]
-fn line_clear_are_uses_spawn_delay_line_clear() {
-    use crate::constants::SPAWN_DELAY_LINE_CLEAR;
+fn line_clear_enters_line_clear_delay() {
+    use crate::constants::LINE_CLEAR_DELAY;
     let mut game = Game::new();
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock + 1 line clear
     assert!(
-        matches!(game.piece_phase, PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_LINE_CLEAR),
-        "expected Spawning{{ ticks_left: SPAWN_DELAY_LINE_CLEAR={} }}, got {:?}",
-        SPAWN_DELAY_LINE_CLEAR, game.piece_phase
+        matches!(game.piece_phase, PiecePhase::LineClearDelay { ticks_left } if ticks_left == LINE_CLEAR_DELAY),
+        "expected LineClearDelay{{ ticks_left: LINE_CLEAR_DELAY={} }}, got {:?}",
+        LINE_CLEAR_DELAY, game.piece_phase
+    );
+}
+
+#[test]
+fn line_clear_delay_transitions_to_are() {
+    use crate::constants::{LINE_CLEAR_DELAY, SPAWN_DELAY_NORMAL};
+    let mut game = Game::new();
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1);                     // fire lock → LineClearDelay
+    idle(&mut game, LINE_CLEAR_DELAY + 1);  // exhaust line clear delay → Spawning
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL),
+        "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL={} }}, got {:?}",
+        SPAWN_DELAY_NORMAL, game.piece_phase
     );
 }
 

@@ -1,4 +1,4 @@
-use crate::constants::{DAS_CHARGE, DAS_REPEAT, LOCK_DELAY, SPAWN_DELAY_NORMAL, SPAWN_DELAY_LINE_CLEAR, gravity_g};
+use crate::constants::{ARE_DAS_FROZEN_FRAMES, DAS_CHARGE, DAS_REPEAT, LINE_CLEAR_DELAY, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
@@ -13,6 +13,10 @@ pub type Board = [[Option<PieceKind>; BOARD_COLS]; BOARD_ROWS];
 pub enum PiecePhase {
     Falling,
     Locking { ticks_left: u32 },
+    /// Line clear display phase (41 frames). DAS is frozen throughout.
+    /// Transitions to Spawning{SPAWN_DELAY_NORMAL} when complete.
+    LineClearDelay { ticks_left: u32 },
+    /// ARE: piece spawn delay (30 frames). DAS charges during middle frames.
     Spawning { ticks_left: u32 },
 }
 
@@ -73,19 +77,60 @@ impl Game {
         }
         self.ticks_elapsed += 1;
 
-        // Phase 1: Spawn delay — buffer rotation inputs, count down, then spawn.
-        if let PiecePhase::Spawning { ticks_left } = &mut self.piece_phase {
+        // Phase 1a: Line clear delay — DAS frozen, buffer rotation, count down, then enter ARE.
+        if let PiecePhase::LineClearDelay { ticks_left } = &mut self.piece_phase {
             if input.held.contains(&GameKey::RotateCw) {
                 self.rotation_buffer = Some(RotationDirection::Clockwise);
             } else if input.held.contains(&GameKey::RotateCcw) {
                 self.rotation_buffer = Some(RotationDirection::Counterclockwise);
             }
             if *ticks_left == 0 {
-                self.spawn_piece();
+                self.piece_phase = PiecePhase::Spawning { ticks_left: SPAWN_DELAY_NORMAL };
             } else {
                 *ticks_left -= 1;
             }
-            return; // No other input processed during spawn delay.
+            return;
+        }
+
+        // Phase 1b: ARE (spawn delay) — buffer rotation, DAS charges during middle frames.
+        if let PiecePhase::Spawning { ticks_left } = &mut self.piece_phase {
+            if input.held.contains(&GameKey::RotateCw) {
+                self.rotation_buffer = Some(RotationDirection::Clockwise);
+            } else if input.held.contains(&GameKey::RotateCcw) {
+                self.rotation_buffer = Some(RotationDirection::Counterclockwise);
+            }
+            let tl = *ticks_left;
+            if tl == 0 {
+                self.spawn_piece();
+            } else {
+                *ticks_left -= 1;
+                // DAS charges during ARE frames 5–29 (tl in 1..=SPAWN_DELAY_NORMAL-ARE_DAS_FROZEN_FRAMES).
+                // First 4 frames (tl > SPAWN_DELAY_NORMAL-ARE_DAS_FROZEN_FRAMES) and spawn frame (tl==0) are frozen.
+                if tl <= SPAWN_DELAY_NORMAL - ARE_DAS_FROZEN_FRAMES {
+                    let horiz = if input.held.contains(&GameKey::Left) {
+                        Some(HorizDir::Left)
+                    } else if input.held.contains(&GameKey::Right) {
+                        Some(HorizDir::Right)
+                    } else {
+                        None
+                    };
+                    match horiz {
+                        None => {
+                            self.das_direction = None;
+                            self.das_counter = 0;
+                        }
+                        Some(dir) => {
+                            if self.das_direction != Some(dir) {
+                                self.das_direction = Some(dir);
+                                self.das_counter = 0;
+                            } else {
+                                self.das_counter += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            return;
         }
 
         // Phase 2: Rotation (instant, not held).
@@ -179,7 +224,7 @@ impl Game {
                     *ticks_left -= 1;
                 }
             }
-            PiecePhase::Spawning { .. } => unreachable!(),
+            PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. } => unreachable!(),
         }
     }
 
@@ -287,8 +332,11 @@ impl Game {
         }
         // DAS charge carries over to the next piece (DAS buffering).
         // das_direction and das_counter are intentionally NOT reset here.
-        let are = if lines_cleared > 0 { SPAWN_DELAY_LINE_CLEAR } else { SPAWN_DELAY_NORMAL };
-        self.piece_phase = PiecePhase::Spawning { ticks_left: are };
+        self.piece_phase = if lines_cleared > 0 {
+            PiecePhase::LineClearDelay { ticks_left: LINE_CLEAR_DELAY }
+        } else {
+            PiecePhase::Spawning { ticks_left: SPAWN_DELAY_NORMAL }
+        };
     }
 
     fn spawn_piece(&mut self) {
