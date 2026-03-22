@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, RotationDirection};
+use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, RotationDirection, can_piece_increment};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY, gravity_g};
@@ -1347,4 +1347,114 @@ fn rotation_buffer_applied_on_spawn() {
     idle(&mut game, SPAWN_DELAY);
     assert_eq!(game.active.rotation, 1,
         "spawned piece should be rotated CW");
+}
+
+/// Positions a vertical I-piece on the floor with `n` bottom rows pre-filled
+/// (except column 2). Ticking once fires lock and clears n lines.
+fn setup_line_clear(game: &mut Game, n: usize) {
+    for r in (BOARD_ROWS - n)..BOARD_ROWS {
+        for c in 0..BOARD_COLS {
+            if c != 2 {
+                game.board[r][c] = Some(PieceKind::O);
+            }
+        }
+    }
+    game.active = Piece::new(PieceKind::I);
+    game.active.col = 0;
+    game.active.row = (BOARD_ROWS - 4) as i32;
+    game.active.rotation = 1; // vertical: cells at (col+2, row..row+3)
+    game.piece_phase = PiecePhase::Locking { ticks_left: 0 };
+}
+
+#[test]
+fn can_piece_increment_section_stops() {
+    assert!(!can_piece_increment(99),  "99 is section stop");
+    assert!(!can_piece_increment(199), "199 is section stop");
+    assert!(!can_piece_increment(899), "899 is section stop");
+    assert!(!can_piece_increment(998), "998 is final stop");
+    assert!(can_piece_increment(0),   "0 is not a stop");
+    assert!(can_piece_increment(100), "100 is not a stop");
+    assert!(can_piece_increment(500), "500 is not a stop");
+}
+
+#[test]
+fn level_starts_at_zero() {
+    let game = Game::new();
+    assert_eq!(game.level, 0);
+}
+
+#[test]
+fn level_increments_on_piece_spawn() {
+    let mut game = make_game(PieceKind::T);
+    game.level = 50;
+    while game.try_move(0, 1) {}  // drop to floor
+    idle(&mut game, 1);                  // enter Locking{LOCK_DELAY}
+    idle(&mut game, LOCK_DELAY + 1);     // fire lock → Spawning{SPAWN_DELAY}
+    idle(&mut game, SPAWN_DELAY + 1);    // complete ARE → spawn_piece called
+    assert_eq!(game.level, 51, "level should increment from 50 to 51 on spawn");
+}
+
+#[test]
+fn section_stop_blocks_piece_increment() {
+    let mut game = make_game(PieceKind::T);
+    game.level = 99;
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1);
+    idle(&mut game, LOCK_DELAY + 1);
+    idle(&mut game, SPAWN_DELAY + 1);
+    assert_eq!(game.level, 99, "section stop: level should remain 99 after spawn");
+}
+
+#[test]
+fn line_clear_increments_level() {
+    let mut game = Game::new();
+    game.level = 50;
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1); // fire lock → 1 line cleared
+    assert_eq!(game.level, 51, "1 line clear should increment level 50→51");
+}
+
+#[test]
+fn line_clear_passes_section_stop() {
+    let mut game = Game::new();
+    game.level = 99;
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1);
+    assert_eq!(game.level, 100, "line clear should pass section stop 99→100");
+}
+
+#[test]
+fn level_clamped_to_999() {
+    let mut game = Game::new();
+    game.level = 998;
+    setup_line_clear(&mut game, 4); // tetris: +4 would be 1002, clamped to 999
+    idle(&mut game, 1);
+    assert_eq!(game.level, 999, "level should clamp to 999");
+}
+
+#[test]
+fn game_won_on_reaching_999() {
+    let mut game = Game::new();
+    game.level = 998;
+    setup_line_clear(&mut game, 1); // +1 = 999
+    idle(&mut game, 1);
+    assert!(game.game_won, "game_won should be set when level reaches 999");
+}
+
+#[test]
+fn ticks_elapsed_increments_each_tick() {
+    let mut game = Game::new();
+    idle(&mut game, 5);
+    assert_eq!(game.ticks_elapsed, 5);
+}
+
+#[test]
+fn ticks_elapsed_stops_after_win() {
+    let mut game = Game::new();
+    game.level = 998;
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1); // fires win
+    let frozen = game.ticks_elapsed;
+    idle(&mut game, 10);
+    assert_eq!(game.ticks_elapsed, frozen, "ticks_elapsed should freeze after win");
 }

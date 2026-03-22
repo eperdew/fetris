@@ -29,6 +29,8 @@ pub struct Game {
     pub level: u32,
     pub lines: u32,
     pub game_over: bool,
+    pub game_won: bool,
+    pub ticks_elapsed: u64,
     pub randomizer: Randomizer,
     pub piece_phase: PiecePhase,
     pub gravity_accumulator: u32,
@@ -51,9 +53,11 @@ impl Game {
             board: [[None; BOARD_COLS]; BOARD_ROWS],
             active,
             next,
-            level: 1,
+            level: 0,
             lines: 0,
             game_over: false,
+            game_won: false,
+            ticks_elapsed: 0,
             randomizer,
             piece_phase: PiecePhase::Falling,
             gravity_accumulator: 0,
@@ -64,9 +68,10 @@ impl Game {
     }
 
     pub fn tick(&mut self, input: &InputState) {
-        if self.game_over {
+        if self.game_over || self.game_won {
             return;
         }
+        self.ticks_elapsed += 1;
 
         // Phase 1: Spawn delay — buffer rotation inputs, count down, then spawn.
         if let PiecePhase::Spawning { ticks_left } = &mut self.piece_phase {
@@ -288,6 +293,9 @@ impl Game {
     }
 
     fn spawn_piece(&mut self) {
+        if can_piece_increment(self.level) {
+            self.level += 1;
+        }
         let next_kind = self.randomizer.next();
         self.active = std::mem::replace(&mut self.next, Piece::new(next_kind));
         self.active.col = 3;
@@ -325,6 +333,13 @@ impl Game {
         }
         self.board = new_board;
         self.lines += count;
-        self.level = 1 + self.lines / 10;
+        self.level = (self.level + count).min(999);
+        if self.level == 999 {
+            self.game_won = true;
+        }
     }
+}
+
+pub(crate) fn can_piece_increment(level: u32) -> bool {
+    level % 100 != 99 && level != 998
 }
