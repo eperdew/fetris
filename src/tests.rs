@@ -1310,6 +1310,17 @@ fn das_activates_after_charge() {
 }
 
 #[test]
+fn das_repeats_every_tick_after_charge() {
+    let mut game = make_game(PieceKind::T);
+    game.active.col = 8; // Start further right so we can move 5 columns left
+    let start_col = game.active.col;
+    press(&mut game, GameKey::Left);                 // immediate: start_col - 1
+    hold(&mut game, &[GameKey::Left], DAS_CHARGE);   // first auto-repeat at charge: start_col - 2
+    hold(&mut game, &[GameKey::Left], 3);            // 3 more repeats (DAS_REPEAT=1): start_col - 5
+    assert_eq!(game.active.col, start_col - 5, "DAS should repeat every tick after charge");
+}
+
+#[test]
 fn rotation_buffer_applied_on_spawn() {
     let mut game = make_game(PieceKind::T);
     // Move piece to floor
