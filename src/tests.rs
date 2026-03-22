@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, RotationDirection, can_piece_increment};
+use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_increment};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
@@ -196,61 +196,6 @@ fn wall_kick_snap(kind: PieceKind) -> String {
     side_by_side(&boards)
 }
 
-/// Like wall_kick_snap but captures cases where the rotation was attempted and
-/// *failed* — the piece stayed at the same rotation and column. Shows before→after
-/// (which look identical) to make the blocked rotation visible.
-fn wall_no_kick_snap(kind: PieceKind) -> String {
-    let mut boards = Vec::new();
-
-    for &left_wall in &[true, false] {
-        for start_rot in 0usize..4 {
-            let rot_cells = crate::piece::cells(kind, start_rot);
-            let min_dc = rot_cells.iter().map(|&(dc, _)| dc).min().unwrap();
-            let max_dc = rot_cells.iter().map(|&(dc, _)| dc).max().unwrap();
-
-            let flush_col = if left_wall {
-                -min_dc
-            } else {
-                BOARD_COLS as i32 - 1 - max_dc
-            };
-
-            for &cw in &[true, false] {
-                let new_rot = if cw { (start_rot + 1) % 4 } else { (start_rot + 3) % 4 };
-                let key = if cw { GameKey::RotateCw } else { GameKey::RotateCcw };
-
-                // Check that the new rotation wouldn't fit in place at flush_col.
-                // We detect this by trying the rotation at the same flush position.
-                let mut probe = make_game(kind);
-                probe.active.rotation = start_rot;
-                probe.active.col = flush_col;
-                press(&mut probe, key);
-                let fits_in_place = probe.active.rotation == new_rot && probe.active.col == flush_col;
-                if fits_in_place {
-                    continue; // rotation fits without any kick — not an interesting blocked case
-                }
-
-                let mut game = make_game(kind);
-                game.active.rotation = start_rot;
-                game.active.col = flush_col;
-
-                let prev = active_abs(&game);
-                press(&mut game, key);
-
-                // Only include when rotation was blocked (no kick occurred)
-                if game.active.rotation == start_rot {
-                    let wall = if left_wall { "L" } else { "R" };
-                    let dir = if cw { "↻" } else { "↺" };
-                    boards.push((
-                        format!("{wall}{dir} {start_rot}✗"),
-                        board_lines(&game, &prev),
-                    ));
-                }
-            }
-        }
-    }
-
-    side_by_side(&boards)
-}
 
 /// Places `kind` at col 3, row 8 in rotation `start_rot`, puts a single board
 /// obstacle at (col+obs_dc, row+obs_dr), then attempts CW and CCW rotations.
@@ -1337,16 +1282,23 @@ fn rotation_buffer_applied_on_spawn() {
     // Move piece to floor
     while game.try_move(0, 1) {}
     idle(&mut game, 1); // enter Locking { ticks_left: LOCK_DELAY }
-    idle(&mut game, LOCK_DELAY + 1); // decrement to 0, then lock → Spawning
+    idle(&mut game, LOCK_DELAY + 1); // lock → Spawning
     assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }));
-    // Press rotate during spawn delay
+    // Hold rotate through all of ARE — IRS only fires if held at spawn.
+    hold(&mut game, &[GameKey::RotateCw], SPAWN_DELAY_NORMAL + 1);
+    assert_eq!(game.active.rotation, 1, "spawned piece should be rotated CW");
+}
+
+#[test]
+fn rotation_released_during_are_does_not_rotate() {
+    let mut game = make_game(PieceKind::T);
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1);
+    idle(&mut game, LOCK_DELAY + 1); // lock → Spawning
+    // Tap rotate then release — should NOT trigger IRS.
     press(&mut game, GameKey::RotateCw);
-    assert!(matches!(game.rotation_buffer, Some(RotationDirection::Clockwise)),
-        "rotation buffer should be set during spawn delay");
-    // After the press decremented ticks_left by 1, SPAWN_DELAY_NORMAL idle ticks finish the countdown and spawn.
     idle(&mut game, SPAWN_DELAY_NORMAL);
-    assert_eq!(game.active.rotation, 1,
-        "spawned piece should be rotated CW");
+    assert_eq!(game.active.rotation, 0, "released key should not trigger IRS");
 }
 
 /// Positions a vertical I-piece on the floor with `n` bottom rows pre-filled
@@ -1521,14 +1473,14 @@ fn victory_screen_snapshot() {
     game.lines = 100;
     game.next = Piece::new(PieceKind::O); // fix next piece for deterministic snapshot
 
-    let backend = TestBackend::new(36, 22);
+    let backend = TestBackend::new(37, 22);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal.draw(|frame| crate::renderer::render(frame, &game, &std::collections::HashSet::new())).unwrap();
 
     let buffer = terminal.backend().buffer().clone();
     let content: String = buffer
         .content()
-        .chunks(36)
+        .chunks(37)
         .map(|row| {
             row.iter()
                 .map(|cell| cell.symbol().to_string())
@@ -1536,5 +1488,28 @@ fn victory_screen_snapshot() {
                 + "\n"
         })
         .collect();
-    insta::assert_snapshot!(content);
+    insta::assert_snapshot!(content, @r"
+        ┌fetris──────────────┐┌Next─────────┐
+        │                    ││             │
+        │  LEVEL 999         ││  [][]       │
+        │                    ││  [][]       │
+        │  Time:             ││             │
+        │  01:30.500         │└─────────────┘
+        │                    │┌Stats────────┐
+        │                    ││             │
+        │                    ││Level: 999   │
+        │                    ││Lines: 100   │
+        │                    ││01:30.500    │
+        │                    ││             │
+        │                    ││←→  move     │
+        │                    ││x   rotate ↻ │
+        │                    ││z   rotate ↺ │
+        │                    ││↓   soft drop│
+        │                    ││SPC hard drop│
+        │                    ││q  quit      │
+        │                    ││             │
+        │                    ││· · · · · ·  │
+        │                    ││DAS: -       │
+        └────────────────────┘└─────────────┘
+        ");
 }

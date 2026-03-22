@@ -98,6 +98,8 @@ impl Game {
                 self.rotation_buffer = Some(RotationDirection::Clockwise);
             } else if input.held.contains(&GameKey::RotateCcw) {
                 self.rotation_buffer = Some(RotationDirection::Counterclockwise);
+            } else {
+                self.rotation_buffer = None;
             }
             let tl = *ticks_left;
             if tl == 0 {

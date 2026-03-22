@@ -13,8 +13,8 @@ use crate::input::GameKey;
 use crate::piece::PieceKind;
 
 // Board: 20 rows + 2 borders tall; (10 cols * 2 chars) + 2 borders = 22 wide
-// Sidebar: 14 wide
-const GAME_WIDTH: u16 = 36;
+// Sidebar: 15 wide
+const GAME_WIDTH: u16 = 37;
 const GAME_HEIGHT: u16 = 22;
 
 pub fn format_time(ticks: u64) -> String {
@@ -46,7 +46,7 @@ pub fn render(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>) {
 
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(22), Constraint::Length(14)])
+        .constraints([Constraint::Length(22), Constraint::Length(15)])
         .split(v_chunks[1]);
 
     render_board(frame, game, chunks[0]);
