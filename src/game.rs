@@ -1,4 +1,4 @@
-use crate::constants::{DAS_CHARGE, DAS_REPEAT, GRAVITY_DELAY, LOCK_DELAY, SPAWN_DELAY};
+use crate::constants::{DAS_CHARGE, DAS_REPEAT, LOCK_DELAY, SPAWN_DELAY, gravity_g};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
@@ -31,7 +31,7 @@ pub struct Game {
     pub game_over: bool,
     pub randomizer: Randomizer,
     pub piece_phase: PiecePhase,
-    pub gravity_counter: u32,
+    pub gravity_accumulator: u32,
     pub das_direction: Option<HorizDir>,
     pub das_counter: u32,
     pub rotation_buffer: Option<RotationDirection>,
@@ -56,7 +56,7 @@ impl Game {
             game_over: false,
             randomizer,
             piece_phase: PiecePhase::Falling,
-            gravity_counter: 0,
+            gravity_accumulator: 0,
             das_direction: None,
             das_counter: 0,
             rotation_buffer: None,
@@ -141,16 +141,17 @@ impl Game {
                 }
                 _ => {
                     self.try_move(0, 1);
-                    self.gravity_counter = 0; // soft drop resets gravity timer
+                    self.gravity_accumulator = 0;
                 }
             }
         }
 
-        // Phase 6: Gravity.
-        self.gravity_counter += 1;
-        if self.gravity_counter >= GRAVITY_DELAY {
-            self.gravity_counter = 0;
-            self.try_move(0, 1);
+        // Phase 6: Gravity (G/256 accumulator).
+        self.gravity_accumulator += gravity_g(self.level);
+        let drops = self.gravity_accumulator / 256;
+        self.gravity_accumulator %= 256;
+        for _ in 0..drops {
+            if !self.try_move(0, 1) { break; }
         }
 
         // Phase 7: Lock state transitions.
@@ -291,7 +292,7 @@ impl Game {
         self.active = std::mem::replace(&mut self.next, Piece::new(next_kind));
         self.active.col = 3;
         self.active.row = 0;
-        self.gravity_counter = 0;
+        self.gravity_accumulator = 0;
         self.piece_phase = PiecePhase::Falling;
         // Apply buffered rotation if any.
         if let Some(dir) = self.rotation_buffer.take() {

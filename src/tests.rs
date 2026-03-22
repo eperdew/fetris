@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, RotationDirection};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
-use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY};
+use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY, gravity_g};
 
 fn make_game(kind: PieceKind) -> Game {
     let mut game = Game::new();
@@ -301,6 +301,17 @@ fn movement_snap(kind: PieceKind, key: GameKey) -> String {
         step += 1;
     }
     side_by_side(&boards)
+}
+
+#[test]
+fn gravity_g_lookup() {
+    assert_eq!(gravity_g(0),   4,    "level 0 → 4 G/256");
+    assert_eq!(gravity_g(29),  4,    "level 29 → still 4 G/256");
+    assert_eq!(gravity_g(30),  6,    "level 30 → 6 G/256");
+    assert_eq!(gravity_g(199), 144,  "level 199 → 144 G/256");
+    assert_eq!(gravity_g(200), 4,    "level 200 → resets to 4 G/256");
+    assert_eq!(gravity_g(251), 256,  "level 251 → 256 G/256 (1G)");
+    assert_eq!(gravity_g(500), 5120, "level 500 → 5120 G/256 (20G)");
 }
 
 #[test]
