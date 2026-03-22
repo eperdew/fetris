@@ -156,7 +156,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Re
                 let input = InputState { held: held.clone(), just_pressed };
                 game.tick(&input);
                 just_pressed = HashSet::new();
-                terminal.draw(|frame| renderer::render(frame, &game))?;
+                terminal.draw(|frame| renderer::render(frame, &game, &held))?;
             }
         }
     }

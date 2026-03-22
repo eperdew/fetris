@@ -1509,7 +1509,7 @@ fn victory_screen_snapshot() {
 
     let backend = TestBackend::new(36, 22);
     let mut terminal = Terminal::new(backend).unwrap();
-    terminal.draw(|frame| crate::renderer::render(frame, &game)).unwrap();
+    terminal.draw(|frame| crate::renderer::render(frame, &game, &std::collections::HashSet::new())).unwrap();
 
     let buffer = terminal.backend().buffer().clone();
     let content: String = buffer

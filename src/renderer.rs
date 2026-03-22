@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
@@ -6,7 +8,8 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
+use crate::game::{BOARD_COLS, BOARD_ROWS, Game, HorizDir, PiecePhase};
+use crate::input::GameKey;
 use crate::piece::PieceKind;
 
 // Board: 20 rows + 2 borders tall; (10 cols * 2 chars) + 2 borders = 22 wide
@@ -22,7 +25,7 @@ pub fn format_time(ticks: u64) -> String {
     format!("{:02}:{:02}.{:03}", mm, ss, ms)
 }
 
-pub fn render(frame: &mut Frame, game: &Game) {
+pub fn render(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>) {
     let area = frame.area();
 
     if area.width < GAME_WIDTH || area.height < GAME_HEIGHT {
@@ -47,7 +50,7 @@ pub fn render(frame: &mut Frame, game: &Game) {
         .split(v_chunks[1]);
 
     render_board(frame, game, chunks[0]);
-    render_sidebar(frame, game, chunks[1]);
+    render_sidebar(frame, game, held, chunks[1]);
 }
 
 fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
@@ -102,7 +105,7 @@ fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
     frame.render_widget(board, area);
 }
 
-fn render_sidebar(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
+fn render_sidebar(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>, area: ratatui::layout::Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(6), Constraint::Min(0)])
@@ -134,6 +137,23 @@ fn render_sidebar(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
         Paragraph::new(preview_rows).block(Block::default().title("Next").borders(Borders::ALL));
     frame.render_widget(next_widget, chunks[0]);
 
+    // Input display
+    let k = |key: GameKey, label: &'static str| if held.contains(&key) { label } else { "·" };
+    let keys_line = format!(
+        "{} {} {} {} {} {}",
+        k(GameKey::Left, "←"),
+        k(GameKey::Right, "→"),
+        k(GameKey::SoftDrop, "↓"),
+        k(GameKey::SonicDrop, "⎵"),
+        k(GameKey::RotateCw, "x"),
+        k(GameKey::RotateCcw, "z"),
+    );
+    let das_line = match game.das_direction {
+        None => "DAS: -".to_string(),
+        Some(HorizDir::Left)  => format!("DAS:← {}", game.das_counter),
+        Some(HorizDir::Right) => format!("DAS:→ {}", game.das_counter),
+    };
+
     // Stats
     let stats = Paragraph::new(vec![
         Line::from(""),
@@ -147,6 +167,9 @@ fn render_sidebar(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
         Line::from("↓   soft drop"),
         Line::from("SPC hard drop"),
         Line::from("q  quit"),
+        Line::from(""),
+        Line::from(keys_line),
+        Line::from(das_line),
     ])
     .block(Block::default().title("Stats").borders(Borders::ALL));
     frame.render_widget(stats, chunks[1]);
