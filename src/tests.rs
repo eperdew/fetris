@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, RotationDirection, can_piece_increment};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
-use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY, gravity_g};
+use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
 
 fn make_game(kind: PieceKind) -> Game {
     let mut game = Game::new();
@@ -1343,8 +1343,8 @@ fn rotation_buffer_applied_on_spawn() {
     press(&mut game, GameKey::RotateCw);
     assert!(matches!(game.rotation_buffer, Some(RotationDirection::Clockwise)),
         "rotation buffer should be set during spawn delay");
-    // After the press decremented ticks_left by 1, SPAWN_DELAY idle ticks finish the countdown and spawn.
-    idle(&mut game, SPAWN_DELAY);
+    // After the press decremented ticks_left by 1, SPAWN_DELAY_NORMAL idle ticks finish the countdown and spawn.
+    idle(&mut game, SPAWN_DELAY_NORMAL);
     assert_eq!(game.active.rotation, 1,
         "spawned piece should be rotated CW");
 }
@@ -1389,8 +1389,8 @@ fn level_increments_on_piece_spawn() {
     game.level = 50;
     while game.try_move(0, 1) {}  // drop to floor
     idle(&mut game, 1);                  // enter Locking{LOCK_DELAY}
-    idle(&mut game, LOCK_DELAY + 1);     // fire lock → Spawning{SPAWN_DELAY}
-    idle(&mut game, SPAWN_DELAY + 1);    // complete ARE → spawn_piece called
+    idle(&mut game, LOCK_DELAY + 1);     // fire lock → Spawning{SPAWN_DELAY_NORMAL}
+    idle(&mut game, SPAWN_DELAY_NORMAL + 1);    // complete ARE → spawn_piece called
     assert_eq!(game.level, 51, "level should increment from 50 to 51 on spawn");
 }
 
@@ -1401,7 +1401,7 @@ fn section_stop_blocks_piece_increment() {
     while game.try_move(0, 1) {}
     idle(&mut game, 1);
     idle(&mut game, LOCK_DELAY + 1);
-    idle(&mut game, SPAWN_DELAY + 1);
+    idle(&mut game, SPAWN_DELAY_NORMAL + 1);
     assert_eq!(game.level, 99, "section stop: level should remain 99 after spawn");
 }
 
@@ -1457,4 +1457,31 @@ fn ticks_elapsed_stops_after_win() {
     let frozen = game.ticks_elapsed;
     idle(&mut game, 10);
     assert_eq!(game.ticks_elapsed, frozen, "ticks_elapsed should freeze after win");
+}
+
+#[test]
+fn normal_are_uses_spawn_delay_normal() {
+    use crate::constants::SPAWN_DELAY_NORMAL;
+    let mut game = make_game(PieceKind::T);
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1);              // enter Locking
+    idle(&mut game, LOCK_DELAY + 1); // fire lock (no lines cleared)
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL),
+        "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL={} }}, got {:?}",
+        SPAWN_DELAY_NORMAL, game.piece_phase
+    );
+}
+
+#[test]
+fn line_clear_are_uses_spawn_delay_line_clear() {
+    use crate::constants::SPAWN_DELAY_LINE_CLEAR;
+    let mut game = Game::new();
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1); // fire lock + 1 line clear
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_LINE_CLEAR),
+        "expected Spawning{{ ticks_left: SPAWN_DELAY_LINE_CLEAR={} }}, got {:?}",
+        SPAWN_DELAY_LINE_CLEAR, game.piece_phase
+    );
 }

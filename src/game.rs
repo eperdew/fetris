@@ -1,4 +1,4 @@
-use crate::constants::{DAS_CHARGE, DAS_REPEAT, LOCK_DELAY, SPAWN_DELAY, gravity_g};
+use crate::constants::{DAS_CHARGE, DAS_REPEAT, LOCK_DELAY, SPAWN_DELAY_NORMAL, SPAWN_DELAY_LINE_CLEAR, gravity_g};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
@@ -278,7 +278,7 @@ impl Game {
                 self.board[r][c] = Some(self.active.kind);
             }
         }
-        self.clear_lines();
+        let lines_cleared = self.clear_lines();
         // Buffer any held rotation key so it applies when the next piece spawns.
         if input.held.contains(&GameKey::RotateCw) {
             self.rotation_buffer = Some(RotationDirection::Clockwise);
@@ -287,9 +287,8 @@ impl Game {
         }
         // DAS charge carries over to the next piece (DAS buffering).
         // das_direction and das_counter are intentionally NOT reset here.
-        self.piece_phase = PiecePhase::Spawning {
-            ticks_left: SPAWN_DELAY,
-        };
+        let are = if lines_cleared > 0 { SPAWN_DELAY_LINE_CLEAR } else { SPAWN_DELAY_NORMAL };
+        self.piece_phase = PiecePhase::Spawning { ticks_left: are };
     }
 
     fn spawn_piece(&mut self) {
@@ -311,13 +310,13 @@ impl Game {
         }
     }
 
-    fn clear_lines(&mut self) {
+    fn clear_lines(&mut self) -> u32 {
         let cleared: Vec<usize> = (0..BOARD_ROWS)
             .filter(|&r| self.board[r].iter().all(|c| c.is_some()))
             .collect();
         let count = cleared.len() as u32;
         if count == 0 {
-            return;
+            return 0;
         }
         // Compact: keep non-full rows, then prepend empty rows at top
         let mut new_board: Board = [[None; BOARD_COLS]; BOARD_ROWS];
@@ -337,6 +336,7 @@ impl Game {
         if self.level == 999 {
             self.game_won = true;
         }
+        count
     }
 }
 
