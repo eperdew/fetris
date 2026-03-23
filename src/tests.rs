@@ -1,8 +1,8 @@
-use std::collections::HashSet;
+use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
 use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_increment};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
-use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
+use std::collections::HashSet;
 
 fn make_game(kind: PieceKind) -> Game {
     let mut game = Game::new();
@@ -169,8 +169,16 @@ fn wall_kick_snap(kind: PieceKind) -> String {
             };
 
             for &cw in &[true, false] {
-                let new_rot = if cw { (start_rot + 1) % 4 } else { (start_rot + 3) % 4 };
-                let key = if cw { GameKey::RotateCw } else { GameKey::RotateCcw };
+                let new_rot = if cw {
+                    (start_rot + 1) % 4
+                } else {
+                    (start_rot + 3) % 4
+                };
+                let key = if cw {
+                    GameKey::RotateCw
+                } else {
+                    GameKey::RotateCcw
+                };
 
                 let mut game = make_game(kind);
                 game.active.rotation = start_rot;
@@ -195,7 +203,6 @@ fn wall_kick_snap(kind: PieceKind) -> String {
 
     side_by_side(&boards)
 }
-
 
 /// Places `kind` at col 3, row 8 in rotation `start_rot`, puts a single board
 /// obstacle at (col+obs_dc, row+obs_dr), then attempts CW and CCW rotations.
@@ -250,12 +257,12 @@ fn movement_snap(kind: PieceKind, key: GameKey) -> String {
 
 #[test]
 fn gravity_g_lookup() {
-    assert_eq!(gravity_g(0),   4,    "level 0 → 4 G/256");
-    assert_eq!(gravity_g(29),  4,    "level 29 → still 4 G/256");
-    assert_eq!(gravity_g(30),  6,    "level 30 → 6 G/256");
-    assert_eq!(gravity_g(199), 144,  "level 199 → 144 G/256");
-    assert_eq!(gravity_g(200), 4,    "level 200 → resets to 4 G/256");
-    assert_eq!(gravity_g(251), 256,  "level 251 → 256 G/256 (1G)");
+    assert_eq!(gravity_g(0), 4, "level 0 → 4 G/256");
+    assert_eq!(gravity_g(29), 4, "level 29 → still 4 G/256");
+    assert_eq!(gravity_g(30), 6, "level 30 → 6 G/256");
+    assert_eq!(gravity_g(199), 144, "level 199 → 144 G/256");
+    assert_eq!(gravity_g(200), 4, "level 200 → resets to 4 G/256");
+    assert_eq!(gravity_g(251), 256, "level 251 → 256 G/256 (1G)");
     assert_eq!(gravity_g(500), 5120, "level 500 → 5120 G/256 (20G)");
 }
 
@@ -904,7 +911,8 @@ fn t_piece_center_col_blocks() {
 fn board_ascii_checkerboard() {
     let mut game = make_game(PieceKind::O);
     game.active.row = BOARD_ROWS as i32; // park piece below visible area
-    game.board = board_from_ascii("
+    game.board = board_from_ascii(
+        "
         O.O.O.O.O.
         .O.O.O.O.O
         O.O.O.O.O.
@@ -913,7 +921,8 @@ fn board_ascii_checkerboard() {
         .O.O.O.O.O
         O.O.O.O.O.
         .O.O.O.O.O
-    ");
+    ",
+    );
     insta::assert_snapshot!(board_lines(&game, &[]).join("\n"), @"
       ┌────────────────────┐
      0│- - - - - - - - - - │
@@ -1222,20 +1231,29 @@ fn lock_delay_prevents_immediate_lock() {
     while game.try_move(0, 1) {}
     // Tick once — transitions from Falling to Locking { ticks_left: LOCK_DELAY }
     idle(&mut game, 1);
-    assert!(matches!(game.piece_phase, PiecePhase::Locking { .. }),
-        "expected Locking, got {:?}", game.piece_phase);
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Locking { .. }),
+        "expected Locking, got {:?}",
+        game.piece_phase
+    );
     // LOCK_DELAY ticks decrement ticks_left to 0; one more tick fires the lock.
     idle(&mut game, LOCK_DELAY + 1);
-    assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }),
-        "expected Spawning, got {:?}", game.piece_phase);
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Spawning { .. }),
+        "expected Spawning, got {:?}",
+        game.piece_phase
+    );
 }
 
 #[test]
 fn sonic_drop_enters_lock_delay() {
     let mut game = make_game(PieceKind::T);
     press(&mut game, GameKey::SonicDrop);
-    assert!(matches!(game.piece_phase, PiecePhase::Locking { .. }),
-        "expected Locking after sonic drop, got {:?}", game.piece_phase);
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Locking { .. }),
+        "expected Locking after sonic drop, got {:?}",
+        game.piece_phase
+    );
 }
 
 #[test]
@@ -1246,8 +1264,11 @@ fn soft_drop_on_floor_locks_immediately() {
     idle(&mut game, 1); // enter Locking
     // Soft drop bypasses lock delay
     press(&mut game, GameKey::SoftDrop);
-    assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }),
-        "expected Spawning after soft drop on floor, got {:?}", game.piece_phase);
+    assert!(
+        matches!(game.piece_phase, PiecePhase::Spawning { .. }),
+        "expected Spawning after soft drop on floor, got {:?}",
+        game.piece_phase
+    );
 }
 
 #[test]
@@ -1256,13 +1277,25 @@ fn das_activates_after_charge() {
     let start_col = game.active.col;
     // First press moves immediately
     press(&mut game, GameKey::Left);
-    assert_eq!(game.active.col, start_col - 1, "expected immediate move on press");
+    assert_eq!(
+        game.active.col,
+        start_col - 1,
+        "expected immediate move on press"
+    );
     // Hold for DAS_CHARGE - 1 ticks: no additional movement (counter not yet at charge)
     hold(&mut game, &[GameKey::Left], DAS_CHARGE - 1);
-    assert_eq!(game.active.col, start_col - 1, "no movement before DAS charge");
+    assert_eq!(
+        game.active.col,
+        start_col - 1,
+        "no movement before DAS charge"
+    );
     // One more tick triggers first auto-repeat
     hold(&mut game, &[GameKey::Left], 1);
-    assert_eq!(game.active.col, start_col - 2, "first auto-repeat after DAS charge");
+    assert_eq!(
+        game.active.col,
+        start_col - 2,
+        "first auto-repeat after DAS charge"
+    );
 }
 
 #[test]
@@ -1270,10 +1303,14 @@ fn das_repeats_every_tick_after_charge() {
     let mut game = make_game(PieceKind::T);
     game.active.col = 8; // Start further right so we can move 5 columns left
     let start_col = game.active.col;
-    press(&mut game, GameKey::Left);                 // immediate: start_col - 1
-    hold(&mut game, &[GameKey::Left], DAS_CHARGE);   // first auto-repeat at charge: start_col - 2
-    hold(&mut game, &[GameKey::Left], 3);            // 3 more repeats (DAS_REPEAT=1): start_col - 5
-    assert_eq!(game.active.col, start_col - 5, "DAS should repeat every tick after charge");
+    press(&mut game, GameKey::Left); // immediate: start_col - 1
+    hold(&mut game, &[GameKey::Left], DAS_CHARGE); // first auto-repeat at charge: start_col - 2
+    hold(&mut game, &[GameKey::Left], 3); // 3 more repeats (DAS_REPEAT=1): start_col - 5
+    assert_eq!(
+        game.active.col,
+        start_col - 5,
+        "DAS should repeat every tick after charge"
+    );
 }
 
 #[test]
@@ -1286,7 +1323,10 @@ fn rotation_buffer_applied_on_spawn() {
     assert!(matches!(game.piece_phase, PiecePhase::Spawning { .. }));
     // Hold rotate through all of ARE — IRS only fires if held at spawn.
     hold(&mut game, &[GameKey::RotateCw], SPAWN_DELAY_NORMAL + 1);
-    assert_eq!(game.active.rotation, 1, "spawned piece should be rotated CW");
+    assert_eq!(
+        game.active.rotation, 1,
+        "spawned piece should be rotated CW"
+    );
 }
 
 #[test]
@@ -1298,7 +1338,10 @@ fn rotation_released_during_are_does_not_rotate() {
     // Tap rotate then release — should NOT trigger IRS.
     press(&mut game, GameKey::RotateCw);
     idle(&mut game, SPAWN_DELAY_NORMAL);
-    assert_eq!(game.active.rotation, 0, "released key should not trigger IRS");
+    assert_eq!(
+        game.active.rotation, 0,
+        "released key should not trigger IRS"
+    );
 }
 
 /// Positions a vertical I-piece on the floor with `n` bottom rows pre-filled
@@ -1320,11 +1363,11 @@ fn setup_line_clear(game: &mut Game, n: usize) {
 
 #[test]
 fn can_piece_increment_section_stops() {
-    assert!(!can_piece_increment(99),  "99 is section stop");
+    assert!(!can_piece_increment(99), "99 is section stop");
     assert!(!can_piece_increment(199), "199 is section stop");
     assert!(!can_piece_increment(899), "899 is section stop");
     assert!(!can_piece_increment(998), "998 is final stop");
-    assert!(can_piece_increment(0),   "0 is not a stop");
+    assert!(can_piece_increment(0), "0 is not a stop");
     assert!(can_piece_increment(100), "100 is not a stop");
     assert!(can_piece_increment(500), "500 is not a stop");
 }
@@ -1339,11 +1382,14 @@ fn level_starts_at_zero() {
 fn level_increments_on_piece_spawn() {
     let mut game = make_game(PieceKind::T);
     game.level = 50;
-    while game.try_move(0, 1) {}  // drop to floor
-    idle(&mut game, 1);                  // enter Locking{LOCK_DELAY}
-    idle(&mut game, LOCK_DELAY + 1);     // fire lock → Spawning{SPAWN_DELAY_NORMAL}
-    idle(&mut game, SPAWN_DELAY_NORMAL + 1);    // complete ARE → spawn_piece called
-    assert_eq!(game.level, 51, "level should increment from 50 to 51 on spawn");
+    while game.try_move(0, 1) {} // drop to floor
+    idle(&mut game, 1); // enter Locking{LOCK_DELAY}
+    idle(&mut game, LOCK_DELAY + 1); // fire lock → Spawning{SPAWN_DELAY_NORMAL}
+    idle(&mut game, SPAWN_DELAY_NORMAL + 1); // complete ARE → spawn_piece called
+    assert_eq!(
+        game.level, 51,
+        "level should increment from 50 to 51 on spawn"
+    );
 }
 
 #[test]
@@ -1354,7 +1400,10 @@ fn section_stop_blocks_piece_increment() {
     idle(&mut game, 1);
     idle(&mut game, LOCK_DELAY + 1);
     idle(&mut game, SPAWN_DELAY_NORMAL + 1);
-    assert_eq!(game.level, 99, "section stop: level should remain 99 after spawn");
+    assert_eq!(
+        game.level, 99,
+        "section stop: level should remain 99 after spawn"
+    );
 }
 
 #[test]
@@ -1372,7 +1421,10 @@ fn line_clear_passes_section_stop() {
     game.level = 99;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1);
-    assert_eq!(game.level, 100, "line clear should pass section stop 99→100");
+    assert_eq!(
+        game.level, 100,
+        "line clear should pass section stop 99→100"
+    );
 }
 
 #[test]
@@ -1390,7 +1442,10 @@ fn game_won_on_reaching_999() {
     game.level = 998;
     setup_line_clear(&mut game, 1); // +1 = 999
     idle(&mut game, 1);
-    assert!(game.game_won, "game_won should be set when level reaches 999");
+    assert!(
+        game.game_won,
+        "game_won should be set when level reaches 999"
+    );
 }
 
 #[test]
@@ -1408,7 +1463,10 @@ fn ticks_elapsed_stops_after_win() {
     idle(&mut game, 1); // fires win
     let frozen = game.ticks_elapsed;
     idle(&mut game, 10);
-    assert_eq!(game.ticks_elapsed, frozen, "ticks_elapsed should freeze after win");
+    assert_eq!(
+        game.ticks_elapsed, frozen,
+        "ticks_elapsed should freeze after win"
+    );
 }
 
 #[test]
@@ -1416,12 +1474,13 @@ fn normal_are_uses_spawn_delay_normal() {
     use crate::constants::SPAWN_DELAY_NORMAL;
     let mut game = make_game(PieceKind::T);
     while game.try_move(0, 1) {}
-    idle(&mut game, 1);              // enter Locking
+    idle(&mut game, 1); // enter Locking
     idle(&mut game, LOCK_DELAY + 1); // fire lock (no lines cleared)
     assert!(
         matches!(game.piece_phase, PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL),
         "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL={} }}, got {:?}",
-        SPAWN_DELAY_NORMAL, game.piece_phase
+        SPAWN_DELAY_NORMAL,
+        game.piece_phase
     );
 }
 
@@ -1434,7 +1493,8 @@ fn line_clear_enters_line_clear_delay() {
     assert!(
         matches!(game.piece_phase, PiecePhase::LineClearDelay { ticks_left } if ticks_left == LINE_CLEAR_DELAY),
         "expected LineClearDelay{{ ticks_left: LINE_CLEAR_DELAY={} }}, got {:?}",
-        LINE_CLEAR_DELAY, game.piece_phase
+        LINE_CLEAR_DELAY,
+        game.piece_phase
     );
 }
 
@@ -1443,23 +1503,45 @@ fn line_clear_delay_transitions_to_are() {
     use crate::constants::{LINE_CLEAR_DELAY, SPAWN_DELAY_NORMAL};
     let mut game = Game::new();
     setup_line_clear(&mut game, 1);
-    idle(&mut game, 1);                     // fire lock → LineClearDelay
-    idle(&mut game, LINE_CLEAR_DELAY + 1);  // exhaust line clear delay → Spawning
+    idle(&mut game, 1); // fire lock → LineClearDelay
+    idle(&mut game, LINE_CLEAR_DELAY + 1); // exhaust line clear delay → Spawning
     assert!(
         matches!(game.piece_phase, PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL),
         "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL={} }}, got {:?}",
-        SPAWN_DELAY_NORMAL, game.piece_phase
+        SPAWN_DELAY_NORMAL,
+        game.piece_phase
+    );
+}
+
+#[test]
+fn lock_timer_resets_when_gravity_drops_piece() {
+    // Set up a piece one row above the floor with a partially-spent lock timer.
+    // A single 20G tick should drop it, re-land it, and reset the timer.
+    let mut game = make_game(PieceKind::T);
+    game.level = 500; // 20G
+    while game.try_move(0, 1) {}
+    game.try_move(0, -1); // lift 1 row so there's room to drop
+    game.piece_phase = PiecePhase::Locking { ticks_left: 10 }; // partially spent
+
+    insta::assert_snapshot!(
+        format!("row={} phase={:?}", game.active.row, game.piece_phase),
+        @"row=16 phase=Locking { ticks_left: 10 }"
+    );
+    idle(&mut game, 1);
+    insta::assert_snapshot!(
+        format!("row={} phase={:?}", game.active.row, game.piece_phase),
+        @"row=17 phase=Locking { ticks_left: 29 }"
     );
 }
 
 #[test]
 fn format_time_display() {
     use crate::renderer::format_time;
-    assert_eq!(format_time(0),     "00:00.000");
-    assert_eq!(format_time(60),    "00:01.000");
-    assert_eq!(format_time(3600),  "01:00.000");
-    assert_eq!(format_time(90),    "00:01.500");
-    assert_eq!(format_time(5430),  "01:30.500");
+    assert_eq!(format_time(0), "00:00.000");
+    assert_eq!(format_time(60), "00:01.000");
+    assert_eq!(format_time(3600), "01:00.000");
+    assert_eq!(format_time(90), "00:01.500");
+    assert_eq!(format_time(5430), "01:30.500");
 }
 
 #[test]
@@ -1475,7 +1557,9 @@ fn victory_screen_snapshot() {
 
     let backend = TestBackend::new(37, 22);
     let mut terminal = Terminal::new(backend).unwrap();
-    terminal.draw(|frame| crate::renderer::render(frame, &game, &std::collections::HashSet::new())).unwrap();
+    terminal
+        .draw(|frame| crate::renderer::render(frame, &game, &std::collections::HashSet::new()))
+        .unwrap();
 
     let buffer = terminal.backend().buffer().clone();
     let content: String = buffer

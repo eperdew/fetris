@@ -202,9 +202,11 @@ impl Game {
         self.gravity_accumulator += gravity_g(self.level);
         let drops = self.gravity_accumulator / 256;
         self.gravity_accumulator %= 256;
+        let row_before = self.active.row;
         for _ in 0..drops {
             if !self.try_move(0, 1) { break; }
         }
+        let moved_down = self.active.row > row_before;
 
         // Phase 7: Lock state transitions.
         let on_floor = !self.fits(self.active.col, self.active.row + 1, self.active.rotation);
@@ -220,6 +222,9 @@ impl Game {
                 if !on_floor {
                     // Piece moved off its resting surface.
                     self.piece_phase = PiecePhase::Falling;
+                } else if moved_down {
+                    // Piece dropped a row and re-landed: reset the lock timer.
+                    *ticks_left = LOCK_DELAY;
                 } else if *ticks_left == 0 {
                     self.lock_piece(input);
                 } else {
