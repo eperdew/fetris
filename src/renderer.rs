@@ -41,7 +41,11 @@ pub fn render(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>) {
     // Center the game vertically so the play area doesn't float at the top
     let v_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Fill(1), Constraint::Length(GAME_HEIGHT), Constraint::Fill(1)])
+        .constraints([
+            Constraint::Fill(1),
+            Constraint::Length(GAME_HEIGHT),
+            Constraint::Fill(1),
+        ])
         .split(area);
 
     let chunks = Layout::default()
@@ -72,7 +76,10 @@ fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
     // Build a display grid: start from locked board, then overlay active piece.
     // During spawn delay the old piece is already in the board; don't re-draw it.
     let mut display = game.board;
-    if !matches!(game.piece_phase, PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }) {
+    if !matches!(
+        game.piece_phase,
+        PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
+    ) {
         for (dc, dr) in game.active.cells() {
             let c = (game.active.col + dc) as usize;
             let r = (game.active.row + dr) as usize;
@@ -105,7 +112,12 @@ fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
     frame.render_widget(board, area);
 }
 
-fn render_sidebar(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>, area: ratatui::layout::Rect) {
+fn render_sidebar(
+    frame: &mut Frame,
+    game: &Game,
+    held: &HashSet<GameKey>,
+    area: ratatui::layout::Rect,
+) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(6), Constraint::Min(0)])
@@ -141,16 +153,16 @@ fn render_sidebar(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>, area:
     let k = |key: GameKey, label: &'static str| if held.contains(&key) { label } else { "·" };
     let keys_line = format!(
         "{} {} {} {} {} {}",
-        k(GameKey::Left, "←"),
-        k(GameKey::Right, "→"),
-        k(GameKey::SoftDrop, "↓"),
-        k(GameKey::SonicDrop, "⎵"),
-        k(GameKey::RotateCw, "x"),
         k(GameKey::RotateCcw, "z"),
+        k(GameKey::RotateCw, "x"),
+        k(GameKey::SonicDrop, "⎵"),
+        k(GameKey::Left, "←"),
+        k(GameKey::SoftDrop, "↓"),
+        k(GameKey::Right, "→"),
     );
     let das_line = match game.das_direction {
         None => "DAS: -".to_string(),
-        Some(HorizDir::Left)  => format!("DAS:← {}", game.das_counter),
+        Some(HorizDir::Left) => format!("DAS:← {}", game.das_counter),
         Some(HorizDir::Right) => format!("DAS:→ {}", game.das_counter),
     };
 
