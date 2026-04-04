@@ -1,4 +1,3 @@
-use rand::Rng;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PieceKind {
@@ -26,7 +25,7 @@ impl PieceKind {
     }
 
     pub fn random() -> Self {
-        match rand::rng().random_range(0..7) {
+        match macroquad::rand::rand() % 7 {
             0 => Self::I,
             1 => Self::O,
             2 => Self::T,

@@ -12,6 +12,7 @@ use macroquad::prelude::*;
 use game::Game;
 use input::{GameKey, InputState};
 
+
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("fetris"),

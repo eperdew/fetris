@@ -1,5 +1,4 @@
 use crate::piece::PieceKind;
-use rand::Rng;
 
 /// TGM-style randomizer. Keeps a 4-piece history (initialized to [Z; 4]) and
 /// makes up to 4 attempts to produce a piece not in that history.
@@ -34,7 +33,7 @@ impl Randomizer {
     fn candidate(&self) -> PieceKind {
         if self.is_first {
             // Avoid S, Z, O on the first piece to prevent forced overhangs.
-            match rand::rng().random_range(0..4u8) {
+            match (macroquad::rand::rand() % 4) as u8 {
                 0 => PieceKind::I,
                 1 => PieceKind::T,
                 2 => PieceKind::J,
