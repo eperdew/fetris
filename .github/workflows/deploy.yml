@@ -29,17 +29,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version 0.2.117 --locked
-
       - name: Build WASM
         run: cargo build --target wasm32-unknown-unknown --release
 
-      - name: Generate JS bindings
-        run: wasm-bindgen --out-dir dist/pkg --target web target/wasm32-unknown-unknown/release/fetris.wasm
-
       - name: Assemble dist
-        run: cp web/index.html dist/
+        run: |
+          mkdir dist
+          cp web/index.html dist/
+          cp target/wasm32-unknown-unknown/release/fetris.wasm dist/
+          cp ~/.cargo/registry/src/*/macroquad-0.4.14/js/mq_js_bundle.js dist/
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
