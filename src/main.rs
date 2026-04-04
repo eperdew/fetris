@@ -8,158 +8,51 @@ mod renderer;
 mod tests;
 
 use std::collections::HashSet;
-use std::sync::mpsc;
-use std::thread;
-use std::time::Duration;
-
-use crossterm::ExecutableCommand;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyboardEnhancementFlags,
-    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
-use ratatui::prelude::*;
-use std::io::stdout;
-
+use macroquad::prelude::*;
 use game::Game;
 use input::{GameKey, InputState};
 
-const TICK_RATE_MS: u64 = 16; // ~60Hz
-
-/// Maps a KeyCode to a GameKey. Returns None for unrecognised keys.
-fn map_game_key(code: KeyCode) -> Option<GameKey> {
-    match code {
-        KeyCode::Left | KeyCode::Char('h')  => Some(GameKey::Left),
-        KeyCode::Right | KeyCode::Char('l') => Some(GameKey::Right),
-        KeyCode::Down | KeyCode::Char('j')  => Some(GameKey::SoftDrop),
-        KeyCode::Char(' ')                  => Some(GameKey::SonicDrop),
-        KeyCode::Char('x')                  => Some(GameKey::RotateCw),
-        KeyCode::Char('z')                  => Some(GameKey::RotateCcw),
-        _ => None,
+fn window_conf() -> Conf {
+    Conf {
+        window_title: String::from("fetris"),
+        window_width: 530,
+        window_height: 680,
+        window_resizable: false,
+        ..Default::default()
     }
 }
 
-#[derive(Debug)]
-enum AppEvent {
-    KeyDown(GameKey),
-    KeyUp(GameKey),
-    Tick,
-    Quit,
+fn build_input_state() -> InputState {
+    let mappings: &[(KeyCode, GameKey)] = &[
+        (KeyCode::Left,  GameKey::Left),
+        (KeyCode::H,     GameKey::Left),
+        (KeyCode::Right, GameKey::Right),
+        (KeyCode::L,     GameKey::Right),
+        (KeyCode::Down,  GameKey::SoftDrop),
+        (KeyCode::J,     GameKey::SoftDrop),
+        (KeyCode::Space, GameKey::SonicDrop),
+        (KeyCode::X,     GameKey::RotateCw),
+        (KeyCode::Z,     GameKey::RotateCcw),
+    ];
+    let mut held = HashSet::new();
+    let mut just_pressed = HashSet::new();
+    for &(kc, gk) in mappings {
+        if is_key_down(kc)     { held.insert(gk); }
+        if is_key_pressed(kc)  { just_pressed.insert(gk); }
+    }
+    InputState { held, just_pressed }
 }
 
-fn main() -> anyhow::Result<()> {
-    // Terminal setup — order matters: push keyboard enhancement AFTER entering
-    // alternate screen so it applies to the same screen buffer the game runs in.
-    enable_raw_mode()?;
-    stdout().execute(EnterAlternateScreen)?;
-    stdout().execute(PushKeyboardEnhancementFlags(
-        KeyboardEnhancementFlags::REPORT_EVENT_TYPES,
-    ))?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-
-    let result = run(&mut terminal);
-
-    // Restore in reverse order: pop enhancement before leaving alternate screen
-    // so the pop targets the same screen buffer as the push.
-    let _ = stdout().execute(PopKeyboardEnhancementFlags);
-    let _ = stdout().execute(LeaveAlternateScreen);
-    let _ = disable_raw_mode();
-
-    result
-}
-
-fn run(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> anyhow::Result<()> {
-    let (tx, rx) = mpsc::channel::<AppEvent>();
-
-    // Timer thread: sends Tick at a fixed interval (~60Hz)
-    let tick_tx = tx.clone();
-    thread::spawn(move || {
-        loop {
-            thread::sleep(Duration::from_millis(TICK_RATE_MS));
-            if tick_tx.send(AppEvent::Tick).is_err() {
-                break;
-            }
-        }
-    });
-
-    // Input thread: reads crossterm events and sends KeyDown/KeyUp
-    let input_tx = tx;
-    thread::spawn(move || {
-        loop {
-            if event::poll(Duration::from_millis(5)).unwrap_or(false) {
-                if let Ok(Event::Key(key)) = event::read() {
-                    let app_event = match key.code {
-                        KeyCode::Char('q') | KeyCode::Esc => {
-                            if key.kind != KeyEventKind::Press {
-                                continue;
-                            }
-                            AppEvent::Quit
-                        }
-                        other => match map_game_key(other) {
-                            Some(game_key) => match key.kind {
-                                KeyEventKind::Press => AppEvent::KeyDown(game_key),
-                                KeyEventKind::Release => AppEvent::KeyUp(game_key),
-                                KeyEventKind::Repeat => continue, // DAS handles held keys; OS repeat is noise
-                            },
-                            None => continue,
-                        },
-                    };
-                    if input_tx.send(app_event).is_err() {
-                        break;
-                    }
-                }
-            }
-        }
-    });
-
+#[macroquad::main(window_conf)]
+async fn main() {
     let mut game = Game::new();
-
-    let mut held: HashSet<GameKey> = HashSet::new();
-    let mut just_pressed: HashSet<GameKey> = HashSet::new();
-    let mut quit = false;
-
     loop {
-        match rx.recv()? {
-            AppEvent::Quit => break,
-            AppEvent::KeyDown(key) => {
-                held.insert(key);
-                just_pressed.insert(key);
-            }
-            AppEvent::KeyUp(key) => {
-                held.remove(&key);
-            }
-            AppEvent::Tick => {
-                // Drain remaining queued events (including stacked Ticks).
-                while let Ok(ev) = rx.try_recv() {
-                    match ev {
-                        AppEvent::KeyDown(key) => {
-                            held.insert(key);
-                            just_pressed.insert(key);
-                        }
-                        AppEvent::KeyUp(key) => {
-                            held.remove(&key);
-                        }
-                        AppEvent::Tick => {
-                            let input = InputState {
-                                held: held.clone(),
-                                just_pressed: just_pressed.clone(),
-                            };
-                            game.tick(&input);
-                            just_pressed.clear();
-                        }
-                        AppEvent::Quit => {
-                            quit = true;
-                        }
-                    }
-                }
-                if quit { break; }
-                let input = InputState { held: held.clone(), just_pressed };
-                game.tick(&input);
-                just_pressed = HashSet::new();
-                terminal.draw(|frame| renderer::render(frame, &game, &held))?;
-            }
+        if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
+            break;
         }
+        let input = build_input_state();
+        game.tick(&input);
+        renderer::render(&game);
+        next_frame().await;
     }
-
-    Ok(())
 }

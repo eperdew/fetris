@@ -1,21 +1,37 @@
-use std::collections::HashSet;
-
-use ratatui::{
-    Frame,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
-};
-
-use crate::game::{BOARD_COLS, BOARD_ROWS, Game, HorizDir, PiecePhase};
-use crate::input::GameKey;
+use macroquad::prelude::*;
+use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
 use crate::piece::PieceKind;
 
-// Board: 20 rows + 2 borders tall; (10 cols * 2 chars) + 2 borders = 22 wide
-// Sidebar: 15 wide
-const GAME_WIDTH: u16 = 37;
-const GAME_HEIGHT: u16 = 22;
+const CELL: f32 = 32.0;
+const PAD: f32 = 20.0;
+const BOARD_X: f32 = PAD;
+const BOARD_Y: f32 = PAD;
+const SIDEBAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + 10.0;
+const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
+
+/// Draw a single CELL×CELL block at grid position (col, row) relative to (origin_x, origin_y).
+fn draw_cell(origin_x: f32, origin_y: f32, col: usize, row: usize, color: Color) {
+    const INSET: f32 = 2.0;
+    draw_rectangle(
+        origin_x + col as f32 * CELL + INSET,
+        origin_y + row as f32 * CELL + INSET,
+        CELL - INSET * 2.0,
+        CELL - INSET * 2.0,
+        color,
+    );
+}
+
+fn piece_color(kind: PieceKind) -> Color {
+    match kind {
+        PieceKind::I => Color::from_rgba(200, 50,  50,  255),
+        PieceKind::O => Color::from_rgba(220, 200, 0,   255),
+        PieceKind::T => Color::from_rgba(0,   200, 200, 255),
+        PieceKind::S => Color::from_rgba(200, 0,   200, 255),
+        PieceKind::Z => Color::from_rgba(0,   160, 0,   255),
+        PieceKind::J => Color::from_rgba(50,  100, 220, 255),
+        PieceKind::L => Color::from_rgba(255, 150, 100, 255),
+    }
+}
 
 pub fn format_time(ticks: u64) -> String {
     let seconds = ticks / 60;
@@ -25,176 +41,109 @@ pub fn format_time(ticks: u64) -> String {
     format!("{:02}:{:02}.{:03}", mm, ss, ms)
 }
 
-pub fn render(frame: &mut Frame, game: &Game, held: &HashSet<GameKey>) {
-    let area = frame.area();
-
-    if area.width < GAME_WIDTH || area.height < GAME_HEIGHT {
-        let msg = Paragraph::new(format!(
-            "Window too small ({}x{}). Please resize to at least {}x{}.",
-            area.width, area.height, GAME_WIDTH, GAME_HEIGHT
-        ))
-        .block(Block::default().borders(Borders::ALL));
-        frame.render_widget(msg, area);
-        return;
+fn compute_ghost_row(game: &Game) -> i32 {
+    let mut ghost_row = game.active.row;
+    loop {
+        let next = ghost_row + 1;
+        let blocked = game.active.cells().iter().any(|&(dc, dr)| {
+            let c = game.active.col + dc;
+            let r = next + dr;
+            r >= BOARD_ROWS as i32
+                || (c >= 0 && c < BOARD_COLS as i32 && r >= 0
+                    && game.board[r as usize][c as usize].is_some())
+        });
+        if blocked { break; }
+        ghost_row = next;
     }
-
-    // Center the game vertically so the play area doesn't float at the top
-    let v_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Fill(1),
-            Constraint::Length(GAME_HEIGHT),
-            Constraint::Fill(1),
-        ])
-        .split(area);
-
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(22), Constraint::Length(15)])
-        .split(v_chunks[1]);
-
-    render_board(frame, game, chunks[0]);
-    render_sidebar(frame, game, held, chunks[1]);
+    ghost_row
 }
 
-fn render_board(frame: &mut Frame, game: &Game, area: ratatui::layout::Rect) {
-    if game.game_won {
-        let time_str = format_time(game.ticks_elapsed);
-        let victory = Paragraph::new(vec![
-            Line::from(""),
-            Line::from("  LEVEL 999"),
-            Line::from(""),
-            Line::from("  Time:"),
-            Line::from(format!("  {}", time_str)),
-            Line::from(""),
-        ])
-        .block(Block::default().title("fetris").borders(Borders::ALL));
-        frame.render_widget(victory, area);
-        return;
-    }
+fn render_board(game: &Game) {
+    // Background
+    draw_rectangle(
+        BOARD_X, BOARD_Y,
+        BOARD_COLS as f32 * CELL,
+        BOARD_ROWS as f32 * CELL,
+        BOARD_BG,
+    );
 
-    // Build a display grid: start from locked board, then overlay active piece.
-    // During spawn delay the old piece is already in the board; don't re-draw it.
-    let mut display = game.board;
-    if !matches!(
+    let show_active = !matches!(
         game.piece_phase,
         PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
-    ) {
-        for (dc, dr) in game.active.cells() {
-            let c = (game.active.col + dc) as usize;
-            let r = (game.active.row + dr) as usize;
-            if r < BOARD_ROWS && c < BOARD_COLS {
-                display[r][c] = Some(game.active.kind);
+    );
+
+    // Ghost piece
+    if show_active {
+        let ghost_row = compute_ghost_row(game);
+        if ghost_row != game.active.row {
+            let base = piece_color(game.active.kind);
+            let ghost_color = Color { a: 0.25, ..base };
+            for (dc, dr) in game.active.cells() {
+                let c = game.active.col + dc;
+                let r = ghost_row + dr;
+                if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                    draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, ghost_color);
+                }
             }
         }
     }
 
-    let rows: Vec<Line> = display
-        .iter()
-        .map(|row| {
-            let spans: Vec<Span> = row
-                .iter()
-                .map(|cell| match cell {
-                    None => Span::raw("  "),
-                    Some(kind) => Span::styled("[]", Style::default().fg(piece_color(*kind))),
-                })
-                .collect();
-            Line::from(spans)
-        })
-        .collect();
+    // Locked cells
+    for (r, row) in game.board.iter().enumerate() {
+        for (c, cell) in row.iter().enumerate() {
+            if let Some(kind) = cell {
+                draw_cell(BOARD_X, BOARD_Y, c, r, piece_color(*kind));
+            }
+        }
+    }
 
-    let title = if game.game_over {
-        "GAME OVER"
-    } else {
-        "fetris"
-    };
-    let board = Paragraph::new(rows).block(Block::default().title(title).borders(Borders::ALL));
-    frame.render_widget(board, area);
+    // Active piece
+    if show_active {
+        for (dc, dr) in game.active.cells() {
+            let c = game.active.col + dc;
+            let r = game.active.row + dr;
+            if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, piece_color(game.active.kind));
+            }
+        }
+    }
 }
 
-fn render_sidebar(
-    frame: &mut Frame,
-    game: &Game,
-    held: &HashSet<GameKey>,
-    area: ratatui::layout::Rect,
-) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(6), Constraint::Min(0)])
-        .split(area);
+fn render_sidebar(game: &Game) {
+    let x = SIDEBAR_X;
+    let mut y = BOARD_Y + 16.0;
 
-    // Next piece preview
-    let mut preview = [[None; 4]; 4];
+    draw_text("NEXT", x, y, 18.0, LIGHTGRAY);
+    y += 8.0;
+
     for (dc, dr) in game.next.cells() {
         let c = dc as usize;
         let r = dr as usize;
-        if r < 4 && c < 4 {
-            preview[r][c] = Some(game.next.kind);
-        }
+        draw_cell(x, y, c, r, piece_color(game.next.kind));
     }
-    let preview_rows: Vec<Line> = preview
-        .iter()
-        .map(|row| {
-            let spans: Vec<Span> = row
-                .iter()
-                .map(|cell| match cell {
-                    None => Span::raw("  "),
-                    Some(kind) => Span::styled("[]", Style::default().fg(piece_color(*kind))),
-                })
-                .collect();
-            Line::from(spans)
-        })
-        .collect();
-    let next_widget =
-        Paragraph::new(preview_rows).block(Block::default().title("Next").borders(Borders::ALL));
-    frame.render_widget(next_widget, chunks[0]);
+    y += 4.0 * CELL + 16.0;
 
-    // Input display
-    let k = |key: GameKey, label: &'static str| if held.contains(&key) { label } else { "·" };
-    let keys_line = format!(
-        "{} {} {} {} {} {}",
-        k(GameKey::RotateCcw, "z"),
-        k(GameKey::RotateCw, "x"),
-        k(GameKey::SonicDrop, "⎵"),
-        k(GameKey::Left, "←"),
-        k(GameKey::SoftDrop, "↓"),
-        k(GameKey::Right, "→"),
-    );
-    let das_line = match game.das_direction {
-        None => "DAS: -".to_string(),
-        Some(HorizDir::Left) => format!("DAS:← {}", game.das_counter),
-        Some(HorizDir::Right) => format!("DAS:→ {}", game.das_counter),
-    };
-
-    // Stats
-    let stats = Paragraph::new(vec![
-        Line::from(""),
-        Line::from(format!("Level: {}", game.level)),
-        Line::from(format!("Lines: {}", game.lines)),
-        Line::from(format_time(game.ticks_elapsed)),
-        Line::from(""),
-        Line::from("←→  move"),
-        Line::from("x   rotate ↻"),
-        Line::from("z   rotate ↺"),
-        Line::from("↓   soft drop"),
-        Line::from("SPC hard drop"),
-        Line::from("q  quit"),
-        Line::from(""),
-        Line::from(keys_line),
-        Line::from(das_line),
-    ])
-    .block(Block::default().title("Stats").borders(Borders::ALL));
-    frame.render_widget(stats, chunks[1]);
+    draw_text(&format!("LV  {}", game.level), x, y, 18.0, WHITE);
+    y += 26.0;
+    draw_text(&format!("LN  {}", game.lines), x, y, 18.0, WHITE);
+    y += 26.0;
+    draw_text(&format_time(game.ticks_elapsed), x, y, 18.0, WHITE);
 }
 
-fn piece_color(kind: PieceKind) -> Color {
-    match kind {
-        PieceKind::I => Color::Red,
-        PieceKind::O => Color::Yellow,
-        PieceKind::T => Color::Cyan,
-        PieceKind::S => Color::Magenta,
-        PieceKind::Z => Color::Green,
-        PieceKind::J => Color::Blue,
-        PieceKind::L => Color::LightRed,
+fn render_overlay(game: &Game) {
+    let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
+    let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
+    if game.game_won {
+        draw_text("LEVEL 999", cx - 60.0, cy - 16.0, 28.0, WHITE);
+        draw_text(&format_time(game.ticks_elapsed), cx - 50.0, cy + 20.0, 22.0, LIGHTGRAY);
+    } else if game.game_over {
+        draw_text("GAME OVER", cx - 62.0, cy, 28.0, WHITE);
     }
+}
+
+pub fn render(game: &Game) {
+    clear_background(Color::from_rgba(10, 10, 18, 255));
+    render_board(game);
+    render_sidebar(game);
+    render_overlay(game);
 }
