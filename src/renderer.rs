@@ -65,10 +65,10 @@ fn render_board(game: &Game) {
         PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
     ) {
         for (dc, dr) in game.active.cells() {
-            let c = (game.active.col + dc) as usize;
-            let r = (game.active.row + dr) as usize;
-            if r < BOARD_ROWS && c < BOARD_COLS {
-                draw_cell(BOARD_X, BOARD_Y, c, r, piece_color(game.active.kind));
+            let c = game.active.col + dc;
+            let r = game.active.row + dr;
+            if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, piece_color(game.active.kind));
             }
         }
     }
