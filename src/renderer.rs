@@ -48,7 +48,9 @@ fn compute_ghost_row(game: &Game) -> i32 {
         let blocked = game.active.cells().iter().any(|&(dc, dr)| {
             let c = game.active.col + dc;
             let r = next + dr;
-            r >= BOARD_ROWS as i32 || (c >= 0 && r >= 0 && game.board[r as usize][c as usize].is_some())
+            r >= BOARD_ROWS as i32
+                || (c >= 0 && c < BOARD_COLS as i32 && r >= 0
+                    && game.board[r as usize][c as usize].is_some())
         });
         if blocked { break; }
         ghost_row = next;

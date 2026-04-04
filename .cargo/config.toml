@@ -1,2 +1,4 @@
+# getrandom 0.3 requires BOTH the `wasm_js` Cargo feature (in Cargo.toml) AND
+# this cfg flag. The feature flag alone is explicitly insufficient per getrandom docs.
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg", "wasm_js"]
