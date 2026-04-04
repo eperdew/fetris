@@ -41,6 +41,21 @@ pub fn format_time(ticks: u64) -> String {
     format!("{:02}:{:02}.{:03}", mm, ss, ms)
 }
 
+fn compute_ghost_row(game: &Game) -> i32 {
+    let mut ghost_row = game.active.row;
+    loop {
+        let next = ghost_row + 1;
+        let blocked = game.active.cells().iter().any(|&(dc, dr)| {
+            let c = (game.active.col + dc) as usize;
+            let r = next + dr;
+            r >= BOARD_ROWS as i32 || (r >= 0 && game.board[r as usize][c].is_some())
+        });
+        if blocked { break; }
+        ghost_row = next;
+    }
+    ghost_row
+}
+
 fn render_board(game: &Game) {
     // Background
     draw_rectangle(
@@ -49,6 +64,27 @@ fn render_board(game: &Game) {
         BOARD_ROWS as f32 * CELL,
         BOARD_BG,
     );
+
+    let show_active = !matches!(
+        game.piece_phase,
+        PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
+    );
+
+    // Ghost piece
+    if show_active {
+        let ghost_row = compute_ghost_row(game);
+        if ghost_row != game.active.row {
+            let base = piece_color(game.active.kind);
+            let ghost_color = Color { a: 0.25, ..base };
+            for (dc, dr) in game.active.cells() {
+                let c = game.active.col + dc;
+                let r = ghost_row + dr;
+                if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                    draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, ghost_color);
+                }
+            }
+        }
+    }
 
     // Locked cells
     for (r, row) in game.board.iter().enumerate() {
@@ -59,11 +95,8 @@ fn render_board(game: &Game) {
         }
     }
 
-    // Active piece (hidden during spawn delay and line clear)
-    if !matches!(
-        game.piece_phase,
-        PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
-    ) {
+    // Active piece
+    if show_active {
         for (dc, dr) in game.active.cells() {
             let c = game.active.col + dc;
             let r = game.active.row + dr;
