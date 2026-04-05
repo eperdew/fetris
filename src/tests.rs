@@ -1,4 +1,4 @@
-use crate::constants::{DAS_CHARGE, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
+use crate::constants::{DAS_CHARGE, LINE_CLEAR_DELAY, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
 use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_increment};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
@@ -1542,4 +1542,191 @@ fn format_time_display() {
     assert_eq!(format_time(3600), "01:00.000");
     assert_eq!(format_time(90), "00:01.500");
     assert_eq!(format_time(5430), "01:30.500");
+}
+
+// ---------------------------------------------------------------------------
+// I-piece right-well line clear tests
+//
+// Each test sets up an explicit board via board_from_ascii, places a vertical
+// I piece (rotation 1, col 7 → board column 9) at the bottom, locks it, then
+// snapshots the board with the active piece parked off-screen so only the
+// remaining locked cells are visible.
+// ---------------------------------------------------------------------------
+
+/// Place a vertical I piece (rotation 1) in the right well (col 9) with its top at row 16.
+fn place_vertical_i_right_well(game: &mut Game) {
+    game.active = Piece::new(PieceKind::I);
+    game.active.rotation = 1;
+    game.active.col = 7;
+    game.active.row = 16;
+}
+
+/// Lock the active piece (sonic drop to floor, then soft drop to lock immediately),
+/// then tick through LineClearDelay into ARE so the next piece has spawned at the top.
+/// Snapshots during ARE — the new piece is at row 0, far from the cleared rows.
+fn lock_and_snap(mut game: Game) -> String {
+    let soft = InputState {
+        held: HashSet::from([GameKey::SoftDrop]),
+        just_pressed: HashSet::new(),
+    };
+    press(&mut game, GameKey::SonicDrop); // drop to floor, enter Locking phase
+    game.tick(&soft); // SoftDrop while Locking → lock + line clear → LineClearDelay
+    idle(&mut game, LINE_CLEAR_DELAY + 1 + SPAWN_DELAY_NORMAL + 1); // tick through LineClearDelay and ARE
+    board_lines(&game, &[]).join("\n")
+}
+
+#[test]
+fn i_right_well_clears_4() {
+    // All 4 rows filled left 9 cols; I piece fills col 9 on all 4 → tetris, board empty
+    let mut game = make_game(PieceKind::I);
+    game.board = board_from_ascii(
+        "
+        OOOOOOOOO.
+        OOOOOOOOO.
+        OOOOOOOOO.
+        OOOOOOOOO.
+    ",
+    );
+    place_vertical_i_right_well(&mut game);
+    insta::assert_snapshot!(lock_and_snap(game), @"
+      ┌────────────────────┐
+     0│- - - - - - - - - - │
+      │      [][][][]      │
+      │                    │
+      │                    │
+      │                    │
+     5│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    10│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    15│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    20└────────────────────┘
+    ");
+}
+
+#[test]
+fn i_right_well_clears_top_3() {
+    // Top 3 rows filled; bottom row empty → top 3 clear, stub at bottom
+    let mut game = make_game(PieceKind::I);
+    game.board = board_from_ascii(
+        "
+        OOOOOOOOO.
+        OOOOOOOOO.
+        OOOOOOOOO.
+        OOO.OOOOO.
+    ",
+    );
+    place_vertical_i_right_well(&mut game);
+    insta::assert_snapshot!(lock_and_snap(game), @"
+      ┌────────────────────┐
+     0│- - - - - - - - - - │
+      │      [][][][]      │
+      │                    │
+      │                    │
+      │                    │
+     5│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    10│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    15│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │######  ############│
+    20└────────────────────┘
+    ");
+}
+
+#[test]
+fn i_right_well_clears_bottom_3() {
+    // Top row empty; bottom 3 rows filled → bottom 3 clear, stub at top
+    let mut game = make_game(PieceKind::I);
+    game.board = board_from_ascii(
+        "
+        .OOOOOOOO.
+        OOOOOOOOO.
+        OOOOOOOOO.
+        OOOOOOOOO.
+    ",
+    );
+    place_vertical_i_right_well(&mut game);
+    insta::assert_snapshot!(lock_and_snap(game), @"
+      ┌────────────────────┐
+     0│- - - - - - - - - - │
+      │      [][][][]      │
+      │                    │
+      │                    │
+      │                    │
+     5│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    10│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    15│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │  ##################│
+    20└────────────────────┘
+    ");
+}
+
+#[test]
+fn i_right_well_clears_middle_2() {
+    // Middle 2 rows filled; top and bottom empty → middle 2 clear, stubs at top and bottom
+    let mut game = make_game(PieceKind::I);
+    game.board = board_from_ascii(
+        "
+        .OOOOOOOO.
+        OOOOOOOOO.
+        OOOOOOOOO.
+        OOO.OOOOO.
+    ",
+    );
+    place_vertical_i_right_well(&mut game);
+    insta::assert_snapshot!(lock_and_snap(game), @"
+      ┌────────────────────┐
+     0│- - - - - - - - - - │
+      │      [][][][]      │
+      │                    │
+      │                    │
+      │                    │
+     5│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    10│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    15│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │  ##################│
+      │######  ############│
+    20└────────────────────┘
+    ");
 }
