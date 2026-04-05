@@ -46,6 +46,7 @@ fn build_input_state() -> InputState {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    let cell_texture = renderer::make_cell_texture();
     let mut game = Game::new();
     loop {
         if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
@@ -53,7 +54,7 @@ async fn main() {
         }
         let input = build_input_state();
         game.tick(&input);
-        renderer::render(&game);
+        renderer::render(&game, &cell_texture);
         next_frame().await;
     }
 }

@@ -3,21 +3,69 @@ use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
 use crate::piece::PieceKind;
 
 const CELL: f32 = 32.0;
+const INSET: f32 = 2.0;
 const PAD: f32 = 20.0;
 const BOARD_X: f32 = PAD;
 const BOARD_Y: f32 = PAD;
 const SIDEBAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + 10.0;
 const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
 
+pub fn make_cell_texture() -> Texture2D {
+    const SIZE: usize = 32;
+    let mut pixels = [255u8; SIZE * SIZE * 4];
+    for y in 0..SIZE {
+        for x in 0..SIZE {
+            let fy = y as f32 / (SIZE - 1) as f32;
+
+            let raw = if x == 0 || y == 0 {
+                1.0
+            } else {
+                1.0 - 0.4 * fy
+            };
+            let quantized = (raw * 16.0).floor() / 16.0;
+            let v = (quantized * 255.0) as u8;
+            let i = (y * SIZE + x) * 4;
+            pixels[i] = v;
+            pixels[i + 1] = v;
+            pixels[i + 2] = v;
+            // alpha channel stays 255
+        }
+    }
+    Texture2D::from_rgba8(SIZE as u16, SIZE as u16, &pixels)
+}
+
+/// Like draw_cell but draws white-grey border strips on the left and/or top edges when
+/// the adjacent cell in that direction is unfilled.
+fn draw_cell_bordered(origin_x: f32, origin_y: f32, col: usize, row: usize, color: Color, texture: &Texture2D, left_border: bool, top_border: bool, right_border: bool, bottom_border: bool) {
+    const BORDER_COLOR: Color = Color::new(0.70, 0.70, 0.70, 1.0);
+    let x = origin_x + col as f32 * CELL;
+    let y = origin_y + row as f32 * CELL;
+    if left_border {
+        draw_rectangle(x, y, INSET, CELL, BORDER_COLOR);
+    }
+    if top_border {
+        draw_rectangle(x, y, CELL, INSET, BORDER_COLOR);
+    }
+    if right_border {
+        draw_rectangle(x + CELL - INSET, y, INSET, CELL, BORDER_COLOR);
+    }
+    if bottom_border {
+        draw_rectangle(x, y + CELL - INSET, CELL, INSET, BORDER_COLOR);
+    }
+    draw_cell(origin_x, origin_y, col, row, color, texture);
+}
+
 /// Draw a single CELL×CELL block at grid position (col, row) relative to (origin_x, origin_y).
-fn draw_cell(origin_x: f32, origin_y: f32, col: usize, row: usize, color: Color) {
-    const INSET: f32 = 2.0;
-    draw_rectangle(
+fn draw_cell(origin_x: f32, origin_y: f32, col: usize, row: usize, color: Color, texture: &Texture2D) {
+    draw_texture_ex(
+        texture,
         origin_x + col as f32 * CELL + INSET,
         origin_y + row as f32 * CELL + INSET,
-        CELL - INSET * 2.0,
-        CELL - INSET * 2.0,
         color,
+        DrawTextureParams {
+            dest_size: Some(vec2(CELL - INSET * 2.0, CELL - INSET * 2.0)),
+            ..Default::default()
+        },
     );
 }
 
@@ -58,7 +106,7 @@ fn compute_ghost_row(game: &Game) -> i32 {
     ghost_row
 }
 
-fn render_board(game: &Game) {
+fn render_board(game: &Game, texture: &Texture2D) {
     // Background
     draw_rectangle(
         BOARD_X, BOARD_Y,
@@ -82,7 +130,7 @@ fn render_board(game: &Game) {
                 let c = game.active.col + dc;
                 let r = ghost_row + dr;
                 if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
-                    draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, ghost_color);
+                    draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, ghost_color, texture);
                 }
             }
         }
@@ -92,7 +140,11 @@ fn render_board(game: &Game) {
     for (r, row) in game.board.iter().enumerate() {
         for (c, cell) in row.iter().enumerate() {
             if let Some(kind) = cell {
-                draw_cell(BOARD_X, BOARD_Y, c, r, piece_color(*kind));
+                let left_border   = c == 0                || game.board[r][c - 1].is_none();
+                let top_border    = r == 0                || game.board[r - 1][c].is_none();
+                let right_border  = c == BOARD_COLS - 1   || game.board[r][c + 1].is_none();
+                let bottom_border = r == BOARD_ROWS - 1   || game.board[r + 1][c].is_none();
+                draw_cell_bordered(BOARD_X, BOARD_Y, c, r, piece_color(*kind), texture, left_border, top_border, right_border, bottom_border);
             }
         }
     }
@@ -103,13 +155,13 @@ fn render_board(game: &Game) {
             let c = game.active.col + dc;
             let r = game.active.row + dr;
             if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
-                draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, piece_color(game.active.kind));
+                draw_cell(BOARD_X, BOARD_Y, c as usize, r as usize, piece_color(game.active.kind), texture);
             }
         }
     }
 }
 
-fn render_sidebar(game: &Game) {
+fn render_sidebar(game: &Game, texture: &Texture2D) {
     let x = SIDEBAR_X;
     let mut y = BOARD_Y + 16.0;
 
@@ -119,7 +171,7 @@ fn render_sidebar(game: &Game) {
     for (dc, dr) in game.next.cells() {
         let c = dc as usize;
         let r = dr as usize;
-        draw_cell(x, y, c, r, piece_color(game.next.kind));
+        draw_cell(x, y, c, r, piece_color(game.next.kind), texture);
     }
     y += 4.0 * CELL + 16.0;
 
@@ -141,9 +193,9 @@ fn render_overlay(game: &Game) {
     }
 }
 
-pub fn render(game: &Game) {
+pub fn render(game: &Game, texture: &Texture2D) {
     clear_background(Color::from_rgba(10, 10, 18, 255));
-    render_board(game);
-    render_sidebar(game);
+    render_board(game, texture);
+    render_sidebar(game, texture);
     render_overlay(game);
 }
