@@ -50,6 +50,7 @@ pub struct Game {
     pub das_direction: Option<HorizDir>,
     pub das_counter: u32,
     pub rotation_buffer: Option<RotationDirection>,
+    pub rows_pending_compaction: Vec<usize>,
 }
 
 pub enum RotationDirection {
@@ -77,6 +78,7 @@ impl Game {
             das_direction: None,
             das_counter: 0,
             rotation_buffer: None,
+            rows_pending_compaction: Vec::new(),
         }
     }
 

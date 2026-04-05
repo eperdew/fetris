@@ -1514,6 +1514,46 @@ fn line_clear_delay_transitions_to_are() {
 }
 
 #[test]
+fn rows_pending_compaction_populated_during_delay() {
+    let mut game = Game::new();
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1); // fire lock → LineClearDelay
+    assert_eq!(
+        game.rows_pending_compaction,
+        vec![BOARD_ROWS - 1],
+        "cleared row index should be in rows_pending_compaction during LineClearDelay"
+    );
+}
+
+#[test]
+fn board_not_compacted_during_delay() {
+    let mut game = Game::new();
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1); // fire lock → LineClearDelay
+    assert!(
+        game.board[BOARD_ROWS - 1].iter().all(|c| c.is_some()),
+        "cleared row should still be present in board during LineClearDelay"
+    );
+}
+
+#[test]
+fn board_compacted_and_pending_cleared_after_delay() {
+    use crate::constants::LINE_CLEAR_DELAY;
+    let mut game = Game::new();
+    setup_line_clear(&mut game, 1);
+    idle(&mut game, 1); // fire lock → LineClearDelay
+    idle(&mut game, LINE_CLEAR_DELAY + 1); // exhaust delay → compaction → Spawning
+    assert!(
+        game.rows_pending_compaction.is_empty(),
+        "rows_pending_compaction should be empty after compaction"
+    );
+    assert!(
+        game.board[BOARD_ROWS - 1].iter().all(|c| c.is_none()),
+        "bottom row should be empty after compaction"
+    );
+}
+
+#[test]
 fn lock_timer_resets_when_gravity_drops_piece() {
     // Set up a piece one row above the floor with a partially-spent lock timer.
     // A single 20G tick should drop it, re-land it, and reset the timer.
