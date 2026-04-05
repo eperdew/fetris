@@ -2,6 +2,14 @@
 
 Reimplementation of [TGM1](https://tetris.wiki/Tetris_The_Grand_Master) in Rust, running in the terminal.
 
+## Development
+
+Install the pre-commit hook to enforce formatting:
+
+```sh
+cp hooks/pre-commit .git/hooks/pre-commit
+```
+
 ## Build & Run
 
 Build and run with cargo.

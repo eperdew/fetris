@@ -1,4 +1,7 @@
-use crate::constants::{ARE_DAS_FROZEN_FRAMES, DAS_CHARGE, DAS_REPEAT, LINE_CLEAR_DELAY, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
+use crate::constants::{
+    ARE_DAS_FROZEN_FRAMES, DAS_CHARGE, DAS_REPEAT, LINE_CLEAR_DELAY, LOCK_DELAY,
+    SPAWN_DELAY_NORMAL, gravity_g,
+};
 use crate::input::{GameKey, InputState};
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
@@ -12,12 +15,18 @@ pub type Board = [[Option<PieceKind>; BOARD_COLS]; BOARD_ROWS];
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PiecePhase {
     Falling,
-    Locking { ticks_left: u32 },
+    Locking {
+        ticks_left: u32,
+    },
     /// Line clear display phase (41 frames). DAS is frozen throughout.
     /// Transitions to Spawning{SPAWN_DELAY_NORMAL} when complete.
-    LineClearDelay { ticks_left: u32 },
+    LineClearDelay {
+        ticks_left: u32,
+    },
     /// ARE: piece spawn delay (30 frames). DAS charges during middle frames.
-    Spawning { ticks_left: u32 },
+    Spawning {
+        ticks_left: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -85,7 +94,9 @@ impl Game {
                 self.rotation_buffer = Some(RotationDirection::Counterclockwise);
             }
             if *ticks_left == 0 {
-                self.piece_phase = PiecePhase::Spawning { ticks_left: SPAWN_DELAY_NORMAL };
+                self.piece_phase = PiecePhase::Spawning {
+                    ticks_left: SPAWN_DELAY_NORMAL,
+                };
             } else {
                 *ticks_left -= 1;
             }
@@ -204,7 +215,9 @@ impl Game {
         self.gravity_accumulator %= 256;
         let row_before = self.active.row;
         for _ in 0..drops {
-            if !self.try_move(0, 1) { break; }
+            if !self.try_move(0, 1) {
+                break;
+            }
         }
         let moved_down = self.active.row > row_before;
 
@@ -340,9 +353,13 @@ impl Game {
         // DAS charge carries over to the next piece (DAS buffering).
         // das_direction and das_counter are intentionally NOT reset here.
         self.piece_phase = if lines_cleared > 0 {
-            PiecePhase::LineClearDelay { ticks_left: LINE_CLEAR_DELAY }
+            PiecePhase::LineClearDelay {
+                ticks_left: LINE_CLEAR_DELAY,
+            }
         } else {
-            PiecePhase::Spawning { ticks_left: SPAWN_DELAY_NORMAL }
+            PiecePhase::Spawning {
+                ticks_left: SPAWN_DELAY_NORMAL,
+            }
         };
     }
 
