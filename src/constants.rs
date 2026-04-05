@@ -43,6 +43,16 @@ pub const GRAVITY_TABLE: &[(u32, u32)] = &[
     (500, 5120), // 20G
 ];
 
+/// Horizontal velocity scale for line-clear particles, in pixels per frame per
+/// column-distance from board center. Negative dist → moves left, positive → right.
+pub const PARTICLE_VX_SCALE: f32 = 0.5;
+
+/// Initial downward velocity of line-clear particles, in pixels per frame.
+pub const PARTICLE_VY_INITIAL: f32 = 2.0;
+
+/// Downward acceleration of line-clear particles, in pixels per frame².
+pub const PARTICLE_GRAVITY: f32 = 0.8;
+
 pub fn gravity_g(level: u32) -> u32 {
     GRAVITY_TABLE
         .iter()
