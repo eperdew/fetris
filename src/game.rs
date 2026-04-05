@@ -96,6 +96,7 @@ impl Game {
                 self.rotation_buffer = Some(RotationDirection::Counterclockwise);
             }
             if *ticks_left == 0 {
+                self.compact_pending_rows();
                 self.piece_phase = PiecePhase::Spawning {
                     ticks_left: SPAWN_DELAY_NORMAL,
                 };
@@ -392,25 +393,33 @@ impl Game {
         if count == 0 {
             return 0;
         }
-        // Compact: keep non-full rows, then prepend empty rows at top
-        let mut new_board: Board = [[None; BOARD_COLS]; BOARD_ROWS];
-        let kept: Vec<[Option<PieceKind>; BOARD_COLS]> = self
-            .board
-            .iter()
-            .filter(|row| row.iter().any(|c| c.is_none()))
-            .copied()
-            .collect();
-        let offset = BOARD_ROWS - kept.len();
-        for (i, row) in kept.into_iter().enumerate() {
-            new_board[offset + i] = row;
-        }
-        self.board = new_board;
+        self.rows_pending_compaction = cleared;
         self.lines += count;
         self.level = (self.level + count).min(999);
         if self.level == 999 {
             self.game_won = true;
         }
         count
+    }
+
+    fn compact_pending_rows(&mut self) {
+        if self.rows_pending_compaction.is_empty() {
+            return;
+        }
+        let mut new_board: Board = [[None; BOARD_COLS]; BOARD_ROWS];
+        let kept: Vec<[Option<PieceKind>; BOARD_COLS]> = self
+            .board
+            .iter()
+            .enumerate()
+            .filter(|(r, _)| !self.rows_pending_compaction.contains(r))
+            .map(|(_, row)| *row)
+            .collect();
+        let offset = BOARD_ROWS - kept.len();
+        for (i, row) in kept.into_iter().enumerate() {
+            new_board[offset + i] = row;
+        }
+        self.board = new_board;
+        self.rows_pending_compaction.clear();
     }
 }
 

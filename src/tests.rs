@@ -1548,8 +1548,8 @@ fn board_compacted_and_pending_cleared_after_delay() {
         "rows_pending_compaction should be empty after compaction"
     );
     assert!(
-        game.board[BOARD_ROWS - 1].iter().all(|c| c.is_none()),
-        "bottom row should be empty after compaction"
+        !game.board.iter().any(|row| row.iter().all(|c| c.is_some())),
+        "no row should be fully filled after compaction"
     );
 }
 
