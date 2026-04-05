@@ -213,7 +213,8 @@ fn render_board(game: &Game, texture: &Texture2D) {
                     let initial_x = BOARD_X + c as f32 * CELL;
                     let initial_y = BOARD_Y + r as f32 * CELL;
                     let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
-                    let vx_raw = dist;
+                    let height = (BOARD_ROWS - r) as f32 / BOARD_ROWS as f32;
+                    let vx_raw = dist * height;
                     let vy_raw = (r + 1) as f32 / BOARD_ROWS as f32;
                     let len = (vx_raw * vx_raw + vy_raw * vy_raw).sqrt();
                     let vx = vx_raw / len * PARTICLE_INITIAL_SPEED;
