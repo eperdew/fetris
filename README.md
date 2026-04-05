@@ -1,6 +1,6 @@
 # fetris
 
-Reimplementation of [TGM1](https://tetris.wiki/Tetris_The_Grand_Master) in Rust, running in the terminal.
+Reimplementation of [TGM1](https://tetris.wiki/Tetris_The_Grand_Master) in Rust. **[Play in browser](https://eperdew.github.io/fetris/)**
 
 ## Development
 
@@ -18,8 +18,6 @@ Build and run with cargo.
 cargo run --release
 ```
 
-Minimum terminal size: 37×22.
-
 ## Controls
 
 | Key | Action |
@@ -29,4 +27,4 @@ Minimum terminal size: 37×22.
 | Space | Sonic drop |
 | X | Rotate CW |
 | Z | Rotate CCW |
-| Q / Esc | Quit |
+| Esc | Quit |

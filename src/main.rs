@@ -56,7 +56,7 @@ async fn main() {
     let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
     const TICK: f64 = 1.0 / 60.0;
     loop {
-        if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
+        if is_key_pressed(KeyCode::Escape) {
             break;
         }
         accumulator += get_frame_time() as f64;
