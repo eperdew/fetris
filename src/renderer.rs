@@ -1,6 +1,4 @@
-use crate::constants::{
-    LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_VX_SCALE, PARTICLE_VY_INITIAL,
-};
+use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEED};
 use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
 use crate::piece::PieceKind;
 use macroquad::prelude::*;
@@ -215,9 +213,13 @@ fn render_board(game: &Game, texture: &Texture2D) {
                     let initial_x = BOARD_X + c as f32 * CELL;
                     let initial_y = BOARD_Y + r as f32 * CELL;
                     let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
-                    let row_factor = 1.0 + (BOARD_ROWS - r) as f32 / BOARD_ROWS as f32;
-                    let px = initial_x + dist * PARTICLE_VX_SCALE * row_factor * t;
-                    let py = initial_y + PARTICLE_VY_INITIAL * t + 0.5 * PARTICLE_GRAVITY * t * t;
+                    let vx_raw = dist;
+                    let vy_raw = (r + 1) as f32 / BOARD_ROWS as f32;
+                    let len = (vx_raw * vx_raw + vy_raw * vy_raw).sqrt();
+                    let vx = vx_raw / len * PARTICLE_INITIAL_SPEED;
+                    let vy = vy_raw / len * PARTICLE_INITIAL_SPEED;
+                    let px = initial_x + vx * t;
+                    let py = initial_y + vy * t + 0.5 * PARTICLE_GRAVITY * t * t;
                     if px > -CELL && px < screen_width() && py > -CELL && py < screen_height() {
                         draw_cell_at(px, py, piece_color(*kind), texture);
                     }
