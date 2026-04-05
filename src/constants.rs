@@ -46,10 +46,10 @@ pub const GRAVITY_TABLE: &[(u32, u32)] = &[
 /// Initial speed of line-clear particles, in pixels per frame. The direction is
 /// determined by the cell's position: bottom-center points straight down; cells
 /// further from center or higher up have increasingly horizontal velocity vectors.
-pub const PARTICLE_INITIAL_SPEED: f32 = 4.0;
+pub const PARTICLE_INITIAL_SPEED: f32 = 1.0;
 
 /// Downward acceleration of line-clear particles, in pixels per frame².
-pub const PARTICLE_GRAVITY: f32 = 0.8;
+pub const PARTICLE_GRAVITY: f32 = 0.4;
 
 pub fn gravity_g(level: u32) -> u32 {
     GRAVITY_TABLE
