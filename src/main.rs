@@ -52,12 +52,24 @@ async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let cell_texture = renderer::make_cell_texture();
     let mut game = Game::new();
+    let mut accumulator = 0.0f64;
+    let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
+    const TICK: f64 = 1.0 / 60.0;
     loop {
         if is_key_pressed(KeyCode::Q) || is_key_pressed(KeyCode::Escape) {
             break;
         }
-        let input = build_input_state();
-        game.tick(&input);
+        accumulator += get_frame_time() as f64;
+        let frame_input = build_input_state();
+        pending_just_pressed.extend(&frame_input.just_pressed);
+        while accumulator >= TICK {
+            let input = InputState {
+                held: frame_input.held.clone(),
+                just_pressed: std::mem::take(&mut pending_just_pressed),
+            };
+            game.tick(&input);
+            accumulator -= TICK;
+        }
         renderer::render(&game, &cell_texture);
         next_frame().await;
     }
