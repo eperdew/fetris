@@ -102,8 +102,18 @@ impl Menu {
                     };
                 }
             }
+            2 => {
+                if input.confirm {
+                    self.screen = MenuScreen::HiScores;
+                }
+            }
+            3 => {
+                if input.confirm {
+                    self.screen = MenuScreen::Controls;
+                }
+            }
             _ => {}
         }
-        MenuResult::Stay // action items handled in Tasks 4–5
+        MenuResult::Stay
     }
 }
