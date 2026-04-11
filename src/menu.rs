@@ -85,6 +85,25 @@ impl Menu {
         if input.down {
             self.cursor = (self.cursor + 1).min(4);
         }
-        MenuResult::Stay // toggle / action logic added in Tasks 3–5
+        match self.cursor {
+            0 => {
+                if input.left || input.right {
+                    self.game_mode = match self.game_mode {
+                        GameMode::Master => GameMode::TwentyG,
+                        GameMode::TwentyG => GameMode::Master,
+                    };
+                }
+            }
+            1 => {
+                if input.left || input.right {
+                    self.rotation = match self.rotation {
+                        RotationSystem::Ars => RotationSystem::Srs,
+                        RotationSystem::Srs => RotationSystem::Ars,
+                    };
+                }
+            }
+            _ => {}
+        }
+        MenuResult::Stay // action items handled in Tasks 4–5
     }
 }
