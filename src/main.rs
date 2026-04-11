@@ -1,6 +1,7 @@
 mod constants;
 mod game;
 mod input;
+mod menu;
 mod piece;
 mod randomizer;
 mod renderer;
