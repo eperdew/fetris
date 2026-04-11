@@ -229,15 +229,8 @@ impl Game {
         }
 
         // Phase 6: Gravity (G/256 accumulator).
-        self.gravity_accumulator += gravity_g(self.game_mode, self.level);
-        let drops = self.gravity_accumulator / 256;
-        self.gravity_accumulator %= 256;
         let row_before = self.active.row;
-        for _ in 0..drops {
-            if !self.try_move(0, 1) {
-                break;
-            }
-        }
+        self.apply_gravity();
         let moved_down = self.active.row > row_before;
 
         // Phase 7: Lock state transitions.
@@ -264,6 +257,17 @@ impl Game {
                 }
             }
             PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. } => unreachable!(),
+        }
+    }
+
+    fn apply_gravity(&mut self) {
+        self.gravity_accumulator += gravity_g(self.game_mode, self.level);
+        let drops = self.gravity_accumulator / 256;
+        self.gravity_accumulator %= 256;
+        for _ in 0..drops {
+            if !self.try_move(0, 1) {
+                break;
+            }
         }
     }
 
@@ -367,6 +371,10 @@ impl Game {
         if !self.fits(self.active.col, self.active.row, self.active.rotation) {
             self.game_over = true;
         }
+
+        // Gravity applies immediately upon spawning. This is necessary so that we spawn
+        // on the ground in 20G.
+        self.apply_gravity();
     }
 
     fn clear_lines(&mut self) -> u32 {
