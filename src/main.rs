@@ -109,7 +109,7 @@ async fn main() {
                     game.tick(&input);
                     accumulator -= TICK;
                 }
-                if game.game_over && is_key_pressed(KeyCode::Space) {
+                if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {
                     new_state = Some(AppState::Menu(Menu::new()));
                 }
                 renderer::render(game, &cell_texture);
