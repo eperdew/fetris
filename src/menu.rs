@@ -53,10 +53,18 @@ impl Menu {
     }
 
     // Accessor methods needed by renderer and tests.
-    pub fn screen(&self) -> MenuScreen { self.screen }
-    pub fn cursor(&self) -> usize { self.cursor }
-    pub fn game_mode(&self) -> GameMode { self.game_mode }
-    pub fn rotation(&self) -> RotationSystem { self.rotation }
+    pub fn screen(&self) -> MenuScreen {
+        self.screen
+    }
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
+    pub fn game_mode(&self) -> GameMode {
+        self.game_mode
+    }
+    pub fn rotation(&self) -> RotationSystem {
+        self.rotation
+    }
 
     pub fn tick(&mut self, _input: &MenuInput) -> MenuResult {
         MenuResult::Stay // stub — logic added in Tasks 2–5
