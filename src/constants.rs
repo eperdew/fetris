@@ -1,3 +1,5 @@
+use crate::menu::GameMode;
+
 pub const LOCK_DELAY: u32 = 29; // N+1 countdown → 30 actual frames (TGM1)
 pub const SPAWN_DELAY_NORMAL: u32 = 29; // N+1 → 30 frames: ARE (TGM1)
 pub const LINE_CLEAR_DELAY: u32 = 40; // N+1 → 41 frames: line clear display phase before ARE (TGM1)
@@ -10,7 +12,7 @@ pub const DAS_REPEAT: u32 = 1; // TGM1: auto-shift fires every frame once charge
 /// (min_level, G_value) pairs in ascending order. G is in units of G/256 per tick.
 /// Source: TGM1 wiki. Notable: gravity resets to 4 at level 200, then ramps
 /// rapidly to 20G at level 500 with a brief ease-up at 420/450.
-pub const GRAVITY_TABLE: &[(u32, u32)] = &[
+pub const MASTER_GRAVITY_TABLE: &[(u32, u32)] = &[
     (0, 4),
     (30, 6),
     (35, 8),
@@ -51,11 +53,14 @@ pub const PARTICLE_INITIAL_SPEED: f32 = 1.0;
 /// Downward acceleration of line-clear particles, in pixels per frame².
 pub const PARTICLE_GRAVITY: f32 = 0.4;
 
-pub fn gravity_g(level: u32) -> u32 {
-    GRAVITY_TABLE
-        .iter()
-        .rev()
-        .find(|(threshold, _)| level >= *threshold)
-        .map(|(_, g)| *g)
-        .unwrap_or(4)
+pub fn gravity_g(game_mode: GameMode, level: u32) -> u32 {
+    match game_mode {
+        GameMode::Master => MASTER_GRAVITY_TABLE
+            .iter()
+            .rev()
+            .find(|(threshold, _)| level >= *threshold)
+            .map(|(_, g)| *g)
+            .unwrap_or(4),
+        GameMode::TwentyG => 20 * 256,
+    }
 }

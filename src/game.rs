@@ -41,6 +41,7 @@ pub struct Game {
     pub board: Board,
     pub active: Piece,
     pub rotation_system: RotationSystem,
+    pub game_mode: GameMode,
     pub next: Piece,
     pub level: u32,
     pub lines: u32,
@@ -62,8 +63,7 @@ pub enum RotationDirection {
 }
 
 impl Game {
-    // TODO: Use game mode
-    pub fn new(_mode: GameMode, rotation_system: RotationSystem) -> Self {
+    pub fn new(game_mode: GameMode, rotation_system: RotationSystem) -> Self {
         let mut randomizer = Randomizer::new();
         let active = Piece::new(randomizer.next());
         let next = Piece::new(randomizer.next());
@@ -71,6 +71,7 @@ impl Game {
             board: [[None; BOARD_COLS]; BOARD_ROWS],
             active,
             rotation_system,
+            game_mode,
             next,
             level: 0,
             lines: 0,
@@ -218,7 +219,7 @@ impl Game {
         }
 
         // Phase 6: Gravity (G/256 accumulator).
-        self.gravity_accumulator += gravity_g(self.level);
+        self.gravity_accumulator += gravity_g(self.game_mode, self.level);
         let drops = self.gravity_accumulator / 256;
         self.gravity_accumulator %= 256;
         let row_before = self.active.row;
