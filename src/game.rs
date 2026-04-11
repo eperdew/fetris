@@ -3,6 +3,7 @@ use crate::constants::{
     SPAWN_DELAY_NORMAL, gravity_g,
 };
 use crate::input::{GameKey, InputState};
+use crate::judge::{Grade, Judge, JudgeEvent};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
@@ -42,6 +43,7 @@ pub struct Game {
     pub active: Piece,
     pub rotation_system: RotationSystem,
     pub game_mode: GameMode,
+    pub judge: Judge,
     pub next: Piece,
     pub level: u32,
     pub lines: u32,
@@ -72,6 +74,7 @@ impl Game {
             active,
             rotation_system,
             game_mode,
+            judge: Judge::new(),
             next,
             level: 0,
             lines: 0,
@@ -292,6 +295,10 @@ impl Game {
             .all(|(dc, dr)| self.unoccupied(col + dc, row + dr))
     }
 
+    fn board_is_empty(&self) -> bool {
+        self.board.iter().all(|row| row.iter().all(Option::is_none))
+    }
+
     fn lock_piece(&mut self, input: &InputState) {
         for (dc, dr) in self.active.cells() {
             let c = (self.active.col + dc) as usize;
@@ -318,6 +325,18 @@ impl Game {
                 ticks_left: SPAWN_DELAY_NORMAL,
             }
         };
+
+        // Update the judge
+        let judge_event = if lines_cleared > 0 {
+            JudgeEvent::ClearedLines {
+                level: self.level,
+                cleared_playfield: self.board_is_empty(),
+                num_lines: lines_cleared,
+            }
+        } else {
+            JudgeEvent::LockedWithoutClear
+        };
+        self.judge.on_event(&judge_event);
     }
 
     fn spawn_piece(&mut self) {
@@ -374,6 +393,14 @@ impl Game {
         }
         self.board = new_board;
         self.rows_pending_compaction.clear();
+    }
+
+    pub fn score(&self) -> u32 {
+        self.judge.score()
+    }
+
+    pub fn grade(&self) -> Grade {
+        self.judge.grade()
     }
 }
 

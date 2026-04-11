@@ -264,11 +264,15 @@ fn render_sidebar(game: &Game, texture: &Texture2D) {
     }
     y += 4.0 * CELL + 16.0;
 
-    draw_text(&format!("LV  {}", game.level), x, y, 18.0, WHITE);
+    draw_text(&format!("Level {}", game.level), x, y, 18.0, WHITE);
     y += 26.0;
-    draw_text(&format!("LN  {}", game.lines), x, y, 18.0, WHITE);
+    draw_text(&format!("Line  {}", game.lines), x, y, 18.0, WHITE);
     y += 26.0;
     draw_text(&format_time(game.ticks_elapsed), x, y, 18.0, WHITE);
+    y += 26.0;
+    draw_text(&format!("Score {}", game.score()), x, y, 18.0, WHITE);
+    y += 26.0;
+    draw_text(&format!("Grade {}", game.grade()), x, y, 18.0, WHITE);
 }
 
 fn render_overlay(game: &Game) {
