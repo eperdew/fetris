@@ -1,5 +1,6 @@
 use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEED};
 use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
+use crate::menu::{GameMode, Menu, MenuScreen, RotationSystem};
 use crate::piece::PieceKind;
 use macroquad::prelude::*;
 
@@ -291,4 +292,81 @@ pub fn render(game: &Game, texture: &Texture2D) {
     render_board(game, texture);
     render_sidebar(game, texture);
     render_overlay(game);
+}
+
+fn maybe_bracket(s: &str, active: bool) -> String {
+    if active {
+        format!("< {} >", s)
+    } else {
+        format!("  {}  ", s)
+    }
+}
+
+fn draw_centered(text: &str, y: f32, font_size: f32, color: Color) {
+    let dims = measure_text(text, None, font_size as u16, 1.0);
+    draw_text(
+        text,
+        (screen_width() - dims.width) / 2.0,
+        y,
+        font_size,
+        color,
+    );
+}
+
+fn render_main_menu(menu: &Menu) {
+    const FONT: f32 = 24.0;
+    const LH: f32 = 36.0;
+
+    let mode_str = match menu.game_mode() {
+        GameMode::Master => "MASTER",
+        GameMode::TwentyG => "20G",
+    };
+    let rot_str = match menu.rotation() {
+        RotationSystem::Ars => "ARS",
+        RotationSystem::Srs => "SRS",
+    };
+
+    let mode_label = maybe_bracket(mode_str, menu.cursor() == 0);
+    let rot_label  = maybe_bracket(rot_str,  menu.cursor() == 1);
+    let hi_label   = maybe_bracket("HI SCORES", menu.cursor() == 2);
+    let ctrl_label = maybe_bracket("CONTROLS",  menu.cursor() == 3);
+    let start_label = maybe_bracket("START",    menu.cursor() == 4);
+
+    let lines: &[Option<(&str, Color)>] = &[
+        Some(("GAME MODE", GRAY)),
+        Some((&mode_label, WHITE)),
+        None,
+        Some(("ROTATION", GRAY)),
+        Some((&rot_label, WHITE)),
+        None,
+        Some((&hi_label, WHITE)),
+        Some((&ctrl_label, WHITE)),
+        None,
+        Some((&start_label, WHITE)),
+    ];
+
+    let total_h = lines.len() as f32 * LH;
+    let start_y = (screen_height() - total_h) / 2.0 + LH;
+
+    for (i, line) in lines.iter().enumerate() {
+        if let Some((text, color)) = line {
+            draw_centered(text, start_y + i as f32 * LH, FONT, *color);
+        }
+    }
+}
+
+fn render_subscreen(title: &str) {
+    const FONT: f32 = 24.0;
+    let cy = screen_height() / 2.0;
+    draw_centered(title, cy - 20.0, FONT, WHITE);
+    draw_centered("BKSP to go back", cy + 20.0, 18.0, GRAY);
+}
+
+pub fn render_menu(menu: &Menu) {
+    clear_background(Color::from_rgba(10, 10, 18, 255));
+    match menu.screen() {
+        MenuScreen::Main => render_main_menu(menu),
+        MenuScreen::HiScores => render_subscreen("HI SCORES"),
+        MenuScreen::Controls => render_subscreen("CONTROLS"),
+    }
 }
