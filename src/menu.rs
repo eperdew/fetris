@@ -112,7 +112,15 @@ impl Menu {
                     self.screen = MenuScreen::Controls;
                 }
             }
-            _ => {}
+            4 => {
+                if input.confirm {
+                    return MenuResult::StartGame {
+                        mode: self.game_mode,
+                        rotation: self.rotation,
+                    };
+                }
+            }
+            _ => unreachable!(),
         }
         MenuResult::Stay
     }

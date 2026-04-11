@@ -1773,7 +1773,7 @@ fn i_right_well_clears_middle_2() {
 
 #[cfg(test)]
 mod menu_tests {
-    use crate::menu::{Menu, MenuInput};
+    use crate::menu::{Menu, MenuInput, MenuResult};
 
     fn input() -> MenuInput {
         MenuInput::default()
@@ -1899,9 +1899,18 @@ mod menu_tests {
     #[test]
     fn confirm_on_hiscores_item_opens_hiscores() {
         let mut m = Menu::new();
-        m.tick(&MenuInput { down: true, ..input() }); // cursor=1
-        m.tick(&MenuInput { down: true, ..input() }); // cursor=2 (HI SCORES)
-        m.tick(&MenuInput { confirm: true, ..input() });
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        }); // cursor=1
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        }); // cursor=2 (HI SCORES)
+        m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        });
         assert_eq!(m.screen(), crate::menu::MenuScreen::HiScores);
     }
 
@@ -1909,36 +1918,111 @@ mod menu_tests {
     fn confirm_on_controls_item_opens_controls() {
         let mut m = Menu::new();
         for _ in 0..3 {
-            m.tick(&MenuInput { down: true, ..input() }); // cursor=3
+            m.tick(&MenuInput {
+                down: true,
+                ..input()
+            }); // cursor=3
         }
-        m.tick(&MenuInput { confirm: true, ..input() });
+        m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        });
         assert_eq!(m.screen(), crate::menu::MenuScreen::Controls);
     }
 
     #[test]
     fn back_from_hiscores_returns_to_main() {
         let mut m = Menu::new();
-        m.tick(&MenuInput { down: true, ..input() });
-        m.tick(&MenuInput { down: true, ..input() }); // cursor=2
-        m.tick(&MenuInput { confirm: true, ..input() }); // open HiScores
-        m.tick(&MenuInput { back: true, ..input() });
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        });
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        }); // cursor=2
+        m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        }); // open HiScores
+        m.tick(&MenuInput {
+            back: true,
+            ..input()
+        });
         assert_eq!(m.screen(), crate::menu::MenuScreen::Main);
     }
 
     #[test]
     fn cursor_preserved_after_returning_from_subscreen() {
         let mut m = Menu::new();
-        m.tick(&MenuInput { down: true, ..input() });
-        m.tick(&MenuInput { down: true, ..input() }); // cursor=2
-        m.tick(&MenuInput { confirm: true, ..input() }); // open HiScores
-        m.tick(&MenuInput { back: true, ..input() });
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        });
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        }); // cursor=2
+        m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        }); // open HiScores
+        m.tick(&MenuInput {
+            back: true,
+            ..input()
+        });
         assert_eq!(m.cursor(), 2);
     }
 
     #[test]
     fn confirm_on_toggle_item_does_not_open_subscreen() {
         let mut m = Menu::new(); // cursor=0
-        m.tick(&MenuInput { confirm: true, ..input() });
+        m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        });
         assert_eq!(m.screen(), crate::menu::MenuScreen::Main);
+    }
+
+    #[test]
+    fn start_returns_start_game_with_defaults() {
+        let mut m = Menu::new();
+        for _ in 0..4 {
+            m.tick(&MenuInput { down: true, ..input() }); // cursor=4
+        }
+        let result = m.tick(&MenuInput { confirm: true, ..input() });
+        assert!(matches!(
+            result,
+            MenuResult::StartGame {
+                mode: crate::menu::GameMode::Master,
+                rotation: crate::menu::RotationSystem::Ars,
+            }
+        ));
+    }
+
+    #[test]
+    fn start_returns_selected_settings() {
+        let mut m = Menu::new();
+        m.tick(&MenuInput { right: true, ..input() }); // game mode → TwentyG (cursor=0)
+        m.tick(&MenuInput { down: true, ..input() });  // cursor=1
+        m.tick(&MenuInput { right: true, ..input() }); // rotation → Srs
+        for _ in 0..3 {
+            m.tick(&MenuInput { down: true, ..input() }); // cursor=4
+        }
+        let result = m.tick(&MenuInput { confirm: true, ..input() });
+        assert!(matches!(
+            result,
+            MenuResult::StartGame {
+                mode: crate::menu::GameMode::TwentyG,
+                rotation: crate::menu::RotationSystem::Srs,
+            }
+        ));
+    }
+
+    #[test]
+    fn confirm_on_non_start_item_returns_stay() {
+        let mut m = Menu::new(); // cursor=0
+        let result = m.tick(&MenuInput { confirm: true, ..input() });
+        assert!(matches!(result, MenuResult::Stay));
     }
 }
