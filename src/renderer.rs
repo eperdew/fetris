@@ -327,10 +327,10 @@ fn render_main_menu(menu: &Menu) {
     };
 
     let mode_label = maybe_bracket(mode_str, menu.cursor() == 0);
-    let rot_label  = maybe_bracket(rot_str,  menu.cursor() == 1);
-    let hi_label   = maybe_bracket("HI SCORES", menu.cursor() == 2);
-    let ctrl_label = maybe_bracket("CONTROLS",  menu.cursor() == 3);
-    let start_label = maybe_bracket("START",    menu.cursor() == 4);
+    let rot_label = maybe_bracket(rot_str, menu.cursor() == 1);
+    let hi_label = maybe_bracket("HI SCORES", menu.cursor() == 2);
+    let ctrl_label = maybe_bracket("CONTROLS", menu.cursor() == 3);
+    let start_label = maybe_bracket("START", menu.cursor() == 4);
 
     let lines: &[Option<(&str, Color)>] = &[
         Some(("GAME MODE", GRAY)),

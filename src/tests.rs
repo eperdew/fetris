@@ -1988,9 +1988,15 @@ mod menu_tests {
     fn start_returns_start_game_with_defaults() {
         let mut m = Menu::new();
         for _ in 0..4 {
-            m.tick(&MenuInput { down: true, ..input() }); // cursor=4
+            m.tick(&MenuInput {
+                down: true,
+                ..input()
+            }); // cursor=4
         }
-        let result = m.tick(&MenuInput { confirm: true, ..input() });
+        let result = m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        });
         assert!(matches!(
             result,
             MenuResult::StartGame {
@@ -2003,13 +2009,28 @@ mod menu_tests {
     #[test]
     fn start_returns_selected_settings() {
         let mut m = Menu::new();
-        m.tick(&MenuInput { right: true, ..input() }); // game mode → TwentyG (cursor=0)
-        m.tick(&MenuInput { down: true, ..input() });  // cursor=1
-        m.tick(&MenuInput { right: true, ..input() }); // rotation → Srs
+        m.tick(&MenuInput {
+            right: true,
+            ..input()
+        }); // game mode → TwentyG (cursor=0)
+        m.tick(&MenuInput {
+            down: true,
+            ..input()
+        }); // cursor=1
+        m.tick(&MenuInput {
+            right: true,
+            ..input()
+        }); // rotation → Srs
         for _ in 0..3 {
-            m.tick(&MenuInput { down: true, ..input() }); // cursor=4
+            m.tick(&MenuInput {
+                down: true,
+                ..input()
+            }); // cursor=4
         }
-        let result = m.tick(&MenuInput { confirm: true, ..input() });
+        let result = m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        });
         assert!(matches!(
             result,
             MenuResult::StartGame {
@@ -2022,7 +2043,10 @@ mod menu_tests {
     #[test]
     fn confirm_on_non_start_item_returns_stay() {
         let mut m = Menu::new(); // cursor=0
-        let result = m.tick(&MenuInput { confirm: true, ..input() });
+        let result = m.tick(&MenuInput {
+            confirm: true,
+            ..input()
+        });
         assert!(matches!(result, MenuResult::Stay));
     }
 }
