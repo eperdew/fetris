@@ -1770,3 +1770,47 @@ fn i_right_well_clears_middle_2() {
     20└────────────────────┘
     ");
 }
+
+#[cfg(test)]
+mod menu_tests {
+    use crate::menu::{Menu, MenuInput, MenuResult};
+
+    fn input() -> MenuInput { MenuInput::default() }
+
+    #[test]
+    fn cursor_starts_at_zero() {
+        assert_eq!(Menu::new().cursor(), 0);
+    }
+
+    #[test]
+    fn cursor_moves_down() {
+        let mut m = Menu::new();
+        m.tick(&MenuInput { down: true, ..input() });
+        assert_eq!(m.cursor(), 1);
+    }
+
+    #[test]
+    fn cursor_clamps_at_top() {
+        let mut m = Menu::new();
+        m.tick(&MenuInput { up: true, ..input() });
+        assert_eq!(m.cursor(), 0);
+    }
+
+    #[test]
+    fn cursor_clamps_at_bottom() {
+        let mut m = Menu::new();
+        for _ in 0..10 {
+            m.tick(&MenuInput { down: true, ..input() });
+        }
+        assert_eq!(m.cursor(), 4);
+    }
+
+    #[test]
+    fn cursor_moves_up_after_down() {
+        let mut m = Menu::new();
+        m.tick(&MenuInput { down: true, ..input() });
+        m.tick(&MenuInput { down: true, ..input() });
+        m.tick(&MenuInput { up: true, ..input() });
+        assert_eq!(m.cursor(), 1);
+    }
+}

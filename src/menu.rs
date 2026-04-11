@@ -66,7 +66,25 @@ impl Menu {
         self.rotation
     }
 
-    pub fn tick(&mut self, _input: &MenuInput) -> MenuResult {
-        MenuResult::Stay // stub — logic added in Tasks 2–5
+    pub fn tick(&mut self, input: &MenuInput) -> MenuResult {
+        match self.screen {
+            MenuScreen::Main => self.tick_main(input),
+            MenuScreen::HiScores | MenuScreen::Controls => {
+                if input.back {
+                    self.screen = MenuScreen::Main;
+                }
+                MenuResult::Stay
+            }
+        }
+    }
+
+    fn tick_main(&mut self, input: &MenuInput) -> MenuResult {
+        if input.up {
+            self.cursor = self.cursor.saturating_sub(1);
+        }
+        if input.down {
+            self.cursor = (self.cursor + 1).min(4);
+        }
+        MenuResult::Stay // toggle / action logic added in Tasks 3–5
     }
 }
