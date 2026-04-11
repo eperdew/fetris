@@ -93,6 +93,7 @@ impl fmt::Display for Grade {
     }
 }
 
+// TODO: Add tests for judge specifically.
 impl Judge {
     pub fn on_event(&mut self, event: &JudgeEvent) {
         match *event {
