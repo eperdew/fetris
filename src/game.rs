@@ -57,6 +57,8 @@ pub struct Game {
     pub das_counter: u32,
     pub rotation_buffer: Option<RotationDirection>,
     pub rows_pending_compaction: Vec<usize>,
+    pub soft_drop_frames: u32,
+    pub sonic_drop_rows: u32,
 }
 
 pub enum RotationDirection {
@@ -88,6 +90,8 @@ impl Game {
             das_counter: 0,
             rotation_buffer: None,
             rows_pending_compaction: Vec::new(),
+            soft_drop_frames: 0,
+            sonic_drop_rows: 0,
         }
     }
 
@@ -200,7 +204,9 @@ impl Game {
 
         // Phase 4: Sonic drop (Space) — drop to floor, enter lock delay.
         if input.just_pressed.contains(&GameKey::SonicDrop) {
+            let row_before = self.active.row;
             while self.try_move(0, 1) {}
+            self.sonic_drop_rows += (self.active.row - row_before) as u32;
             self.piece_phase = PiecePhase::Locking {
                 ticks_left: LOCK_DELAY,
             };
@@ -209,6 +215,7 @@ impl Game {
 
         // Phase 5: Soft drop (Down) — bypass lock delay or advance gravity.
         if input.held.contains(&GameKey::SoftDrop) {
+            self.soft_drop_frames += 1;
             match self.piece_phase {
                 PiecePhase::Locking { .. } => {
                     self.lock_piece(input);
@@ -332,10 +339,8 @@ impl Game {
                 level: self.level,
                 cleared_playfield: self.board_is_empty(),
                 num_lines: lines_cleared,
-                // TODO: Actually track this, instead of using 1 always.
-                frames_soft_drop_held: 1,
-                // TODO: Actually track this, instead of using 0 always.
-                sonic_drop_rows: 0,
+                frames_soft_drop_held: self.soft_drop_frames,
+                sonic_drop_rows: self.sonic_drop_rows,
             }
         } else {
             JudgeEvent::LockedWithoutClear
@@ -353,6 +358,8 @@ impl Game {
         self.active.row = 0;
         self.gravity_accumulator = 0;
         self.piece_phase = PiecePhase::Falling;
+        self.soft_drop_frames = 0;
+        self.sonic_drop_rows = 0;
         // Apply buffered rotation if any.
         if let Some(dir) = self.rotation_buffer.take() {
             self.try_rotate(dir);
