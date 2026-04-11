@@ -332,6 +332,10 @@ impl Game {
                 level: self.level,
                 cleared_playfield: self.board_is_empty(),
                 num_lines: lines_cleared,
+                // TODO: Actually track this, instead of using 1 always.
+                frames_soft_drop_held: 1,
+                // TODO: Actually track this, instead of using 0 always.
+                sonic_drop_rows: 0,
             }
         } else {
             JudgeEvent::LockedWithoutClear

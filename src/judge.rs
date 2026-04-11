@@ -10,6 +10,8 @@ pub enum JudgeEvent {
         level: u32,
         cleared_playfield: bool,
         num_lines: u32,
+        frames_soft_drop_held: u32,
+        sonic_drop_rows: u32,
     },
 }
 
@@ -95,17 +97,23 @@ impl fmt::Display for Grade {
 
 // TODO: Add tests for judge specifically.
 impl Judge {
+    // See https://tetris.wiki/Tetris_The_Grand_Master#Scoring_formula
     pub fn on_event(&mut self, event: &JudgeEvent) {
         match *event {
-            JudgeEvent::LockedWithoutClear => self.combo = 0,
+            JudgeEvent::LockedWithoutClear => self.combo = 1,
             JudgeEvent::ClearedLines {
                 level,
                 cleared_playfield,
                 num_lines,
+                frames_soft_drop_held,
+                sonic_drop_rows,
             } => {
                 self.combo += 2 * num_lines - 2;
                 let bravo = if cleared_playfield { 4 } else { 1 };
-                self.score += (level + 3) / 4 * num_lines * self.combo * bravo;
+                self.score += ((level + 3) / 4 + frames_soft_drop_held + 2 * sonic_drop_rows)
+                    * num_lines
+                    * self.combo
+                    * bravo;
             }
         }
     }
@@ -119,6 +127,6 @@ impl Judge {
     }
 
     pub fn new() -> Self {
-        Self { combo: 0, score: 0 }
+        Self { combo: 1, score: 0 }
     }
 }
