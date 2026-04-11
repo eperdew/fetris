@@ -11,7 +11,13 @@ mod tests;
 use game::Game;
 use input::{GameKey, InputState};
 use macroquad::prelude::*;
+use menu::{Menu, MenuInput, MenuResult, MenuScreen};
 use std::collections::HashSet;
+
+enum AppState {
+    Menu(Menu),
+    Playing(Game),
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -48,30 +54,76 @@ fn build_input_state() -> InputState {
     InputState { held, just_pressed }
 }
 
+fn build_menu_input() -> MenuInput {
+    MenuInput {
+        up: is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::K),
+        down: is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::J),
+        left: is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::H),
+        right: is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::L),
+        confirm: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Enter),
+        back: is_key_pressed(KeyCode::Backspace),
+    }
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let cell_texture = renderer::make_cell_texture();
-    let mut game = Game::new();
+    let mut state = AppState::Menu(Menu::new());
     let mut accumulator = 0.0f64;
     let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
     const TICK: f64 = 1.0 / 60.0;
+
     loop {
-        if is_key_pressed(KeyCode::Escape) {
-            break;
+        let escape = is_key_pressed(KeyCode::Escape);
+        let mut new_state: Option<AppState> = None;
+
+        match &mut state {
+            AppState::Menu(menu) => {
+                // Escape on the main screen quits; on a sub-screen it goes back.
+                let mut input = build_menu_input();
+                if escape {
+                    if menu.screen() == MenuScreen::Main {
+                        break;
+                    } else {
+                        input.back = true;
+                    }
+                }
+                if let MenuResult::StartGame { .. } = menu.tick(&input) {
+                    new_state = Some(AppState::Playing(Game::new()));
+                }
+                renderer::render_menu(menu);
+            }
+            AppState::Playing(game) => {
+                if escape {
+                    break;
+                }
+                accumulator += get_frame_time() as f64;
+                let frame_input = build_input_state();
+                pending_just_pressed.extend(&frame_input.just_pressed);
+                while accumulator >= TICK {
+                    let input = InputState {
+                        held: frame_input.held.clone(),
+                        just_pressed: std::mem::take(&mut pending_just_pressed),
+                    };
+                    game.tick(&input);
+                    accumulator -= TICK;
+                }
+                if game.game_over && is_key_pressed(KeyCode::Space) {
+                    new_state = Some(AppState::Menu(Menu::new()));
+                }
+                renderer::render(game, &cell_texture);
+            }
         }
-        accumulator += get_frame_time() as f64;
-        let frame_input = build_input_state();
-        pending_just_pressed.extend(&frame_input.just_pressed);
-        while accumulator >= TICK {
-            let input = InputState {
-                held: frame_input.held.clone(),
-                just_pressed: std::mem::take(&mut pending_just_pressed),
-            };
-            game.tick(&input);
-            accumulator -= TICK;
+
+        if let Some(s) = new_state {
+            if matches!(s, AppState::Playing(_)) {
+                accumulator = 0.0;
+                pending_just_pressed.clear();
+            }
+            state = s;
         }
-        renderer::render(&game, &cell_texture);
+
         next_frame().await;
     }
 }
