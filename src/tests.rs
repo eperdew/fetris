@@ -259,6 +259,7 @@ fn movement_snap(kind: PieceKind, key: GameKey) -> String {
 
 #[test]
 fn gravity_g_lookup() {
+    let gravity_g = |level| gravity_g(GameMode::Master, level);
     assert_eq!(gravity_g(0), 4, "level 0 → 4 G/256");
     assert_eq!(gravity_g(29), 4, "level 29 → still 4 G/256");
     assert_eq!(gravity_g(30), 6, "level 30 → 6 G/256");
