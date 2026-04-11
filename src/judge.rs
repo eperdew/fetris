@@ -104,7 +104,7 @@ impl Judge {
             } => {
                 self.combo += 2 * num_lines - 2;
                 let bravo = if cleared_playfield { 4 } else { 1 };
-                self.score += (num_lines + level + 3) / 4 * num_lines * self.combo * bravo;
+                self.score += (level + 3) / 4 * num_lines * self.combo * bravo;
             }
         }
     }
