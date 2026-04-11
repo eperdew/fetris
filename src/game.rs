@@ -3,8 +3,10 @@ use crate::constants::{
     SPAWN_DELAY_NORMAL, gravity_g,
 };
 use crate::input::{GameKey, InputState};
+use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
+use crate::rotation_system::RotationSystem;
 
 pub const BOARD_COLS: usize = 10;
 pub const BOARD_ROWS: usize = 20;
@@ -38,6 +40,7 @@ pub enum HorizDir {
 pub struct Game {
     pub board: Board,
     pub active: Piece,
+    pub rotation_system: RotationSystem,
     pub next: Piece,
     pub level: u32,
     pub lines: u32,
@@ -59,13 +62,15 @@ pub enum RotationDirection {
 }
 
 impl Game {
-    pub fn new() -> Self {
+    // TODO: Use game mode
+    pub fn new(_mode: GameMode, rotation_system: RotationSystem) -> Self {
         let mut randomizer = Randomizer::new();
         let active = Piece::new(randomizer.next());
         let next = Piece::new(randomizer.next());
         Self {
             board: [[None; BOARD_COLS]; BOARD_ROWS],
             active,
+            rotation_system,
             next,
             level: 0,
             lines: 0,
@@ -265,66 +270,14 @@ impl Game {
     }
 
     fn try_rotate(&mut self, direction: RotationDirection) {
-        let offset = match direction {
-            RotationDirection::Clockwise => 1,
-            RotationDirection::Counterclockwise => 3,
-        };
-        let new_rot = (self.active.rotation + offset) % 4;
-
-        // 1. Basic rotation.
-        if self.fits(self.active.col, self.active.row, new_rot) {
-            self.active.rotation = new_rot;
-            return;
-        }
-
-        // I-piece never kicks.
-        if self.active.kind == PieceKind::I {
-            return;
-        }
-
-        // L/J/T center-column rule: from a 3-wide orientation (rot 0 or 2),
-        // if the first destination-rotation cell that collides with the board
-        // (scanning left-to-right, top-to-bottom) is in the center column,
-        // suppress kicks for this direction.
-        if matches!(self.active.kind, PieceKind::L | PieceKind::J | PieceKind::T)
-            && self.active.rotation % 2 == 0
-            && self.center_column_blocked_first(new_rot)
-        {
-            return;
-        }
-
-        // 2. Kick right, then left.
-        for dcol in [1i32, -1] {
-            if self.fits(self.active.col + dcol, self.active.row, new_rot) {
-                self.active.col += dcol;
-                self.active.rotation = new_rot;
-                return;
-            }
-        }
-    }
-
-    /// Scans the destination rotation's cells left-to-right, top-to-bottom.
-    /// Returns true if the first destination cell that collides with the board
-    /// is in the center column (dc == 1), meaning a kick would not escape the obstacle.
-    fn center_column_blocked_first(&self, new_rot: usize) -> bool {
-        let dest_cells = crate::piece::cells(self.active.kind, new_rot);
-        for dr in 0..3i32 {
-            for dc in 0..3i32 {
-                if dest_cells.iter().any(|&(ddc, ddr)| ddc == dc && ddr == dr)
-                    && !self.unoccupied(self.active.col + dc, self.active.row + dr)
-                {
-                    return dc == 1;
-                }
-            }
-        }
-        false
+        self.rotation_system.try_rotate(self, direction);
     }
 
     // A cell is unoccupied if
     //
     // 1. It is out of bounds, or...
     // 2. It is in bounds, but the cell is empty.
-    fn unoccupied(&self, col: i32, row: i32) -> bool {
+    pub fn unoccupied(&self, col: i32, row: i32) -> bool {
         self.board
             .get(row as usize)
             .and_then(|row| row.get(col as usize))
@@ -332,7 +285,7 @@ impl Game {
             .unwrap_or(false)
     }
 
-    fn fits(&self, col: i32, row: i32, rotation: usize) -> bool {
+    pub fn fits(&self, col: i32, row: i32, rotation: usize) -> bool {
         crate::piece::cells(self.active.kind, rotation)
             .iter()
             .all(|(dc, dr)| self.unoccupied(col + dc, row + dr))

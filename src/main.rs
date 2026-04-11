@@ -5,6 +5,7 @@ mod menu;
 mod piece;
 mod randomizer;
 mod renderer;
+mod rotation_system;
 #[cfg(test)]
 mod tests;
 
@@ -89,8 +90,8 @@ async fn main() {
                         input.back = true;
                     }
                 }
-                if let MenuResult::StartGame { .. } = menu.tick(&input) {
-                    new_state = Some(AppState::Playing(Game::new()));
+                if let MenuResult::StartGame { mode, rotation } = menu.tick(&input) {
+                    new_state = Some(AppState::Playing(Game::new(mode, rotation)));
                 }
                 renderer::render_menu(menu);
             }

@@ -1,7 +1,8 @@
 use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEED};
 use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
-use crate::menu::{GameMode, Menu, MenuScreen, RotationSystem};
+use crate::menu::{GameMode, Menu, MenuScreen};
 use crate::piece::PieceKind;
+use crate::rotation_system::RotationSystem;
 use macroquad::prelude::*;
 
 const CELL: f32 = 32.0;

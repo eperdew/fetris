@@ -1,13 +1,9 @@
+use crate::rotation_system::RotationSystem;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GameMode {
     Master,
     TwentyG,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum RotationSystem {
-    Ars,
-    Srs,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
