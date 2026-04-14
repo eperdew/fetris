@@ -3,17 +3,25 @@ use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_inc
 use crate::input::{GameKey, InputState};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
-use crate::rotation_system::RotationSystem;
+use crate::rotation_system::{Ars, Srs};
 use std::collections::HashSet;
 
-fn make_game(kind: PieceKind) -> Game {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+fn make_game_with(rs: Box<dyn crate::rotation_system::RotationSystem>, kind: PieceKind) -> Game {
+    let mut game = Game::new(GameMode::Master, rs);
     game.board = [[None; BOARD_COLS]; BOARD_ROWS];
     game.active = Piece::new(kind);
     game.active.col = 3;
     game.active.row = 8;
     game.next = Piece::new(kind);
     game
+}
+
+fn make_game(kind: PieceKind) -> Game {
+    make_game_with(Box::new(Ars), kind)
+}
+
+fn make_srs_game(kind: PieceKind) -> Game {
+    make_game_with(Box::new(Srs), kind)
 }
 
 /// Simulate a single keypress (held + just_pressed for one tick).
@@ -63,8 +71,8 @@ fn board_from_ascii(diagram: &str) -> Board {
     board
 }
 
-fn rotation_snap(kind: PieceKind) -> String {
-    let mut game = make_game(kind);
+fn rotation_snap(kind: PieceKind, make: fn(PieceKind) -> Game) -> String {
+    let mut game = make(kind);
     let mut boards = Vec::new();
     for rot in 0..4 {
         let prev = active_abs(&game);
@@ -81,8 +89,8 @@ fn rotation_snap(kind: PieceKind) -> String {
 /// those cells show `. `; current active piece shows `[]`; overlap shows `[]` (current wins).
 fn board_lines(game: &Game, prev_cells: &[(i32, i32)]) -> Vec<String> {
     let active: [(i32, i32); 4] = game
-        .active
-        .cells()
+        .rotation_system
+        .cells(game.active.kind, game.active.rotation)
         .map(|(dc, dr)| (game.active.col + dc, game.active.row + dr));
 
     let mut lines = vec!["  ┌────────────────────┐".to_string()];
@@ -115,8 +123,8 @@ fn board_lines(game: &Game, prev_cells: &[(i32, i32)]) -> Vec<String> {
 }
 
 fn active_abs(game: &Game) -> Vec<(i32, i32)> {
-    game.active
-        .cells()
+    game.rotation_system
+        .cells(game.active.kind, game.active.rotation)
         .into_iter()
         .map(|(dc, dr)| (game.active.col + dc, game.active.row + dr))
         .collect()
@@ -155,12 +163,13 @@ fn side_by_side(boards: &[(String, Vec<String>)]) -> String {
 /// right wall and attempts CW and CCW rotations. Collects every case where the
 /// piece actually kicked (col changed) and shows before→after in a side-by-side
 /// grid labelled by wall side, direction, and rotation transition.
-fn wall_kick_snap(kind: PieceKind) -> String {
+fn wall_kick_snap(kind: PieceKind, make: fn(PieceKind) -> Game) -> String {
     let mut boards = Vec::new();
+    let game = make(kind);
 
     for &left_wall in &[true, false] {
         for start_rot in 0usize..4 {
-            let rot_cells = crate::piece::cells(kind, start_rot);
+            let rot_cells = game.rotation_system.cells(kind, start_rot);
             let min_dc = rot_cells.iter().map(|&(dc, _)| dc).min().unwrap();
             let max_dc = rot_cells.iter().map(|&(dc, _)| dc).max().unwrap();
 
@@ -182,7 +191,7 @@ fn wall_kick_snap(kind: PieceKind) -> String {
                     GameKey::RotateCcw
                 };
 
-                let mut game = make_game(kind);
+                let mut game = make(kind);
                 game.active.rotation = start_rot;
                 game.active.col = flush_col;
 
@@ -271,7 +280,7 @@ fn gravity_g_lookup() {
 
 #[test]
 fn i_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::I), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::I, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -300,7 +309,7 @@ fn i_piece_rotations() {
 
 #[test]
 fn o_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::O), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::O, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -329,7 +338,7 @@ fn o_piece_rotations() {
 
 #[test]
 fn t_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::T), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::T, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -358,7 +367,7 @@ fn t_piece_rotations() {
 
 #[test]
 fn s_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::S), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::S, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -387,7 +396,7 @@ fn s_piece_rotations() {
 
 #[test]
 fn z_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::Z), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::Z, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -416,7 +425,7 @@ fn z_piece_rotations() {
 
 #[test]
 fn j_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::J), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::J, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -445,7 +454,7 @@ fn j_piece_rotations() {
 
 #[test]
 fn l_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::L), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::L, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -474,7 +483,7 @@ fn l_piece_rotations() {
 
 #[test]
 fn t_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::T), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::T, make_game), @"
              L↻ 3→0                     L↺ 3→2                     R↻ 1→2                     R↺ 1→0         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -503,7 +512,7 @@ fn t_piece_wall_kicks() {
 
 #[test]
 fn j_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::J), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::J, make_game), @"
              L↻ 3→0                     L↺ 3→2                     R↻ 1→2                     R↺ 1→0         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -532,7 +541,7 @@ fn j_piece_wall_kicks() {
 
 #[test]
 fn l_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::L), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::L, make_game), @"
              L↻ 3→0                     L↺ 3→2                     R↻ 1→2                     R↺ 1→0         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -561,7 +570,7 @@ fn l_piece_wall_kicks() {
 
 #[test]
 fn s_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::S), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::S, make_game), @"
              R↻ 1→2                     R↺ 1→0                     R↻ 3→0                     R↺ 3→2         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -590,7 +599,7 @@ fn s_piece_wall_kicks() {
 
 #[test]
 fn z_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::Z), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::Z, make_game), @"
              L↻ 1→2                     L↺ 1→0                     L↻ 3→0                     L↺ 3→2         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -1040,13 +1049,14 @@ fn o_piece_move_right() {
 fn i_piece_no_wall_kicks() {
     // I piece never kicks. Place it vertical (rot 1) flush against each wall
     // and show that both CW and CCW rotation attempts leave it unchanged.
+    let game = make_game(PieceKind::I);
     let make = |col: i32| {
-        let mut game = make_game(PieceKind::I);
-        game.active.rotation = 1;
-        game.active.col = col;
-        game
+        let mut g = make_game(PieceKind::I);
+        g.active.rotation = 1;
+        g.active.col = col;
+        g
     };
-    let rot1_cells = crate::piece::cells(PieceKind::I, 1);
+    let rot1_cells = game.rotation_system.cells(PieceKind::I, 1);
     let min_dc = rot1_cells.iter().map(|&(dc, _)| dc).min().unwrap();
     let max_dc = rot1_cells.iter().map(|&(dc, _)| dc).max().unwrap();
     let left_col = -min_dc;
@@ -1377,7 +1387,7 @@ fn can_piece_increment_section_stops() {
 
 #[test]
 fn level_starts_at_zero() {
-    let game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let game = Game::new(GameMode::Master, Box::new(Ars));
     assert_eq!(game.level, 0);
 }
 
@@ -1411,7 +1421,7 @@ fn section_stop_blocks_piece_increment() {
 
 #[test]
 fn line_clear_increments_level() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 50;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → 1 line cleared
@@ -1420,7 +1430,7 @@ fn line_clear_increments_level() {
 
 #[test]
 fn line_clear_passes_section_stop() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 99;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1);
@@ -1432,7 +1442,7 @@ fn line_clear_passes_section_stop() {
 
 #[test]
 fn level_clamped_to_999() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 998;
     setup_line_clear(&mut game, 4); // tetris: +4 would be 1002, clamped to 999
     idle(&mut game, 1);
@@ -1441,7 +1451,7 @@ fn level_clamped_to_999() {
 
 #[test]
 fn game_won_on_reaching_999() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 998;
     setup_line_clear(&mut game, 1); // +1 = 999
     idle(&mut game, 1);
@@ -1453,14 +1463,14 @@ fn game_won_on_reaching_999() {
 
 #[test]
 fn ticks_elapsed_increments_each_tick() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     idle(&mut game, 5);
     assert_eq!(game.ticks_elapsed, 5);
 }
 
 #[test]
 fn ticks_elapsed_stops_after_win() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 998;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fires win
@@ -1490,7 +1500,7 @@ fn normal_are_uses_spawn_delay_normal() {
 #[test]
 fn line_clear_enters_line_clear_delay() {
     use crate::constants::LINE_CLEAR_DELAY;
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock + 1 line clear
     assert!(
@@ -1504,7 +1514,7 @@ fn line_clear_enters_line_clear_delay() {
 #[test]
 fn line_clear_delay_transitions_to_are() {
     use crate::constants::{LINE_CLEAR_DELAY, SPAWN_DELAY_NORMAL};
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     idle(&mut game, LINE_CLEAR_DELAY + 1); // exhaust line clear delay → Spawning
@@ -1518,7 +1528,7 @@ fn line_clear_delay_transitions_to_are() {
 
 #[test]
 fn rows_pending_compaction_populated_during_delay() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     assert_eq!(
@@ -1530,7 +1540,7 @@ fn rows_pending_compaction_populated_during_delay() {
 
 #[test]
 fn board_not_compacted_during_delay() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     assert!(
@@ -1542,7 +1552,7 @@ fn board_not_compacted_during_delay() {
 #[test]
 fn board_compacted_and_pending_cleared_after_delay() {
     use crate::constants::LINE_CLEAR_DELAY;
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     idle(&mut game, LINE_CLEAR_DELAY + 1); // exhaust delay → compaction → Spawning
@@ -1777,7 +1787,7 @@ fn i_right_well_clears_middle_2() {
 #[cfg(test)]
 mod menu_tests {
     use crate::menu::{Menu, MenuInput, MenuResult};
-    use crate::rotation_system::RotationSystem;
+    use crate::rotation_system::Kind;
 
     fn input() -> MenuInput {
         MenuInput::default()
@@ -1883,7 +1893,7 @@ mod menu_tests {
             right: true,
             ..input()
         });
-        assert_eq!(m.rotation(), RotationSystem::Srs);
+        assert_eq!(m.rotation(), Kind::Srs);
     }
 
     #[test]
@@ -2005,7 +2015,7 @@ mod menu_tests {
             result,
             MenuResult::StartGame {
                 mode: crate::menu::GameMode::Master,
-                rotation: RotationSystem::Ars,
+                rotation: Kind::Ars,
             }
         ));
     }
@@ -2039,7 +2049,7 @@ mod menu_tests {
             result,
             MenuResult::StartGame {
                 mode: crate::menu::GameMode::TwentyG,
-                rotation: RotationSystem::Srs,
+                rotation: Kind::Srs,
             }
         ));
     }
@@ -2052,5 +2062,75 @@ mod menu_tests {
             ..input()
         });
         assert!(matches!(result, MenuResult::Stay));
+    }
+}
+
+#[cfg(test)]
+mod srs_tests {
+    use super::*;
+
+    #[test]
+    fn srs_rotation_snap_i() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::I, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_o() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::O, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_t() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::T, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_s() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::S, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_z() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::Z, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_j() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::J, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_l() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::L, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_i() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::I, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_t() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::T, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_j() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::J, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_l() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::L, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_s() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::S, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_z() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::Z, make_srs_game));
     }
 }

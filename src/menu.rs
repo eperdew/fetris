@@ -1,4 +1,4 @@
-use crate::rotation_system::RotationSystem;
+use crate::rotation_system::Kind;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GameMode {
@@ -17,7 +17,7 @@ pub struct Menu {
     screen: MenuScreen,
     cursor: usize,
     game_mode: GameMode,
-    rotation: RotationSystem,
+    rotation: Kind,
 }
 
 #[derive(Default)]
@@ -32,10 +32,7 @@ pub struct MenuInput {
 
 pub enum MenuResult {
     Stay,
-    StartGame {
-        mode: GameMode,
-        rotation: RotationSystem,
-    },
+    StartGame { mode: GameMode, rotation: Kind },
 }
 
 impl Menu {
@@ -44,7 +41,7 @@ impl Menu {
             screen: MenuScreen::Main,
             cursor: 0,
             game_mode: GameMode::Master,
-            rotation: RotationSystem::Ars,
+            rotation: Kind::Ars,
         }
     }
 
@@ -58,7 +55,7 @@ impl Menu {
     pub fn game_mode(&self) -> GameMode {
         self.game_mode
     }
-    pub fn rotation(&self) -> RotationSystem {
+    pub fn rotation(&self) -> Kind {
         self.rotation
     }
 
@@ -93,8 +90,8 @@ impl Menu {
             1 => {
                 if input.left || input.right {
                     self.rotation = match self.rotation {
-                        RotationSystem::Ars => RotationSystem::Srs,
-                        RotationSystem::Srs => RotationSystem::Ars,
+                        Kind::Ars => Kind::Srs,
+                        Kind::Srs => Kind::Ars,
                     };
                 }
             }
