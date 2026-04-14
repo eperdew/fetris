@@ -124,15 +124,19 @@ fn compute_ghost_row(game: &Game) -> i32 {
     let mut ghost_row = game.active.row;
     loop {
         let next = ghost_row + 1;
-        let blocked = game.rotation_system.cells(game.active.kind, game.active.rotation).iter().any(|&(dc, dr)| {
-            let c = game.active.col + dc;
-            let r = next + dr;
-            r >= BOARD_ROWS as i32
-                || (c >= 0
-                    && c < BOARD_COLS as i32
-                    && r >= 0
-                    && game.board[r as usize][c as usize].is_some())
-        });
+        let blocked = game
+            .rotation_system
+            .cells(game.active.kind, game.active.rotation)
+            .iter()
+            .any(|&(dc, dr)| {
+                let c = game.active.col + dc;
+                let r = next + dr;
+                r >= BOARD_ROWS as i32
+                    || (c >= 0
+                        && c < BOARD_COLS as i32
+                        && r >= 0
+                        && game.board[r as usize][c as usize].is_some())
+            });
         if blocked {
             break;
         }
@@ -162,7 +166,10 @@ fn render_board(game: &Game, texture: &Texture2D) {
         if ghost_row != game.active.row {
             let base = piece_color(game.active.kind);
             let ghost_color = Color { a: 0.25, ..base };
-            for (dc, dr) in game.rotation_system.cells(game.active.kind, game.active.rotation) {
+            for (dc, dr) in game
+                .rotation_system
+                .cells(game.active.kind, game.active.rotation)
+            {
                 let c = game.active.col + dc;
                 let r = ghost_row + dr;
                 if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
@@ -233,7 +240,10 @@ fn render_board(game: &Game, texture: &Texture2D) {
 
     // Active piece
     if show_active {
-        for (dc, dr) in game.rotation_system.cells(game.active.kind, game.active.rotation) {
+        for (dc, dr) in game
+            .rotation_system
+            .cells(game.active.kind, game.active.rotation)
+        {
             let c = game.active.col + dc;
             let r = game.active.row + dr;
             if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
@@ -257,7 +267,10 @@ fn render_sidebar(game: &Game, texture: &Texture2D) {
     draw_text("NEXT", x, y, 18.0, LIGHTGRAY);
     y += 8.0;
 
-    for (dc, dr) in game.rotation_system.cells(game.next.kind, game.next.rotation) {
+    for (dc, dr) in game
+        .rotation_system
+        .cells(game.next.kind, game.next.rotation)
+    {
         let c = dc as usize;
         let r = dr as usize;
         draw_cell(x, y, c, r, piece_color(game.next.kind), texture);
