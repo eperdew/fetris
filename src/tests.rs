@@ -157,10 +157,11 @@ fn side_by_side(boards: &[(String, Vec<String>)]) -> String {
 /// grid labelled by wall side, direction, and rotation transition.
 fn wall_kick_snap(kind: PieceKind) -> String {
     let mut boards = Vec::new();
+    let game = make_game(kind);
 
     for &left_wall in &[true, false] {
         for start_rot in 0usize..4 {
-            let rot_cells = crate::piece::cells(kind, start_rot);
+            let rot_cells = game.rotation_system.cells(kind, start_rot);
             let min_dc = rot_cells.iter().map(|&(dc, _)| dc).min().unwrap();
             let max_dc = rot_cells.iter().map(|&(dc, _)| dc).max().unwrap();
 
@@ -1040,13 +1041,14 @@ fn o_piece_move_right() {
 fn i_piece_no_wall_kicks() {
     // I piece never kicks. Place it vertical (rot 1) flush against each wall
     // and show that both CW and CCW rotation attempts leave it unchanged.
+    let game = make_game(PieceKind::I);
     let make = |col: i32| {
-        let mut game = make_game(PieceKind::I);
-        game.active.rotation = 1;
-        game.active.col = col;
-        game
+        let mut g = make_game(PieceKind::I);
+        g.active.rotation = 1;
+        g.active.col = col;
+        g
     };
-    let rot1_cells = crate::piece::cells(PieceKind::I, 1);
+    let rot1_cells = game.rotation_system.cells(PieceKind::I, 1);
     let min_dc = rot1_cells.iter().map(|&(dc, _)| dc).min().unwrap();
     let max_dc = rot1_cells.iter().map(|&(dc, _)| dc).max().unwrap();
     let left_col = -min_dc;
