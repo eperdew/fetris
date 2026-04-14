@@ -160,6 +160,80 @@ fn ars_cells(kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
     table[rotation % 4]
 }
 
+// ---------------------------------------------------------------------------
+// SRS shape tables (computed at compile time)
+// ---------------------------------------------------------------------------
+
+const SRS_I: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | ..O. | .... | .O..
+    OOOO | ..O. | .... | .O..
+    .... | ..O. | OOOO | .O..
+    .... | ..O. | .... | .O..
+",
+);
+const SRS_O: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | .... | .... | ....
+    .OO. | .OO. | .OO. | .OO.
+    .OO. | .OO. | .OO. | .OO.
+    .... | .... | .... | ....
+",
+);
+const SRS_T: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .O.. | .O.. | .... | .O..
+    OOO. | .OO. | OOO. | OO..
+    .... | .O.. | .O.. | .O..
+    .... | .... | .... | ....
+",
+);
+const SRS_S: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .OO. | .O.. | .... | O...
+    OO.. | .OO. | .OO. | OO..
+    .... | ..O. | OO.. | .O..
+    .... | .... | .... | ....
+",
+);
+const SRS_Z: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    OO.. | ..O. | .... | .O..
+    .OO. | .OO. | OO.. | OO..
+    .... | .O.. | .OO. | O...
+    .... | .... | .... | ....
+",
+);
+const SRS_J: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    O... | .OO. | .... | .O..
+    OOO. | .O.. | OOO. | .O..
+    .... | .O.. | ..O. | OO..
+    .... | .... | .... | ....
+",
+);
+const SRS_L: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    ..O. | .O.. | .... | OO..
+    OOO. | .O.. | OOO. | .O..
+    .... | .OO. | O... | .O..
+    .... | .... | .... | ....
+",
+);
+
+fn srs_cells(kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
+    let table = match kind {
+        PieceKind::I => &SRS_I,
+        PieceKind::O => &SRS_O,
+        PieceKind::T => &SRS_T,
+        PieceKind::S => &SRS_S,
+        PieceKind::Z => &SRS_Z,
+        PieceKind::J => &SRS_J,
+        PieceKind::L => &SRS_L,
+    };
+    table[rotation % 4]
+}
+
 pub trait RotationSystem {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4];
 
@@ -298,8 +372,7 @@ pub struct Srs;
 
 impl RotationSystem for Srs {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
-        // TODO Task 7: replace with srs_cells
-        ars_cells(kind, rotation)
+        srs_cells(kind, rotation)
     }
 
     fn try_rotate(
@@ -343,5 +416,40 @@ mod parse_tests {
         assert_eq!(ars.cells(PieceKind::I, 0), [(0, 1), (1, 1), (2, 1), (3, 1)]);
         // T-piece rot 1: column shape
         assert_eq!(ars.cells(PieceKind::T, 1), [(1, 0), (0, 1), (1, 1), (1, 2)]);
+    }
+
+    #[test]
+    fn srs_cells_i_piece() {
+        let srs = Srs;
+        // SRS I rot 0: bar at row 1
+        assert_eq!(
+            srs.cells(PieceKind::I, 0),
+            [(0, 1), (1, 1), (2, 1), (3, 1)]
+        );
+        // SRS I rot 1: bar at col 2, rows 0-3
+        assert_eq!(
+            srs.cells(PieceKind::I, 1),
+            [(2, 0), (2, 1), (2, 2), (2, 3)]
+        );
+        // SRS I rot 2: bar at row 2
+        assert_eq!(
+            srs.cells(PieceKind::I, 2),
+            [(0, 2), (1, 2), (2, 2), (3, 2)]
+        );
+        // SRS I rot 3: bar at col 1, rows 0-3
+        assert_eq!(
+            srs.cells(PieceKind::I, 3),
+            [(1, 0), (1, 1), (1, 2), (1, 3)]
+        );
+    }
+
+    #[test]
+    fn srs_cells_t_piece_spawn() {
+        let srs = Srs;
+        // SRS T rot 0: bump at top
+        assert_eq!(
+            srs.cells(PieceKind::T, 0),
+            [(1, 0), (0, 1), (1, 1), (2, 1)]
+        );
     }
 }
