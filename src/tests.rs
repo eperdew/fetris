@@ -16,6 +16,17 @@ fn make_game(kind: PieceKind) -> Game {
     game
 }
 
+fn make_srs_game(kind: PieceKind) -> Game {
+    use crate::rotation_system::Srs;
+    let mut game = Game::new(GameMode::Master, Box::new(Srs));
+    game.board = [[None; BOARD_COLS]; BOARD_ROWS];
+    game.active = Piece::new(kind);
+    game.active.col = 3;
+    game.active.row = 8;
+    game.next = Piece::new(kind);
+    game
+}
+
 /// Simulate a single keypress (held + just_pressed for one tick).
 fn press(game: &mut Game, key: GameKey) {
     game.tick(&InputState {
@@ -63,8 +74,8 @@ fn board_from_ascii(diagram: &str) -> Board {
     board
 }
 
-fn rotation_snap(kind: PieceKind) -> String {
-    let mut game = make_game(kind);
+fn rotation_snap(kind: PieceKind, make: fn(PieceKind) -> Game) -> String {
+    let mut game = make(kind);
     let mut boards = Vec::new();
     for rot in 0..4 {
         let prev = active_abs(&game);
@@ -155,9 +166,9 @@ fn side_by_side(boards: &[(String, Vec<String>)]) -> String {
 /// right wall and attempts CW and CCW rotations. Collects every case where the
 /// piece actually kicked (col changed) and shows before→after in a side-by-side
 /// grid labelled by wall side, direction, and rotation transition.
-fn wall_kick_snap(kind: PieceKind) -> String {
+fn wall_kick_snap(kind: PieceKind, make: fn(PieceKind) -> Game) -> String {
     let mut boards = Vec::new();
-    let game = make_game(kind);
+    let game = make(kind);
 
     for &left_wall in &[true, false] {
         for start_rot in 0usize..4 {
@@ -183,7 +194,7 @@ fn wall_kick_snap(kind: PieceKind) -> String {
                     GameKey::RotateCcw
                 };
 
-                let mut game = make_game(kind);
+                let mut game = make(kind);
                 game.active.rotation = start_rot;
                 game.active.col = flush_col;
 
@@ -272,7 +283,7 @@ fn gravity_g_lookup() {
 
 #[test]
 fn i_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::I), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::I, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -301,7 +312,7 @@ fn i_piece_rotations() {
 
 #[test]
 fn o_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::O), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::O, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -330,7 +341,7 @@ fn o_piece_rotations() {
 
 #[test]
 fn t_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::T), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::T, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -359,7 +370,7 @@ fn t_piece_rotations() {
 
 #[test]
 fn s_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::S), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::S, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -388,7 +399,7 @@ fn s_piece_rotations() {
 
 #[test]
 fn z_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::Z), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::Z, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -417,7 +428,7 @@ fn z_piece_rotations() {
 
 #[test]
 fn j_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::J), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::J, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -446,7 +457,7 @@ fn j_piece_rotations() {
 
 #[test]
 fn l_piece_rotations() {
-    insta::assert_snapshot!(rotation_snap(PieceKind::L), @"
+    insta::assert_snapshot!(rotation_snap(PieceKind::L, make_game), @"
               0→1                        1→2                        2→3                        3→0           
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -475,7 +486,7 @@ fn l_piece_rotations() {
 
 #[test]
 fn t_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::T), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::T, make_game), @"
              L↻ 3→0                     L↺ 3→2                     R↻ 1→2                     R↺ 1→0         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -504,7 +515,7 @@ fn t_piece_wall_kicks() {
 
 #[test]
 fn j_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::J), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::J, make_game), @"
              L↻ 3→0                     L↺ 3→2                     R↻ 1→2                     R↺ 1→0         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -533,7 +544,7 @@ fn j_piece_wall_kicks() {
 
 #[test]
 fn l_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::L), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::L, make_game), @"
              L↻ 3→0                     L↺ 3→2                     R↻ 1→2                     R↺ 1→0         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -562,7 +573,7 @@ fn l_piece_wall_kicks() {
 
 #[test]
 fn s_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::S), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::S, make_game), @"
              R↻ 1→2                     R↺ 1→0                     R↻ 3→0                     R↺ 3→2         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -591,7 +602,7 @@ fn s_piece_wall_kicks() {
 
 #[test]
 fn z_piece_wall_kicks() {
-    insta::assert_snapshot!(wall_kick_snap(PieceKind::Z), @"
+    insta::assert_snapshot!(wall_kick_snap(PieceKind::Z, make_game), @"
              L↻ 1→2                     L↺ 1→0                     L↻ 3→0                     L↺ 3→2         
       ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐     ┌────────────────────┐
      0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │    0│- - - - - - - - - - │
@@ -2054,5 +2065,75 @@ mod menu_tests {
             ..input()
         });
         assert!(matches!(result, MenuResult::Stay));
+    }
+}
+
+#[cfg(test)]
+mod srs_tests {
+    use super::*;
+
+    #[test]
+    fn srs_rotation_snap_i() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::I, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_o() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::O, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_t() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::T, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_s() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::S, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_z() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::Z, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_j() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::J, make_srs_game));
+    }
+
+    #[test]
+    fn srs_rotation_snap_l() {
+        insta::assert_snapshot!(rotation_snap(PieceKind::L, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_i() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::I, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_t() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::T, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_j() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::J, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_l() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::L, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_s() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::S, make_srs_game));
+    }
+
+    #[test]
+    fn srs_wall_kick_snap_z() {
+        insta::assert_snapshot!(wall_kick_snap(PieceKind::Z, make_srs_game));
     }
 }
