@@ -1,11 +1,5 @@
-use crate::game::{Game, RotationDirection};
-use crate::piece::PieceKind;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum RotationSystem {
-    Ars,
-    Srs,
-}
+use crate::game::{Board, RotationDirection};
+use crate::piece::{Piece, PieceKind};
 
 /// Parses a diagram of 4 rotations laid out side by side with `|` column separators,
 /// at compile time. Each rotation must have exactly 4 filled cells (`O`).
@@ -166,73 +160,153 @@ fn ars_cells(kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
     table[rotation % 4]
 }
 
-impl RotationSystem {
-    fn try_rotate_ars(game: &mut Game, direction: RotationDirection) {
+pub trait RotationSystem {
+    fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4];
+
+    /// Returns true if the piece at (col, row) with the given rotation fits on the board
+    /// (all cells in bounds and unoccupied).
+    fn fits(&self, board: &Board, kind: PieceKind, col: i32, row: i32, rotation: usize) -> bool {
+        self.cells(kind, rotation).iter().all(|(dc, dr)| {
+            board
+                .get((row + dr) as usize)
+                .and_then(|r| r.get((col + dc) as usize))
+                .map(|cell| cell.is_none())
+                .unwrap_or(false)
+        })
+    }
+
+    /// Attempt to rotate `piece` in `direction` on `board`.
+    /// Returns `Some(new_piece)` with updated `col` and `rotation` on success, `None` if no
+    /// kick position fits.
+    fn try_rotate(
+        &self,
+        piece: &Piece,
+        direction: RotationDirection,
+        board: &Board,
+    ) -> Option<Piece>;
+}
+
+/// Menu-facing enum for selecting which rotation system to use.
+/// Call `.create()` to obtain a `Box<dyn RotationSystem>`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Kind {
+    Ars,
+    Srs,
+}
+
+impl Kind {
+    pub fn create(self) -> Box<dyn RotationSystem> {
+        match self {
+            Kind::Ars => Box::new(Ars),
+            Kind::Srs => Box::new(Srs),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ARS
+// ---------------------------------------------------------------------------
+
+pub struct Ars;
+
+impl Ars {
+    /// Scans the destination rotation's cells left-to-right, top-to-bottom.
+    /// Returns true if the first destination cell that collides with the board
+    /// is in the center column (dc == 1), meaning a kick would not escape the obstacle.
+    fn center_column_blocked_first(board: &Board, piece: &Piece, new_rot: usize) -> bool {
+        let dest_cells = ars_cells(piece.kind, new_rot);
+        for dr in 0..3i32 {
+            for dc in 0..3i32 {
+                if dest_cells.iter().any(|&(ddc, ddr)| ddc == dc && ddr == dr) {
+                    let col = piece.col + dc;
+                    let row = piece.row + dr;
+                    let occupied = board
+                        .get(row as usize)
+                        .and_then(|r| r.get(col as usize))
+                        .map(|cell| cell.is_some())
+                        .unwrap_or(true); // out-of-bounds → occupied
+                    if occupied {
+                        return dc == 1;
+                    }
+                }
+            }
+        }
+        false
+    }
+}
+
+impl RotationSystem for Ars {
+    fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
+        ars_cells(kind, rotation)
+    }
+
+    fn try_rotate(
+        &self,
+        piece: &Piece,
+        direction: RotationDirection,
+        board: &Board,
+    ) -> Option<Piece> {
         let offset = match direction {
             RotationDirection::Clockwise => 1,
             RotationDirection::Counterclockwise => 3,
         };
-        let new_rot = (game.active.rotation + offset) % 4;
+        let new_rot = (piece.rotation + offset) % 4;
 
         // 1. Basic rotation.
-        if game.fits(game.active.col, game.active.row, new_rot) {
-            game.active.rotation = new_rot;
-            return;
+        if self.fits(board, piece.kind, piece.col, piece.row, new_rot) {
+            return Some(Piece { rotation: new_rot, ..*piece });
         }
 
         // I-piece never kicks.
-        if game.active.kind == PieceKind::I {
-            return;
+        if piece.kind == PieceKind::I {
+            return None;
         }
 
         // L/J/T center-column rule: from a 3-wide orientation (rot 0 or 2),
         // if the first destination-rotation cell that collides with the board
         // (scanning left-to-right, top-to-bottom) is in the center column,
         // suppress kicks for this direction.
-        if matches!(game.active.kind, PieceKind::L | PieceKind::J | PieceKind::T)
-            && game.active.rotation % 2 == 0
-            && Self::center_column_blocked_first(game, new_rot)
+        if matches!(piece.kind, PieceKind::L | PieceKind::J | PieceKind::T)
+            && piece.rotation % 2 == 0
+            && Self::center_column_blocked_first(board, piece, new_rot)
         {
-            return;
+            return None;
         }
 
         // 2. Kick right, then left.
         for dcol in [1i32, -1] {
-            if game.fits(game.active.col + dcol, game.active.row, new_rot) {
-                game.active.col += dcol;
-                game.active.rotation = new_rot;
-                return;
+            if self.fits(board, piece.kind, piece.col + dcol, piece.row, new_rot) {
+                return Some(Piece {
+                    col: piece.col + dcol,
+                    rotation: new_rot,
+                    ..*piece
+                });
             }
         }
+        None
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SRS (stub — delegates to Ars until Task 8)
+// ---------------------------------------------------------------------------
+
+pub struct Srs;
+
+impl RotationSystem for Srs {
+    fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
+        // TODO Task 7: replace with srs_cells
+        ars_cells(kind, rotation)
     }
 
-    /// Scans the destination rotation's cells left-to-right, top-to-bottom.
-    /// Returns true if the first destination cell that collides with the board
-    /// is in the center column (dc == 1), meaning a kick would not escape the obstacle.
-    fn center_column_blocked_first(game: &Game, new_rot: usize) -> bool {
-        let dest_cells = crate::piece::cells(game.active.kind, new_rot);
-        for dr in 0..3i32 {
-            for dc in 0..3i32 {
-                if dest_cells.iter().any(|&(ddc, ddr)| ddc == dc && ddr == dr)
-                    && !game.unoccupied(game.active.col + dc, game.active.row + dr)
-                {
-                    return dc == 1;
-                }
-            }
-        }
-        false
-    }
-
-    fn try_rotate_srs(game: &mut Game, direction: RotationDirection) {
-        // TODO: Implement SRS rotation system. For now we use ARS rotation to avoid crashing.
-        Self::try_rotate_ars(game, direction);
-    }
-
-    pub fn try_rotate(self, game: &mut Game, direction: RotationDirection) {
-        match self {
-            Self::Ars => Self::try_rotate_ars(game, direction),
-            Self::Srs => Self::try_rotate_srs(game, direction),
-        }
+    fn try_rotate(
+        &self,
+        piece: &Piece,
+        direction: RotationDirection,
+        board: &Board,
+    ) -> Option<Piece> {
+        // TODO Task 8: replace with real SRS kick logic
+        Ars.try_rotate(piece, direction, board)
     }
 }
 
@@ -256,5 +330,21 @@ mod parse_tests {
         assert_eq!(shape[1], [(2, 0), (2, 1), (2, 2), (2, 3)]);
         assert_eq!(shape[2], [(0, 1), (1, 1), (2, 1), (3, 1)]); // same as rot 0 in ARS
         assert_eq!(shape[3], [(2, 0), (2, 1), (2, 2), (2, 3)]); // same as rot 1 in ARS
+    }
+
+    #[test]
+    fn ars_cells_matches_const_table() {
+        use crate::piece::PieceKind;
+        let ars = Ars;
+        // I-piece rot 0: horizontal bar at row 1
+        assert_eq!(
+            ars.cells(PieceKind::I, 0),
+            [(0, 1), (1, 1), (2, 1), (3, 1)]
+        );
+        // T-piece rot 1: column shape
+        assert_eq!(
+            ars.cells(PieceKind::T, 1),
+            [(1, 0), (0, 1), (1, 1), (1, 2)]
+        );
     }
 }
