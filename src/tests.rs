@@ -3,11 +3,11 @@ use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_inc
 use crate::input::{GameKey, InputState};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
-use crate::rotation_system::Ars;
+use crate::rotation_system::{Ars, Srs};
 use std::collections::HashSet;
 
-fn make_game(kind: PieceKind) -> Game {
-    let mut game = Game::new(GameMode::Master, Box::new(Ars));
+fn make_game_with(rs: Box<dyn crate::rotation_system::RotationSystem>, kind: PieceKind) -> Game {
+    let mut game = Game::new(GameMode::Master, rs);
     game.board = [[None; BOARD_COLS]; BOARD_ROWS];
     game.active = Piece::new(kind);
     game.active.col = 3;
@@ -16,15 +16,12 @@ fn make_game(kind: PieceKind) -> Game {
     game
 }
 
+fn make_game(kind: PieceKind) -> Game {
+    make_game_with(Box::new(Ars), kind)
+}
+
 fn make_srs_game(kind: PieceKind) -> Game {
-    use crate::rotation_system::Srs;
-    let mut game = Game::new(GameMode::Master, Box::new(Srs));
-    game.board = [[None; BOARD_COLS]; BOARD_ROWS];
-    game.active = Piece::new(kind);
-    game.active.col = 3;
-    game.active.row = 8;
-    game.next = Piece::new(kind);
-    game
+    make_game_with(Box::new(Srs), kind)
 }
 
 /// Simulate a single keypress (held + just_pressed for one tick).
