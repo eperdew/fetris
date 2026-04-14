@@ -234,6 +234,69 @@ fn srs_cells(kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
     table[rotation % 4]
 }
 
+// ---------------------------------------------------------------------------
+// SRS kick tables
+// Offsets are (dcol, drow) in our coordinate system (positive drow = down).
+// Converted from wiki (x, y) with y-up: dcol = x, drow = -y.
+// 8 entries indexed by kick_index(from_rotation, cw).
+// ---------------------------------------------------------------------------
+
+/// Maps (from_rotation, clockwise) to a kick table index.
+const fn kick_index(from_rot: usize, cw: bool) -> usize {
+    match (from_rot, cw) {
+        (0, true)  => 0, // 0→1 CW
+        (1, false) => 1, // 1→0 CCW
+        (1, true)  => 2, // 1→2 CW
+        (2, false) => 3, // 2→1 CCW
+        (2, true)  => 4, // 2→3 CW
+        (3, false) => 5, // 3→2 CCW
+        (3, true)  => 6, // 3→0 CW
+        (0, false) => 7, // 0→3 CCW
+        _          => 0, // unreachable at runtime
+    }
+}
+
+/// JLSTZ wall kick offsets (dcol, drow), 5 tests per transition.
+/// Test 1 is always (0,0) — the basic rotation.
+const JLSTZ_KICKS: [[(i32, i32); 5]; 8] = [
+    // 0→1 CW
+    [(0, 0), (-1, 0), (-1, -1), (0,  2), (-1,  2)],
+    // 1→0 CCW
+    [(0, 0), ( 1, 0), ( 1,  1), (0, -2), ( 1, -2)],
+    // 1→2 CW
+    [(0, 0), ( 1, 0), ( 1,  1), (0, -2), ( 1, -2)],
+    // 2→1 CCW
+    [(0, 0), (-1, 0), (-1, -1), (0,  2), (-1,  2)],
+    // 2→3 CW
+    [(0, 0), ( 1, 0), ( 1, -1), (0,  2), ( 1,  2)],
+    // 3→2 CCW
+    [(0, 0), (-1, 0), (-1,  1), (0, -2), (-1, -2)],
+    // 3→0 CW
+    [(0, 0), (-1, 0), (-1,  1), (0, -2), (-1, -2)],
+    // 0→3 CCW
+    [(0, 0), ( 1, 0), ( 1, -1), (0,  2), ( 1,  2)],
+];
+
+/// I-piece wall kick offsets (dcol, drow), 5 tests per transition.
+const I_KICKS: [[(i32, i32); 5]; 8] = [
+    // 0→1 CW
+    [(0, 0), (-2, 0), ( 1, 0), (-2,  1), ( 1, -2)],
+    // 1→0 CCW
+    [(0, 0), ( 2, 0), (-1, 0), ( 2, -1), (-1,  2)],
+    // 1→2 CW
+    [(0, 0), (-1, 0), ( 2, 0), (-1, -2), ( 2,  1)],
+    // 2→1 CCW
+    [(0, 0), ( 1, 0), (-2, 0), ( 1,  2), (-2, -1)],
+    // 2→3 CW
+    [(0, 0), ( 2, 0), (-1, 0), ( 2, -1), (-1,  2)],
+    // 3→2 CCW
+    [(0, 0), (-2, 0), ( 1, 0), (-2,  1), ( 1, -2)],
+    // 3→0 CW
+    [(0, 0), ( 1, 0), (-2, 0), ( 1,  2), (-2, -1)],
+    // 0→3 CCW
+    [(0, 0), (-1, 0), ( 2, 0), (-1, -2), ( 2,  1)],
+];
+
 pub trait RotationSystem {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4];
 
@@ -381,8 +444,39 @@ impl RotationSystem for Srs {
         direction: RotationDirection,
         board: &Board,
     ) -> Option<Piece> {
-        // TODO Task 8: replace with real SRS kick logic
-        Ars.try_rotate(piece, direction, board)
+        let cw = matches!(direction, RotationDirection::Clockwise);
+        let offset = if cw { 1 } else { 3 };
+        let new_rot = (piece.rotation + offset) % 4;
+
+        // O-piece: basic rotation only (symmetric — always fits or always doesn't).
+        if piece.kind == PieceKind::O {
+            return if self.fits(board, piece.kind, piece.col, piece.row, new_rot) {
+                Some(Piece { rotation: new_rot, ..*piece })
+            } else {
+                None
+            };
+        }
+
+        let kicks = if piece.kind == PieceKind::I {
+            &I_KICKS
+        } else {
+            &JLSTZ_KICKS
+        };
+        let idx = kick_index(piece.rotation, cw);
+
+        for &(dcol, drow) in &kicks[idx] {
+            let new_col = piece.col + dcol;
+            let new_row = piece.row + drow;
+            if self.fits(board, piece.kind, new_col, new_row, new_rot) {
+                return Some(Piece {
+                    col: new_col,
+                    row: new_row,
+                    rotation: new_rot,
+                    ..*piece
+                });
+            }
+        }
+        None
     }
 }
 
@@ -422,34 +516,33 @@ mod parse_tests {
     fn srs_cells_i_piece() {
         let srs = Srs;
         // SRS I rot 0: bar at row 1
-        assert_eq!(
-            srs.cells(PieceKind::I, 0),
-            [(0, 1), (1, 1), (2, 1), (3, 1)]
-        );
+        assert_eq!(srs.cells(PieceKind::I, 0), [(0, 1), (1, 1), (2, 1), (3, 1)]);
         // SRS I rot 1: bar at col 2, rows 0-3
-        assert_eq!(
-            srs.cells(PieceKind::I, 1),
-            [(2, 0), (2, 1), (2, 2), (2, 3)]
-        );
+        assert_eq!(srs.cells(PieceKind::I, 1), [(2, 0), (2, 1), (2, 2), (2, 3)]);
         // SRS I rot 2: bar at row 2
-        assert_eq!(
-            srs.cells(PieceKind::I, 2),
-            [(0, 2), (1, 2), (2, 2), (3, 2)]
-        );
+        assert_eq!(srs.cells(PieceKind::I, 2), [(0, 2), (1, 2), (2, 2), (3, 2)]);
         // SRS I rot 3: bar at col 1, rows 0-3
-        assert_eq!(
-            srs.cells(PieceKind::I, 3),
-            [(1, 0), (1, 1), (1, 2), (1, 3)]
-        );
+        assert_eq!(srs.cells(PieceKind::I, 3), [(1, 0), (1, 1), (1, 2), (1, 3)]);
     }
 
     #[test]
     fn srs_cells_t_piece_spawn() {
         let srs = Srs;
         // SRS T rot 0: bump at top
-        assert_eq!(
-            srs.cells(PieceKind::T, 0),
-            [(1, 0), (0, 1), (1, 1), (2, 1)]
-        );
+        assert_eq!(srs.cells(PieceKind::T, 0), [(1, 0), (0, 1), (1, 1), (2, 1)]);
+    }
+
+    #[test]
+    fn srs_t_basic_rotation_empty_board() {
+        use crate::game::{BOARD_COLS, BOARD_ROWS};
+        let board = [[None; BOARD_COLS]; BOARD_ROWS];
+        let piece = crate::piece::Piece { kind: PieceKind::T, rotation: 0, col: 3, row: 8 };
+        let srs = Srs;
+        let result = srs.try_rotate(&piece, crate::game::RotationDirection::Clockwise, &board);
+        assert!(result.is_some(), "basic rotation on empty board must succeed");
+        let new_piece = result.unwrap();
+        assert_eq!(new_piece.rotation, 1);
+        assert_eq!(new_piece.col, piece.col);
+        assert_eq!(new_piece.row, piece.row);
     }
 }
