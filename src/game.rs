@@ -296,18 +296,6 @@ impl Game {
         }
     }
 
-    // A cell is unoccupied if
-    //
-    // 1. It is out of bounds, or...
-    // 2. It is in bounds, but the cell is empty.
-    pub fn unoccupied(&self, col: i32, row: i32) -> bool {
-        self.board
-            .get(row as usize)
-            .and_then(|row| row.get(col as usize))
-            .map(Option::is_none)
-            .unwrap_or(false)
-    }
-
     pub fn fits(&self, col: i32, row: i32, rotation: usize) -> bool {
         self.rotation_system
             .fits(&self.board, self.active.kind, col, row, rotation)
