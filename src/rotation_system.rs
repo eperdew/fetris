@@ -69,6 +69,7 @@ const fn parse_rotations(diagram: &str) -> [[(i32, i32); 4]; 4] {
                 let mut col = 0i32;
                 while k < se {
                     if bytes[k] == b'O' {
+                        assert!(rot < 4, "too many segments in diagram row");
                         assert!(counts[rot] < 4, "too many filled cells in rotation");
                         cells[rot][counts[rot]] = (col, data_row);
                         counts[rot] += 1;
