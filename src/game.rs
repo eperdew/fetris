@@ -67,7 +67,10 @@ pub enum RotationDirection {
 }
 
 impl Game {
-    pub fn new(game_mode: GameMode, rotation_system: Box<dyn rotation_system::RotationSystem>) -> Self {
+    pub fn new(
+        game_mode: GameMode,
+        rotation_system: Box<dyn rotation_system::RotationSystem>,
+    ) -> Self {
         let mut randomizer = Randomizer::new();
         let active = Piece::new(randomizer.next());
         let next = Piece::new(randomizer.next());
@@ -285,7 +288,10 @@ impl Game {
     }
 
     fn try_rotate(&mut self, direction: RotationDirection) {
-        if let Some(new_piece) = self.rotation_system.try_rotate(&self.active, direction, &self.board) {
+        if let Some(new_piece) =
+            self.rotation_system
+                .try_rotate(&self.active, direction, &self.board)
+        {
             self.active = new_piece;
         }
     }
@@ -312,7 +318,10 @@ impl Game {
     }
 
     fn lock_piece(&mut self, input: &InputState) {
-        for (dc, dr) in self.rotation_system.cells(self.active.kind, self.active.rotation) {
+        for (dc, dr) in self
+            .rotation_system
+            .cells(self.active.kind, self.active.rotation)
+        {
             let c = (self.active.col + dc) as usize;
             let r = (self.active.row + dr) as usize;
             if r < BOARD_ROWS {

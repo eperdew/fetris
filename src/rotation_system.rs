@@ -254,7 +254,10 @@ impl RotationSystem for Ars {
 
         // 1. Basic rotation.
         if self.fits(board, piece.kind, piece.col, piece.row, new_rot) {
-            return Some(Piece { rotation: new_rot, ..*piece });
+            return Some(Piece {
+                rotation: new_rot,
+                ..*piece
+            });
         }
 
         // I-piece never kicks.
@@ -337,14 +340,8 @@ mod parse_tests {
         use crate::piece::PieceKind;
         let ars = Ars;
         // I-piece rot 0: horizontal bar at row 1
-        assert_eq!(
-            ars.cells(PieceKind::I, 0),
-            [(0, 1), (1, 1), (2, 1), (3, 1)]
-        );
+        assert_eq!(ars.cells(PieceKind::I, 0), [(0, 1), (1, 1), (2, 1), (3, 1)]);
         // T-piece rot 1: column shape
-        assert_eq!(
-            ars.cells(PieceKind::T, 1),
-            [(1, 0), (0, 1), (1, 1), (1, 2)]
-        );
+        assert_eq!(ars.cells(PieceKind::T, 1), [(1, 0), (0, 1), (1, 1), (1, 2)]);
     }
 }
