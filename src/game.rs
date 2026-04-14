@@ -7,7 +7,7 @@ use crate::judge::{Grade, Judge, JudgeEvent};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
-use crate::rotation_system::{self, RotationSystem};
+use crate::rotation_system;
 
 pub const BOARD_COLS: usize = 10;
 pub const BOARD_ROWS: usize = 20;

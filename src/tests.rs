@@ -3,11 +3,11 @@ use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_inc
 use crate::input::{GameKey, InputState};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
-use crate::rotation_system::RotationSystem;
+use crate::rotation_system::Ars;
 use std::collections::HashSet;
 
 fn make_game(kind: PieceKind) -> Game {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.board = [[None; BOARD_COLS]; BOARD_ROWS];
     game.active = Piece::new(kind);
     game.active.col = 3;
@@ -81,8 +81,8 @@ fn rotation_snap(kind: PieceKind) -> String {
 /// those cells show `. `; current active piece shows `[]`; overlap shows `[]` (current wins).
 fn board_lines(game: &Game, prev_cells: &[(i32, i32)]) -> Vec<String> {
     let active: [(i32, i32); 4] = game
-        .active
-        .cells()
+        .rotation_system
+        .cells(game.active.kind, game.active.rotation)
         .map(|(dc, dr)| (game.active.col + dc, game.active.row + dr));
 
     let mut lines = vec!["  ┌────────────────────┐".to_string()];
@@ -115,8 +115,8 @@ fn board_lines(game: &Game, prev_cells: &[(i32, i32)]) -> Vec<String> {
 }
 
 fn active_abs(game: &Game) -> Vec<(i32, i32)> {
-    game.active
-        .cells()
+    game.rotation_system
+        .cells(game.active.kind, game.active.rotation)
         .into_iter()
         .map(|(dc, dr)| (game.active.col + dc, game.active.row + dr))
         .collect()
@@ -1377,7 +1377,7 @@ fn can_piece_increment_section_stops() {
 
 #[test]
 fn level_starts_at_zero() {
-    let game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let game = Game::new(GameMode::Master, Box::new(Ars));
     assert_eq!(game.level, 0);
 }
 
@@ -1411,7 +1411,7 @@ fn section_stop_blocks_piece_increment() {
 
 #[test]
 fn line_clear_increments_level() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 50;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → 1 line cleared
@@ -1420,7 +1420,7 @@ fn line_clear_increments_level() {
 
 #[test]
 fn line_clear_passes_section_stop() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 99;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1);
@@ -1432,7 +1432,7 @@ fn line_clear_passes_section_stop() {
 
 #[test]
 fn level_clamped_to_999() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 998;
     setup_line_clear(&mut game, 4); // tetris: +4 would be 1002, clamped to 999
     idle(&mut game, 1);
@@ -1441,7 +1441,7 @@ fn level_clamped_to_999() {
 
 #[test]
 fn game_won_on_reaching_999() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 998;
     setup_line_clear(&mut game, 1); // +1 = 999
     idle(&mut game, 1);
@@ -1453,14 +1453,14 @@ fn game_won_on_reaching_999() {
 
 #[test]
 fn ticks_elapsed_increments_each_tick() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     idle(&mut game, 5);
     assert_eq!(game.ticks_elapsed, 5);
 }
 
 #[test]
 fn ticks_elapsed_stops_after_win() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     game.level = 998;
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fires win
@@ -1490,7 +1490,7 @@ fn normal_are_uses_spawn_delay_normal() {
 #[test]
 fn line_clear_enters_line_clear_delay() {
     use crate::constants::LINE_CLEAR_DELAY;
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock + 1 line clear
     assert!(
@@ -1504,7 +1504,7 @@ fn line_clear_enters_line_clear_delay() {
 #[test]
 fn line_clear_delay_transitions_to_are() {
     use crate::constants::{LINE_CLEAR_DELAY, SPAWN_DELAY_NORMAL};
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     idle(&mut game, LINE_CLEAR_DELAY + 1); // exhaust line clear delay → Spawning
@@ -1518,7 +1518,7 @@ fn line_clear_delay_transitions_to_are() {
 
 #[test]
 fn rows_pending_compaction_populated_during_delay() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     assert_eq!(
@@ -1530,7 +1530,7 @@ fn rows_pending_compaction_populated_during_delay() {
 
 #[test]
 fn board_not_compacted_during_delay() {
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     assert!(
@@ -1542,7 +1542,7 @@ fn board_not_compacted_during_delay() {
 #[test]
 fn board_compacted_and_pending_cleared_after_delay() {
     use crate::constants::LINE_CLEAR_DELAY;
-    let mut game = Game::new(GameMode::Master, RotationSystem::Ars);
+    let mut game = Game::new(GameMode::Master, Box::new(Ars));
     setup_line_clear(&mut game, 1);
     idle(&mut game, 1); // fire lock → LineClearDelay
     idle(&mut game, LINE_CLEAR_DELAY + 1); // exhaust delay → compaction → Spawning
@@ -1777,7 +1777,7 @@ fn i_right_well_clears_middle_2() {
 #[cfg(test)]
 mod menu_tests {
     use crate::menu::{Menu, MenuInput, MenuResult};
-    use crate::rotation_system::RotationSystem;
+    use crate::rotation_system::Kind;
 
     fn input() -> MenuInput {
         MenuInput::default()
@@ -1883,7 +1883,7 @@ mod menu_tests {
             right: true,
             ..input()
         });
-        assert_eq!(m.rotation(), RotationSystem::Srs);
+        assert_eq!(m.rotation(), Kind::Srs);
     }
 
     #[test]
@@ -2005,7 +2005,7 @@ mod menu_tests {
             result,
             MenuResult::StartGame {
                 mode: crate::menu::GameMode::Master,
-                rotation: RotationSystem::Ars,
+                rotation: Kind::Ars,
             }
         ));
     }
@@ -2039,7 +2039,7 @@ mod menu_tests {
             result,
             MenuResult::StartGame {
                 mode: crate::menu::GameMode::TwentyG,
-                rotation: RotationSystem::Srs,
+                rotation: Kind::Srs,
             }
         ));
     }
