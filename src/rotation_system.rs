@@ -7,6 +7,164 @@ pub enum RotationSystem {
     Srs,
 }
 
+/// Parses a diagram of 4 rotations laid out side by side with `|` column separators,
+/// at compile time. Each rotation must have exactly 4 filled cells (`O`).
+/// Rows are indexed top-to-bottom, columns left-to-right within each segment.
+const fn parse_rotations(diagram: &str) -> [[(i32, i32); 4]; 4] {
+    let bytes = diagram.as_bytes();
+    let len = bytes.len();
+    let mut cells = [[(0i32, 0i32); 4]; 4];
+    let mut counts = [0usize; 4];
+    let mut i = 0usize;
+    let mut data_row = 0i32;
+
+    while i < len {
+        // Skip line terminators.
+        while i < len && (bytes[i] == b'\n' || bytes[i] == b'\r') {
+            i += 1;
+        }
+        if i >= len {
+            break;
+        }
+
+        // Find end of current line.
+        let line_start = i;
+        while i < len && bytes[i] != b'\n' && bytes[i] != b'\r' {
+            i += 1;
+        }
+        let line_end = i;
+
+        // Trim leading spaces.
+        let mut ls = line_start;
+        while ls < line_end && bytes[ls] == b' ' {
+            ls += 1;
+        }
+        // Trim trailing spaces.
+        let mut le = line_end;
+        while le > ls && bytes[le - 1] == b' ' {
+            le -= 1;
+        }
+
+        if ls >= le {
+            continue; // blank line
+        }
+
+        // Parse segments separated by '|'.
+        let mut rot = 0usize;
+        let mut seg_start = ls;
+        let mut j = ls;
+        while j <= le {
+            if j == le || bytes[j] == b'|' {
+                // Trim segment.
+                let mut ss = seg_start;
+                while ss < j && bytes[ss] == b' ' {
+                    ss += 1;
+                }
+                let mut se = j;
+                while se > ss && bytes[se - 1] == b' ' {
+                    se -= 1;
+                }
+                // Scan for filled cells.
+                let mut k = ss;
+                let mut col = 0i32;
+                while k < se {
+                    if bytes[k] == b'O' {
+                        assert!(counts[rot] < 4, "too many filled cells in rotation");
+                        cells[rot][counts[rot]] = (col, data_row);
+                        counts[rot] += 1;
+                    }
+                    col += 1;
+                    k += 1;
+                }
+                rot += 1;
+                seg_start = j + 1;
+            }
+            j += 1;
+        }
+        data_row += 1;
+    }
+
+    assert!(
+        counts[0] == 4 && counts[1] == 4 && counts[2] == 4 && counts[3] == 4,
+        "each rotation must have exactly 4 filled cells"
+    );
+    cells
+}
+
+// ---------------------------------------------------------------------------
+// ARS shape tables (computed at compile time)
+// ---------------------------------------------------------------------------
+
+const ARS_I: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | ..O. | .... | ..O.
+    OOOO | ..O. | OOOO | ..O.
+    .... | ..O. | .... | ..O.
+    .... | ..O. | .... | ..O.
+",
+);
+const ARS_O: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | .... | .... | ....
+    .OO. | .OO. | .OO. | .OO.
+    .OO. | .OO. | .OO. | .OO.
+    .... | .... | .... | ....
+",
+);
+const ARS_T: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | .O.. | .... | .O..
+    OOO. | OO.. | .O.. | .OO.
+    .O.. | .O.. | OOO. | .O..
+    .... | .... | .... | ....
+",
+);
+const ARS_S: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | O... | .... | O...
+    .OO. | OO.. | .OO. | OO..
+    OO.. | .O.. | OO.. | .O..
+    .... | .... | .... | ....
+",
+);
+const ARS_Z: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | ..O. | .... | ..O.
+    OO.. | .OO. | OO.. | .OO.
+    .OO. | .O.. | .OO. | .O..
+    .... | .... | .... | ....
+",
+);
+const ARS_J: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | .O.. | .... | .OO.
+    OOO. | .O.. | O... | .O..
+    ..O. | OO.. | OOO. | .O..
+    .... | .... | .... | ....
+",
+);
+const ARS_L: [[(i32, i32); 4]; 4] = parse_rotations(
+    "
+    .... | OO.. | .... | .O..
+    OOO. | .O.. | ..O. | .O..
+    O... | .O.. | OOO. | .OO.
+    .... | .... | .... | ....
+",
+);
+
+fn ars_cells(kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
+    let table = match kind {
+        PieceKind::I => &ARS_I,
+        PieceKind::O => &ARS_O,
+        PieceKind::T => &ARS_T,
+        PieceKind::S => &ARS_S,
+        PieceKind::Z => &ARS_Z,
+        PieceKind::J => &ARS_J,
+        PieceKind::L => &ARS_L,
+    };
+    table[rotation % 4]
+}
+
 impl RotationSystem {
     fn try_rotate_ars(game: &mut Game, direction: RotationDirection) {
         let offset = match direction {
@@ -74,5 +232,28 @@ impl RotationSystem {
             Self::Ars => Self::try_rotate_ars(game, direction),
             Self::Srs => Self::try_rotate_srs(game, direction),
         }
+    }
+}
+
+#[cfg(test)]
+mod parse_tests {
+    use super::*;
+
+    #[test]
+    fn parse_rotations_i_piece_ars() {
+        // rot 0: horizontal bar in row 1
+        // rot 1: vertical bar in col 2
+        let shape = parse_rotations(
+            "
+            .... | ..O. | .... | ..O.
+            OOOO | ..O. | OOOO | ..O.
+            .... | ..O. | .... | ..O.
+            .... | ..O. | .... | ..O.
+        ",
+        );
+        assert_eq!(shape[0], [(0, 1), (1, 1), (2, 1), (3, 1)]);
+        assert_eq!(shape[1], [(2, 0), (2, 1), (2, 2), (2, 3)]);
+        assert_eq!(shape[2], [(0, 1), (1, 1), (2, 1), (3, 1)]); // same as rot 0 in ARS
+        assert_eq!(shape[3], [(2, 0), (2, 1), (2, 2), (2, 3)]); // same as rot 1 in ARS
     }
 }
