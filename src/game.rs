@@ -7,7 +7,7 @@ use crate::judge::{Grade, Judge, JudgeEvent};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
-use crate::rotation_system::RotationSystem;
+use crate::rotation_system::{self, RotationSystem};
 
 pub const BOARD_COLS: usize = 10;
 pub const BOARD_ROWS: usize = 20;
@@ -41,7 +41,7 @@ pub enum HorizDir {
 pub struct Game {
     pub board: Board,
     pub active: Piece,
-    pub rotation_system: RotationSystem,
+    pub rotation_system: Box<dyn rotation_system::RotationSystem>,
     pub game_mode: GameMode,
     pub judge: Judge,
     pub next: Piece,
@@ -67,7 +67,7 @@ pub enum RotationDirection {
 }
 
 impl Game {
-    pub fn new(game_mode: GameMode, rotation_system: RotationSystem) -> Self {
+    pub fn new(game_mode: GameMode, rotation_system: Box<dyn rotation_system::RotationSystem>) -> Self {
         let mut randomizer = Randomizer::new();
         let active = Piece::new(randomizer.next());
         let next = Piece::new(randomizer.next());
@@ -285,7 +285,9 @@ impl Game {
     }
 
     fn try_rotate(&mut self, direction: RotationDirection) {
-        self.rotation_system.try_rotate(self, direction);
+        if let Some(new_piece) = self.rotation_system.try_rotate(&self.active, direction, &self.board) {
+            self.active = new_piece;
+        }
     }
 
     // A cell is unoccupied if
@@ -301,9 +303,8 @@ impl Game {
     }
 
     pub fn fits(&self, col: i32, row: i32, rotation: usize) -> bool {
-        crate::piece::cells(self.active.kind, rotation)
-            .iter()
-            .all(|(dc, dr)| self.unoccupied(col + dc, row + dr))
+        self.rotation_system
+            .fits(&self.board, self.active.kind, col, row, rotation)
     }
 
     fn board_is_empty(&self) -> bool {
@@ -311,7 +312,7 @@ impl Game {
     }
 
     fn lock_piece(&mut self, input: &InputState) {
-        for (dc, dr) in self.active.cells() {
+        for (dc, dr) in self.rotation_system.cells(self.active.kind, self.active.rotation) {
             let c = (self.active.col + dc) as usize;
             let r = (self.active.row + dr) as usize;
             if r < BOARD_ROWS {
