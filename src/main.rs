@@ -8,6 +8,7 @@ mod piece;
 mod randomizer;
 mod renderer;
 mod rotation_system;
+mod storage;
 #[cfg(test)]
 mod tests;
 

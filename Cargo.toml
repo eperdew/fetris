@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 macroquad = "0.4"
-bevy_pkv = { version = "0.15", default-features = false, features = ["sled"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dev-dependencies]
 insta = "1"
