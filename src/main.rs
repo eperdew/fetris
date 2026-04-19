@@ -1,5 +1,6 @@
 mod constants;
 mod game;
+mod hiscores;
 mod input;
 mod judge;
 mod menu;
