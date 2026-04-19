@@ -380,11 +380,40 @@ fn render_subscreen(title: &str) {
     draw_centered("BKSP to go back", cy + 20.0, 18.0, GRAY);
 }
 
+fn render_hi_scores(menu: &Menu) {
+    const FONT: f32 = 22.0;
+    const SMALL: f32 = 16.0;
+    const LH: f32 = 28.0;
+
+    let tab_names = ["MASTER / ARS", "MASTER / SRS", "20G / ARS", "20G / SRS"];
+    let tab = menu.hi_scores_tab();
+    let data = &menu.hi_scores_data()[tab];
+
+    let cy = screen_height() / 2.0;
+
+    // Tab header with left/right chevrons
+    let label = format!("< {} >", tab_names[tab]);
+    draw_centered(&label, cy - LH * 4.0, FONT, WHITE);
+
+    // Entries
+    for i in 0..5usize {
+        let y = cy - LH * 2.5 + i as f32 * LH;
+        let text = if let Some(entry) = data.get(i) {
+            format!("{}. {:>2}   {}", i + 1, entry.grade, format_time(entry.ticks))
+        } else {
+            format!("{}. ---", i + 1)
+        };
+        draw_centered(&text, y, SMALL, if i == 0 { WHITE } else { LIGHTGRAY });
+    }
+
+    draw_centered("BKSP to go back", cy + LH * 3.5, SMALL, GRAY);
+}
+
 pub fn render_menu(menu: &Menu) {
     clear_background(Color::from_rgba(10, 10, 18, 255));
     match menu.screen() {
         MenuScreen::Main => render_main_menu(menu),
-        MenuScreen::HiScores => render_subscreen("HI SCORES"),
+        MenuScreen::HiScores => render_hi_scores(menu),
         MenuScreen::Controls => render_subscreen("CONTROLS"),
     }
 }
