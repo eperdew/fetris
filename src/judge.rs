@@ -15,7 +15,7 @@ pub enum JudgeEvent {
     },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum Grade {
     Nine,
     Eight,
