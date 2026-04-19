@@ -1,3 +1,4 @@
+use crate::hiscores::{self, HiScoreEntry};
 use crate::rotation_system::Kind;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -18,6 +19,8 @@ pub struct Menu {
     cursor: usize,
     game_mode: GameMode,
     rotation: Kind,
+    hi_scores_tab: usize,
+    hi_scores_data: [Vec<HiScoreEntry>; 4],
 }
 
 #[derive(Default)]
@@ -42,6 +45,8 @@ impl Menu {
             cursor: 0,
             game_mode: GameMode::Master,
             rotation: Kind::Ars,
+            hi_scores_tab: 0,
+            hi_scores_data: [vec![], vec![], vec![], vec![]],
         }
     }
 
@@ -58,11 +63,29 @@ impl Menu {
     pub fn rotation(&self) -> Kind {
         self.rotation
     }
+    pub fn hi_scores_tab(&self) -> usize {
+        self.hi_scores_tab
+    }
+    pub fn hi_scores_data(&self) -> &[Vec<HiScoreEntry>; 4] {
+        &self.hi_scores_data
+    }
 
     pub fn tick(&mut self, input: &MenuInput) -> MenuResult {
         match self.screen {
             MenuScreen::Main => self.tick_main(input),
-            MenuScreen::HiScores | MenuScreen::Controls => {
+            MenuScreen::HiScores => {
+                if input.back {
+                    self.screen = MenuScreen::Main;
+                }
+                if input.left {
+                    self.hi_scores_tab = self.hi_scores_tab.saturating_sub(1);
+                }
+                if input.right {
+                    self.hi_scores_tab = (self.hi_scores_tab + 1).min(3);
+                }
+                MenuResult::Stay
+            }
+            MenuScreen::Controls => {
                 if input.back {
                     self.screen = MenuScreen::Main;
                 }
@@ -97,6 +120,12 @@ impl Menu {
             }
             2 => {
                 if input.confirm {
+                    self.hi_scores_data = [
+                        hiscores::load(GameMode::Master, Kind::Ars),
+                        hiscores::load(GameMode::Master, Kind::Srs),
+                        hiscores::load(GameMode::TwentyG, Kind::Ars),
+                        hiscores::load(GameMode::TwentyG, Kind::Srs),
+                    ];
                     self.screen = MenuScreen::HiScores;
                 }
             }
