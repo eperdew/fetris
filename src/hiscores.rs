@@ -13,9 +13,7 @@ pub struct HiScoreEntry {
 pub fn insert_entry(entries: &mut Vec<HiScoreEntry>, entry: HiScoreEntry, max: usize) {
     entries.push(entry);
     // Sort best-first: higher grade wins; ties by lower ticks
-    entries.sort_by(|a, b| {
-        b.grade.cmp(&a.grade).then(a.ticks.cmp(&b.ticks))
-    });
+    entries.sort_by(|a, b| b.grade.cmp(&a.grade).then(a.ticks.cmp(&b.ticks)));
     entries.truncate(max);
 }
 
@@ -43,11 +41,10 @@ pub fn save(mode: GameMode, rotation: Kind, entries: Vec<HiScoreEntry>) {
     }
 }
 
-pub fn submit(mode: GameMode, rotation: Kind, entry: HiScoreEntry) -> Vec<HiScoreEntry> {
+pub fn submit(mode: GameMode, rotation: Kind, entry: HiScoreEntry) {
     let mut entries = load(mode, rotation);
     insert_entry(&mut entries, entry, 5);
-    save(mode, rotation, entries.clone());
-    entries
+    save(mode, rotation, entries);
 }
 
 #[cfg(test)]
@@ -77,9 +74,8 @@ mod tests {
 
     #[test]
     fn truncates_to_max() {
-        let mut entries: Vec<HiScoreEntry> = (0..5)
-            .map(|i| entry(Grade::One, 1000 + i * 100))
-            .collect();
+        let mut entries: Vec<HiScoreEntry> =
+            (0..5).map(|i| entry(Grade::One, 1000 + i * 100)).collect();
         // Worse than all existing: should not appear
         insert_entry(&mut entries, entry(Grade::Nine, 500), 5);
         assert_eq!(entries.len(), 5);
@@ -88,9 +84,8 @@ mod tests {
 
     #[test]
     fn better_entry_evicts_worst() {
-        let mut entries: Vec<HiScoreEntry> = (0..5)
-            .map(|i| entry(Grade::One, 1000 + i * 100))
-            .collect();
+        let mut entries: Vec<HiScoreEntry> =
+            (0..5).map(|i| entry(Grade::One, 1000 + i * 100)).collect();
         insert_entry(&mut entries, entry(Grade::SOne, 999), 5);
         assert_eq!(entries.len(), 5);
         assert!(matches!(entries[0].grade, Grade::SOne));
