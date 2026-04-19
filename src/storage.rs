@@ -1,6 +1,6 @@
 #[cfg(target_arch = "wasm32")]
 mod imp {
-    extern "C" {
+    unsafe extern "C" {
         fn storage_get(key_ptr: *const u8, key_len: u32, buf_ptr: *mut u8, buf_len: u32) -> i32;
         fn storage_set(key_ptr: *const u8, key_len: u32, val_ptr: *const u8, val_len: u32);
     }
