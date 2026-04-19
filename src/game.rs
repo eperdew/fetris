@@ -343,6 +343,7 @@ impl Game {
                 num_lines: lines_cleared,
                 frames_soft_drop_held: self.soft_drop_frames,
                 sonic_drop_rows: self.sonic_drop_rows,
+                ticks_elapsed: self.ticks_elapsed,
             }
         } else {
             JudgeEvent::LockedWithoutClear

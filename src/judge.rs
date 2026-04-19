@@ -2,6 +2,8 @@ use std::fmt;
 pub struct Judge {
     combo: u32,
     score: u32,
+    best_grade: Grade,
+    grade_ticks: u64,
 }
 
 pub enum JudgeEvent {
@@ -12,6 +14,7 @@ pub enum JudgeEvent {
         num_lines: u32,
         frames_soft_drop_held: u32,
         sonic_drop_rows: u32,
+        ticks_elapsed: u64,
     },
 }
 
@@ -107,6 +110,7 @@ impl Judge {
                 num_lines,
                 frames_soft_drop_held,
                 sonic_drop_rows,
+                ticks_elapsed,
             } => {
                 self.combo += 2 * num_lines - 2;
                 let bravo = if cleared_playfield { 4 } else { 1 };
@@ -114,6 +118,11 @@ impl Judge {
                     * num_lines
                     * self.combo
                     * bravo;
+                let new_grade = Grade::of_score(self.score);
+                if new_grade > self.best_grade {
+                    self.best_grade = new_grade;
+                    self.grade_ticks = ticks_elapsed;
+                }
             }
         }
     }
@@ -126,7 +135,19 @@ impl Judge {
         Grade::of_score(self.score)
     }
 
+    pub fn grade_entry(&self) -> crate::hiscores::HiScoreEntry {
+        crate::hiscores::HiScoreEntry {
+            grade: self.best_grade,
+            ticks: self.grade_ticks,
+        }
+    }
+
     pub fn new() -> Self {
-        Self { combo: 1, score: 0 }
+        Self {
+            combo: 1,
+            score: 0,
+            best_grade: Grade::Nine,
+            grade_ticks: 0,
+        }
     }
 }
