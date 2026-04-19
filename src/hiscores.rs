@@ -1,3 +1,5 @@
+use bevy_pkv::PkvStore;
+
 use crate::judge::Grade;
 use crate::menu::GameMode;
 use crate::rotation_system::Kind;
@@ -27,18 +29,13 @@ fn storage_key(mode: GameMode, rotation: Kind) -> &'static str {
 }
 
 pub fn load(mode: GameMode, rotation: Kind) -> Vec<HiScoreEntry> {
-    let storage = quad_storage::STORAGE.lock().unwrap();
-    storage
-        .get(storage_key(mode, rotation))
-        .and_then(|s| serde_json::from_str(&s).ok())
+    PkvStore::new("fetris", "fetris")
+        .get::<Vec<HiScoreEntry>>(storage_key(mode, rotation))
         .unwrap_or_default()
 }
 
 pub fn save(mode: GameMode, rotation: Kind, entries: Vec<HiScoreEntry>) {
-    let mut storage = quad_storage::STORAGE.lock().unwrap();
-    if let Ok(json) = serde_json::to_string(&entries) {
-        storage.set(storage_key(mode, rotation), &json);
-    }
+    let _ = PkvStore::new("fetris", "fetris").set(storage_key(mode, rotation), &entries);
 }
 
 pub fn submit(mode: GameMode, rotation: Kind, entry: HiScoreEntry) {
