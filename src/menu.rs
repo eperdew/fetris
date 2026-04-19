@@ -76,11 +76,9 @@ impl Menu {
             MenuScreen::HiScores => {
                 if input.back {
                     self.screen = MenuScreen::Main;
-                }
-                if input.left {
+                } else if input.left {
                     self.hi_scores_tab = self.hi_scores_tab.saturating_sub(1);
-                }
-                if input.right {
+                } else if input.right {
                     self.hi_scores_tab = (self.hi_scores_tab + 1).min(3);
                 }
                 MenuResult::Stay
@@ -120,6 +118,7 @@ impl Menu {
             }
             2 => {
                 if input.confirm {
+                    self.hi_scores_tab = 0;
                     self.hi_scores_data = [
                         hiscores::load(GameMode::Master, Kind::Ars),
                         hiscores::load(GameMode::Master, Kind::Srs),
