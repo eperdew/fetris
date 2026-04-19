@@ -118,11 +118,7 @@ async fn main() {
                 }
                 // Submit score exactly once on game end
                 if (game.game_over || game.game_won) && !game.score_submitted {
-                    hiscores::submit(
-                        game.game_mode,
-                        game.rotation_kind,
-                        game.judge.grade_entry(),
-                    );
+                    hiscores::submit(game.game_mode, game.rotation_kind, game.judge.grade_entry());
                     game.score_submitted = true;
                 }
                 if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {

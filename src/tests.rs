@@ -6,7 +6,11 @@ use crate::piece::{Piece, PieceKind};
 use crate::rotation_system::{Ars, Kind, Srs};
 use std::collections::HashSet;
 
-fn make_game_with(rotation_kind: Kind, rs: Box<dyn crate::rotation_system::RotationSystem>, kind: PieceKind) -> Game {
+fn make_game_with(
+    rotation_kind: Kind,
+    rs: Box<dyn crate::rotation_system::RotationSystem>,
+    kind: PieceKind,
+) -> Game {
     let mut game = Game::new(GameMode::Master, rotation_kind, rs);
     game.board = [[None; BOARD_COLS]; BOARD_ROWS];
     game.active = Piece::new(kind);

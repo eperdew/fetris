@@ -18,7 +18,9 @@ pub enum JudgeEvent {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum Grade {
     Nine,
     Eight,
@@ -136,7 +138,10 @@ mod tests {
         j.on_event(&clear_event(100, 1, 999));
         let entry = j.grade_entry();
         assert_eq!(entry.grade, grade_after_first, "grade should be unchanged");
-        assert_eq!(entry.ticks, 500, "ticks should still reflect the first crossing");
+        assert_eq!(
+            entry.ticks, 500,
+            "ticks should still reflect the first crossing"
+        );
     }
 
     #[test]
