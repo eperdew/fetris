@@ -3,15 +3,12 @@ use crate::game::{BOARD_COLS, BOARD_ROWS, Board, Game, PiecePhase, can_piece_inc
 use crate::input::{GameKey, InputState};
 use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
-use crate::rotation_system::{Ars, Kind, Srs};
+use crate::rotation_system::{Ars, Kind};
 use std::collections::HashSet;
 
-fn make_game_with(
-    rotation_kind: Kind,
-    rs: Box<dyn crate::rotation_system::RotationSystem>,
-    kind: PieceKind,
-) -> Game {
-    let mut game = Game::new(GameMode::Master, rotation_kind, rs);
+fn make_game_with(game_mode: GameMode, rotation_kind: Kind, kind: PieceKind) -> Game {
+    let rotation_system = rotation_kind.create();
+    let mut game = Game::new(game_mode, rotation_kind, rotation_system);
     game.board = [[None; BOARD_COLS]; BOARD_ROWS];
     game.active = Piece::new(kind);
     game.active.col = 3;
@@ -21,11 +18,11 @@ fn make_game_with(
 }
 
 fn make_game(kind: PieceKind) -> Game {
-    make_game_with(Kind::Ars, Box::new(Ars), kind)
+    make_game_with(GameMode::Master, Kind::Ars, kind)
 }
 
 fn make_srs_game(kind: PieceKind) -> Game {
-    make_game_with(Kind::Srs, Box::new(Srs), kind)
+    make_game_with(GameMode::Master, Kind::Srs, kind)
 }
 
 /// Simulate a single keypress (held + just_pressed for one tick).
@@ -107,12 +104,12 @@ fn board_lines(game: &Game, prev_cells: &[(i32, i32)]) -> Vec<String> {
         row.push('│');
         for c in 0..BOARD_COLS {
             let pos = (c as i32, r as i32);
-            row.push_str(if active.contains(&pos) {
+            row.push_str(if game.board[r][c].is_some() {
+                "##"
+            } else if active.contains(&pos) {
                 "[]"
             } else if prev_cells.contains(&pos) {
                 "'."
-            } else if game.board[r][c].is_some() {
-                "##"
             } else if r % 5 == 0 {
                 "- "
             } else {
@@ -2137,4 +2134,76 @@ mod srs_tests {
     fn srs_wall_kick_snap_z() {
         insta::assert_snapshot!(wall_kick_snap(PieceKind::Z, make_srs_game));
     }
+}
+
+#[test]
+fn lock_and_move_regression_test() {
+    // Make sure that locking a piece on the same frame you move it does something sensible.
+    let mut game = make_game_with(GameMode::TwentyG, Kind::Ars, PieceKind::O);
+    let mut input_state = InputState::empty();
+    game.board = board_from_ascii(
+        "
+        ....O.....
+        OOOOOOOOOO
+    ",
+    );
+    game.tick(&input_state);
+    insta::assert_snapshot!(board_lines(&game, &[]).join("\n"), @"
+      ┌────────────────────┐
+     0│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+     5│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    10│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    15│- - - - - - - - - - │
+      │        [][]        │
+      │        [][]        │
+      │        ##          │
+      │####################│
+    20└────────────────────┘
+    ");
+    // TODO-someday: Add input state helpers.
+    //
+    // Press right and down on the same frame. We want this to either lock the piece or move it to the right (where it will fall a square).
+    let mut inputs = HashSet::new();
+    inputs.insert(GameKey::Right);
+    inputs.insert(GameKey::SoftDrop);
+    input_state.held = inputs.clone();
+    input_state.just_pressed = inputs.clone();
+    game.tick(&input_state);
+    // BUG: This locked above the board.
+    insta::assert_snapshot!(board_lines(&game, &[]).join("\n"), @"
+      ┌────────────────────┐
+     0│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+     5│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    10│- - - - - - - - - - │
+      │                    │
+      │                    │
+      │                    │
+      │                    │
+    15│- - - - - - - - - - │
+      │          ####      │
+      │          ####      │
+      │        ##          │
+      │####################│
+    20└────────────────────┘
+    ");
 }
