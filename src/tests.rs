@@ -2181,7 +2181,7 @@ fn lock_and_move_regression_test() {
     input_state.held = inputs.clone();
     input_state.just_pressed = inputs.clone();
     game.tick(&input_state);
-    // BUG: This locked above the board.
+    // Here, locking is applied first before horizontal movement, so locking wins.
     insta::assert_snapshot!(board_lines(&game, &[]).join("\n"), @"
       ┌────────────────────┐
      0│- - - - - - - - - - │
@@ -2200,8 +2200,8 @@ fn lock_and_move_regression_test() {
       │                    │
       │                    │
     15│- - - - - - - - - - │
-      │          ####      │
-      │          ####      │
+      │        ####        │
+      │        ####        │
       │        ##          │
       │####################│
     20└────────────────────┘

@@ -178,7 +178,33 @@ impl Game {
             self.try_rotate(RotationDirection::Counterclockwise);
         }
 
-        // Phase 3: Horizontal DAS.
+        // Phase 3: Sonic drop (Space) — drop to floor, enter lock delay.
+        if input.just_pressed.contains(&GameKey::SonicDrop) {
+            let row_before = self.active.row;
+            while self.try_move(0, 1) {}
+            self.sonic_drop_rows += (self.active.row - row_before) as u32;
+            self.piece_phase = PiecePhase::Locking {
+                ticks_left: LOCK_DELAY,
+            };
+            return;
+        }
+
+        // Phase 4: Soft drop (Down) — bypass lock delay or advance gravity.
+        if input.held.contains(&GameKey::SoftDrop) {
+            self.soft_drop_frames += 1;
+            match self.piece_phase {
+                PiecePhase::Locking { .. } => {
+                    self.lock_piece(input);
+                    return;
+                }
+                _ => {
+                    self.try_move(0, 1);
+                    self.gravity_accumulator = 0;
+                }
+            }
+        }
+
+        // Phase 5: Horizontal DAS.
         let horiz = if input.held.contains(&GameKey::Left) {
             Some(HorizDir::Left)
         } else if input.held.contains(&GameKey::Right) {
@@ -207,32 +233,6 @@ impl Game {
                         let dcol = if dir == HorizDir::Left { -1 } else { 1 };
                         self.try_move(dcol, 0);
                     }
-                }
-            }
-        }
-
-        // Phase 4: Sonic drop (Space) — drop to floor, enter lock delay.
-        if input.just_pressed.contains(&GameKey::SonicDrop) {
-            let row_before = self.active.row;
-            while self.try_move(0, 1) {}
-            self.sonic_drop_rows += (self.active.row - row_before) as u32;
-            self.piece_phase = PiecePhase::Locking {
-                ticks_left: LOCK_DELAY,
-            };
-            return;
-        }
-
-        // Phase 5: Soft drop (Down) — bypass lock delay or advance gravity.
-        if input.held.contains(&GameKey::SoftDrop) {
-            self.soft_drop_frames += 1;
-            match self.piece_phase {
-                PiecePhase::Locking { .. } => {
-                    self.lock_piece(input);
-                    return;
-                }
-                _ => {
-                    self.try_move(0, 1);
-                    self.gravity_accumulator = 0;
                 }
             }
         }
