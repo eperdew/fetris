@@ -93,7 +93,7 @@ async fn main() {
                     }
                 }
                 if let MenuResult::StartGame { mode, rotation } = menu.tick(&input) {
-                    new_state = Some(AppState::Playing(Game::new(mode, rotation.create())));
+                    new_state = Some(AppState::Playing(Game::new(mode, rotation, rotation.create())));
                 }
                 renderer::render_menu(menu);
             }

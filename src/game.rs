@@ -8,6 +8,7 @@ use crate::menu::GameMode;
 use crate::piece::{Piece, PieceKind};
 use crate::randomizer::Randomizer;
 use crate::rotation_system;
+use crate::rotation_system::Kind;
 
 pub const BOARD_COLS: usize = 10;
 pub const BOARD_ROWS: usize = 20;
@@ -59,6 +60,8 @@ pub struct Game {
     pub rows_pending_compaction: Vec<usize>,
     pub soft_drop_frames: u32,
     pub sonic_drop_rows: u32,
+    pub rotation_kind: Kind,
+    pub score_submitted: bool,
 }
 
 pub enum RotationDirection {
@@ -69,6 +72,7 @@ pub enum RotationDirection {
 impl Game {
     pub fn new(
         game_mode: GameMode,
+        rotation_kind: Kind,
         rotation_system: Box<dyn rotation_system::RotationSystem>,
     ) -> Self {
         let mut randomizer = Randomizer::new();
@@ -95,6 +99,8 @@ impl Game {
             rows_pending_compaction: Vec::new(),
             soft_drop_frames: 0,
             sonic_drop_rows: 0,
+            rotation_kind,
+            score_submitted: false,
         }
     }
 
