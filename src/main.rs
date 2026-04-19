@@ -93,7 +93,11 @@ async fn main() {
                     }
                 }
                 if let MenuResult::StartGame { mode, rotation } = menu.tick(&input) {
-                    new_state = Some(AppState::Playing(Game::new(mode, rotation, rotation.create())));
+                    new_state = Some(AppState::Playing(Game::new(
+                        mode,
+                        rotation,
+                        rotation.create(),
+                    )));
                 }
                 renderer::render_menu(menu);
             }
@@ -111,6 +115,15 @@ async fn main() {
                     };
                     game.tick(&input);
                     accumulator -= TICK;
+                }
+                // Submit score exactly once on game end
+                if (game.game_over || game.game_won) && !game.score_submitted {
+                    hiscores::submit(
+                        game.game_mode,
+                        game.rotation_kind,
+                        game.judge.grade_entry(),
+                    );
+                    game.score_submitted = true;
                 }
                 if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {
                     new_state = Some(AppState::Menu(Menu::new()));
