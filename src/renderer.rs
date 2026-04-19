@@ -399,7 +399,7 @@ fn render_hi_scores(menu: &Menu) {
     for i in 0..5usize {
         let y = cy - LH * 2.5 + i as f32 * LH;
         let text = if let Some(entry) = data.get(i) {
-            format!("{}. {:>2}   {}", i + 1, entry.grade, format_time(entry.ticks))
+            format!("{}. {}   {}", i + 1, entry.grade, format_time(entry.ticks))
         } else {
             format!("{}. ---", i + 1)
         };
