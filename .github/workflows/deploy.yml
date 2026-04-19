@@ -36,8 +36,8 @@ jobs:
         run: |
           mkdir dist
           cp web/index.html dist/
+          cp web/*.js dist/
           cp target/wasm32-unknown-unknown/release/fetris.wasm dist/
-          cp ~/.cargo/registry/src/*/macroquad-0.4.14/js/mq_js_bundle.js dist/
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
