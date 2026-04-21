@@ -95,7 +95,11 @@ async fn main() {
                     }
                 }
                 if let MenuResult::StartGame { mode, rotation } = menu.tick(&input, &storage) {
-                    GameConfig { game_mode: mode, rotation }.save(&mut storage);
+                    GameConfig {
+                        game_mode: mode,
+                        rotation,
+                    }
+                    .save(&mut storage);
                     new_state = Some(AppState::Playing(Game::new(
                         mode,
                         rotation,
