@@ -1,8 +1,7 @@
 use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEED};
-use crate::game::{BOARD_COLS, BOARD_ROWS, Game, PiecePhase};
-use crate::menu::{GameMode, Menu, MenuScreen};
-use crate::piece::PieceKind;
-use crate::rotation_system::Kind;
+use crate::game::Game;
+use crate::menu::Menu;
+use crate::types::{BOARD_COLS, BOARD_ROWS, GameMode, Kind, MenuScreen, PieceKind, PiecePhase};
 use macroquad::prelude::*;
 
 const CELL: f32 = 32.0;
@@ -13,7 +12,7 @@ const BOARD_Y: f32 = 2.0 * CELL + 2.0 * PAD;
 const SIDEBAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + 10.0;
 const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
 
-pub struct Renderer {
+pub(crate) struct Renderer {
     cell_texture: Texture2D,
     font: Font,
 }

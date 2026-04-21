@@ -1,12 +1,4 @@
-use crate::judge::Grade;
-use crate::menu::GameMode;
-use crate::rotation_system::Kind;
-
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct HiScoreEntry {
-    pub grade: Grade,
-    pub ticks: u64,
-}
+use crate::types::{GameMode, HiScoreEntry, Kind};
 
 /// Insert `entry` into `entries` in sorted order (best first) and truncate to `max`.
 /// Best = higher grade; ties broken by lower ticks.
@@ -62,7 +54,7 @@ pub fn submit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::judge::Grade;
+    use crate::types::Grade;
 
     fn entry(grade: Grade, ticks: u64) -> HiScoreEntry {
         HiScoreEntry { grade, ticks }

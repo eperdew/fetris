@@ -1,5 +1,4 @@
-use crate::game::{Board, RotationDirection};
-use crate::piece::{Piece, PieceKind};
+use crate::types::{Board, Piece, PieceKind, RotationDirection};
 
 /// Parses a diagram of 4 rotations laid out side by side with `|` column separators,
 /// at compile time. Each rotation must have exactly 4 filled cells (`O`).
@@ -323,23 +322,6 @@ pub trait RotationSystem {
     ) -> Option<Piece>;
 }
 
-/// Menu-facing enum for selecting which rotation system to use.
-/// Call `.create()` to obtain a `Box<dyn RotationSystem>`.
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum Kind {
-    Ars,
-    Srs,
-}
-
-impl Kind {
-    pub fn create(self) -> Box<dyn RotationSystem> {
-        match self {
-            Kind::Ars => Box::new(Ars),
-            Kind::Srs => Box::new(Srs),
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // ARS
 // ---------------------------------------------------------------------------
@@ -507,7 +489,6 @@ mod parse_tests {
 
     #[test]
     fn ars_cells_matches_const_table() {
-        use crate::piece::PieceKind;
         let ars = Ars;
         // I-piece rot 0: horizontal bar at row 1
         assert_eq!(ars.cells(PieceKind::I, 0), [(0, 1), (1, 1), (2, 1), (3, 1)]);
@@ -537,16 +518,16 @@ mod parse_tests {
 
     #[test]
     fn srs_t_basic_rotation_empty_board() {
-        use crate::game::{BOARD_COLS, BOARD_ROWS};
+        use crate::types::{BOARD_COLS, BOARD_ROWS};
         let board = [[None; BOARD_COLS]; BOARD_ROWS];
-        let piece = crate::piece::Piece {
+        let piece = crate::types::Piece {
             kind: PieceKind::T,
             rotation: 0,
             col: 3,
             row: 8,
         };
         let srs = Srs;
-        let result = srs.try_rotate(&piece, crate::game::RotationDirection::Clockwise, &board);
+        let result = srs.try_rotate(&piece, crate::types::RotationDirection::Clockwise, &board);
         assert!(
             result.is_some(),
             "basic rotation on empty board must succeed"

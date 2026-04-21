@@ -1,22 +1,20 @@
 mod constants;
 mod game;
 mod hiscores;
-mod input;
 mod judge;
 mod menu;
-mod piece;
-mod randomizer;
 mod renderer;
 mod rotation_system;
 mod storage;
+mod types;
 #[cfg(test)]
 mod tests;
 
 use game::Game;
-use input::{GameKey, InputState};
 use macroquad::prelude::*;
-use menu::{GameConfig, Menu, MenuInput, MenuResult, MenuScreen};
+use menu::Menu;
 use std::collections::HashSet;
+use types::{GameConfig, GameKey, InputState, MenuInput, MenuResult, MenuScreen};
 
 enum AppState {
     Menu(Menu),

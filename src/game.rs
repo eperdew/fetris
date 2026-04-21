@@ -2,44 +2,59 @@ use crate::constants::{
     ARE_DAS_FROZEN_FRAMES, DAS_CHARGE, DAS_REPEAT, LINE_CLEAR_DELAY, LOCK_DELAY,
     SPAWN_DELAY_NORMAL, gravity_g,
 };
-use crate::input::{GameKey, InputState};
-use crate::judge::{Grade, Judge, JudgeEvent};
-use crate::menu::GameMode;
-use crate::piece::{Piece, PieceKind};
-use crate::randomizer::Randomizer;
+use crate::judge::Judge;
 use crate::rotation_system;
-use crate::rotation_system::Kind;
+use crate::types::{
+    Board, BOARD_COLS, BOARD_ROWS, GameKey, GameMode, Grade, HorizDir, InputState, JudgeEvent,
+    Kind, Piece, PieceKind, PiecePhase, RotationDirection,
+};
 
-pub const BOARD_COLS: usize = 10;
-pub const BOARD_ROWS: usize = 20;
-
-/// None = empty, Some(kind) = locked cell color
-pub type Board = [[Option<PieceKind>; BOARD_COLS]; BOARD_ROWS];
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PiecePhase {
-    Falling,
-    Locking {
-        ticks_left: u32,
-    },
-    /// Line clear display phase (41 frames). DAS is frozen throughout.
-    /// Transitions to Spawning{SPAWN_DELAY_NORMAL} when complete.
-    LineClearDelay {
-        ticks_left: u32,
-    },
-    /// ARE: piece spawn delay (30 frames). DAS charges during middle frames.
-    Spawning {
-        ticks_left: u32,
-    },
+/// TGM-style randomizer. Keeps a 4-piece history (initialized to [Z; 4]) and
+/// makes up to 4 attempts to produce a piece not in that history.
+/// The first piece is never S, Z, or O.
+struct Randomizer {
+    history: [PieceKind; 4],
+    is_first: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum HorizDir {
-    Left,
-    Right,
+impl Randomizer {
+    fn new() -> Self {
+        Self {
+            history: [PieceKind::Z; 4],
+            is_first: true,
+        }
+    }
+
+    fn next(&mut self) -> PieceKind {
+        let mut piece = self.candidate();
+        for _ in 1..4 {
+            if !self.history.contains(&piece) {
+                break;
+            }
+            piece = self.candidate();
+        }
+        self.history.rotate_left(1);
+        self.history[3] = piece;
+        self.is_first = false;
+        piece
+    }
+
+    fn candidate(&self) -> PieceKind {
+        if self.is_first {
+            // Avoid S, Z, O on the first piece to prevent forced overhangs.
+            match (macroquad::rand::rand() % 4) as u8 {
+                0 => PieceKind::I,
+                1 => PieceKind::T,
+                2 => PieceKind::J,
+                _ => PieceKind::L,
+            }
+        } else {
+            PieceKind::random()
+        }
+    }
 }
 
-pub struct Game {
+pub(crate) struct Game {
     pub board: Board,
     pub active: Piece,
     pub rotation_system: Box<dyn rotation_system::RotationSystem>,
@@ -51,7 +66,7 @@ pub struct Game {
     pub game_over: bool,
     pub game_won: bool,
     pub ticks_elapsed: u64,
-    pub randomizer: Randomizer,
+    randomizer: Randomizer,
     pub piece_phase: PiecePhase,
     pub gravity_accumulator: u32,
     pub das_direction: Option<HorizDir>,
@@ -62,11 +77,6 @@ pub struct Game {
     pub sonic_drop_rows: u32,
     pub rotation_kind: Kind,
     pub score_submitted: bool,
-}
-
-pub enum RotationDirection {
-    Clockwise,
-    Counterclockwise,
 }
 
 impl Game {

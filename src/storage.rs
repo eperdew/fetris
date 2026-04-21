@@ -80,4 +80,4 @@ mod imp {
     }
 }
 
-pub use imp::Storage;
+pub(crate) use imp::Storage;

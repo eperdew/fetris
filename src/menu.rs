@@ -1,20 +1,5 @@
-use crate::hiscores::{self, HiScoreEntry};
-use crate::rotation_system::Kind;
-
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
-pub struct GameConfig {
-    pub game_mode: GameMode,
-    pub rotation: Kind,
-}
-
-impl Default for GameConfig {
-    fn default() -> Self {
-        Self {
-            game_mode: GameMode::Master,
-            rotation: Kind::Ars,
-        }
-    }
-}
+use crate::hiscores;
+use crate::types::{GameConfig, GameMode, HiScoreEntry, Kind, MenuInput, MenuResult, MenuScreen};
 
 impl GameConfig {
     pub fn load(storage: &crate::storage::Storage) -> Self {
@@ -31,41 +16,13 @@ impl GameConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum GameMode {
-    Master,
-    TwentyG,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MenuScreen {
-    Main,
-    HiScores,
-    Controls,
-}
-
-pub struct Menu {
+pub(crate) struct Menu {
     screen: MenuScreen,
     cursor: usize,
     game_mode: GameMode,
     rotation: Kind,
     hi_scores_tab: usize,
     hi_scores_data: [Vec<HiScoreEntry>; 4],
-}
-
-#[derive(Default)]
-pub struct MenuInput {
-    pub up: bool,
-    pub down: bool,
-    pub left: bool,
-    pub right: bool,
-    pub confirm: bool,
-    pub back: bool,
-}
-
-pub enum MenuResult {
-    Stay,
-    StartGame { mode: GameMode, rotation: Kind },
 }
 
 impl Menu {

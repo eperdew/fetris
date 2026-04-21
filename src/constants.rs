@@ -1,4 +1,4 @@
-use crate::menu::GameMode;
+use crate::types::GameMode;
 
 pub const LOCK_DELAY: u32 = 29; // N+1 countdown → 30 actual frames (TGM1)
 pub const SPAWN_DELAY_NORMAL: u32 = 29; // N+1 → 30 frames: ARE (TGM1)
