@@ -426,6 +426,15 @@ impl Game {
     pub fn grade(&self) -> Grade {
         self.judge.grade()
     }
+
+    pub fn level(&self) -> u32 {
+        self.level
+    }
+
+    pub fn next_level_barrier(&self) -> u32 {
+        let round_up = (self.level + 1).next_multiple_of(100);
+        if round_up == 1000 { 999 } else { round_up }
+    }
 }
 
 pub(crate) fn can_piece_increment(level: u32) -> bool {

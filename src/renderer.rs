@@ -9,11 +9,331 @@ const CELL: f32 = 32.0;
 const INSET: f32 = 2.0;
 const PAD: f32 = 20.0;
 const BOARD_X: f32 = PAD;
-const BOARD_Y: f32 = PAD;
+const BOARD_Y: f32 = 2.0 * CELL + 2.0 * PAD;
 const SIDEBAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + 10.0;
 const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
 
-pub fn make_cell_texture() -> Texture2D {
+pub struct Renderer {
+    cell_texture: Texture2D,
+    font: Font,
+}
+
+impl Renderer {
+    pub fn new() -> Self {
+        let font =
+            load_ttf_font_from_bytes(include_bytes!("../assets/Oxanium-Regular.ttf")).unwrap();
+        Self {
+            cell_texture: make_cell_texture(),
+            font,
+        }
+    }
+
+    fn draw_text(&self, text: &str, x: f32, y: f32, font_size: f32, color: Color) {
+        draw_text_ex(
+            text,
+            x,
+            y,
+            TextParams {
+                font: Some(&self.font),
+                font_size: font_size as u16,
+                color,
+                ..Default::default()
+            },
+        );
+    }
+
+    fn draw_centered(&self, text: &str, y: f32, font_size: f32, color: Color) {
+        let dims = measure_text(text, Some(&self.font), font_size as u16, 1.0);
+        self.draw_text(
+            text,
+            (screen_width() - dims.width) / 2.0,
+            y,
+            font_size,
+            color,
+        );
+    }
+
+    pub fn render(&self, game: &Game) {
+        clear_background(Color::from_rgba(10, 10, 18, 255));
+        self.render_board(game);
+        self.render_sidebar(game);
+        self.render_overlay(game);
+    }
+
+    pub fn render_menu(&self, menu: &Menu) {
+        clear_background(Color::from_rgba(10, 10, 18, 255));
+        match menu.screen() {
+            MenuScreen::Main => self.render_main_menu(menu),
+            MenuScreen::HiScores => self.render_hi_scores(menu),
+            MenuScreen::Controls => self.render_subscreen("CONTROLS"),
+        }
+    }
+
+    fn render_board(&self, game: &Game) {
+        let texture = &self.cell_texture;
+
+        draw_rectangle(
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
+            BOARD_BG,
+        );
+
+        let show_active = !matches!(
+            game.piece_phase,
+            PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
+        );
+
+        // Ghost piece
+        if show_active {
+            let ghost_row = compute_ghost_row(game);
+            if ghost_row != game.active.row {
+                let base = piece_color(game.active.kind);
+                let ghost_color = Color { a: 0.25, ..base };
+                for (dc, dr) in game
+                    .rotation_system
+                    .cells(game.active.kind, game.active.rotation)
+                {
+                    let c = game.active.col + dc;
+                    let r = ghost_row + dr;
+                    if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                        draw_cell(BOARD_X, BOARD_Y, c, r, ghost_color, texture);
+                    }
+                }
+            }
+        }
+
+        // Locked cells (skip rows pending compaction — they are drawn as particles below)
+        for (r, row) in game.board.iter().enumerate() {
+            if game.rows_pending_compaction.contains(&r) {
+                continue;
+            }
+            for (c, cell) in row.iter().enumerate() {
+                if let Some(kind) = cell {
+                    let left_border = c == 0 || game.board[r][c - 1].is_none();
+                    let top_border = r == 0 || game.board[r - 1][c].is_none();
+                    let right_border = c == BOARD_COLS - 1 || game.board[r][c + 1].is_none();
+                    let bottom_border = r == BOARD_ROWS - 1 || game.board[r + 1][c].is_none();
+                    draw_cell_bordered(
+                        BOARD_X,
+                        BOARD_Y,
+                        c as i32,
+                        r as i32,
+                        piece_color(*kind),
+                        texture,
+                        left_border,
+                        top_border,
+                        right_border,
+                        bottom_border,
+                    );
+                }
+            }
+        }
+
+        // Particles: cells from cleared rows fly off screen during LineClearDelay
+        if let PiecePhase::LineClearDelay { ticks_left } = game.piece_phase {
+            let t = (LINE_CLEAR_DELAY - ticks_left) as f32;
+            for &r in &game.rows_pending_compaction {
+                for (c, cell) in game.board[r].iter().enumerate() {
+                    if let Some(kind) = cell {
+                        let initial_x = BOARD_X + c as f32 * CELL;
+                        let initial_y = BOARD_Y + r as f32 * CELL;
+                        let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
+                        let height = (BOARD_ROWS - r) as f32 / BOARD_ROWS as f32;
+                        let vx_raw = dist * height;
+                        let vy_raw = (r + 1) as f32 / BOARD_ROWS as f32;
+                        let len = (vx_raw * vx_raw + vy_raw * vy_raw).sqrt();
+                        let vx = vx_raw / len * PARTICLE_INITIAL_SPEED;
+                        let vy = vy_raw / len * PARTICLE_INITIAL_SPEED;
+                        let px = initial_x + vx * t;
+                        let py = initial_y + vy * t + 0.5 * PARTICLE_GRAVITY * t * t;
+                        if px > -CELL && px < screen_width() && py > -CELL && py < screen_height() {
+                            draw_cell_at(px, py, piece_color(*kind), texture);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Active piece
+        if show_active {
+            for (dc, dr) in game
+                .rotation_system
+                .cells(game.active.kind, game.active.rotation)
+            {
+                let c = game.active.col + dc;
+                let r = game.active.row + dr;
+                if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                    draw_cell(
+                        BOARD_X,
+                        BOARD_Y,
+                        c,
+                        r,
+                        piece_color(game.active.kind),
+                        texture,
+                    );
+                }
+            }
+        }
+
+        // Piece preview
+        for (dc, dr) in game
+            .rotation_system
+            .cells(game.next.kind, game.next.rotation)
+        {
+            let c = 3 + dc;
+            let r = -3 + dr;
+            draw_cell(
+                BOARD_X,
+                BOARD_Y - PAD,
+                c,
+                r,
+                piece_color(game.next.kind),
+                texture,
+            );
+        }
+    }
+
+    fn render_sidebar(&self, game: &Game) {
+        const FONT_LG: f32 = 26.0;
+        const FONT_SM: f32 = 18.0;
+        const LH: f32 = 30.0;
+        const DIM: Color = Color::new(0.5, 0.5, 0.5, 1.0);
+
+        let x = SIDEBAR_X;
+        let mut y = BOARD_Y + 22.0;
+
+        self.draw_text("LEVEL", x, y, FONT_SM, DIM);
+        y += LH;
+        self.draw_text(&format!("{:03}", game.level()), x, y, FONT_LG, WHITE);
+        y += 6.0;
+        draw_line(x, y, x + 48.0, y, 2.0, DIM);
+        y += 24.0;
+        self.draw_text(
+            &format!("{}", game.next_level_barrier()),
+            x,
+            y,
+            FONT_LG,
+            WHITE,
+        );
+        y += LH + 8.0;
+
+        self.draw_text("LINES", x, y, FONT_SM, DIM);
+        y += LH;
+        self.draw_text(&format!("{}", game.lines), x, y, FONT_LG, WHITE);
+        y += LH + 8.0;
+
+        self.draw_text("TIME", x, y, FONT_SM, DIM);
+        y += LH;
+        self.draw_text(&format_time(game.ticks_elapsed), x, y, FONT_LG, WHITE);
+        y += LH + 8.0;
+
+        self.draw_text("SCORE", x, y, FONT_SM, DIM);
+        y += LH;
+        self.draw_text(&format!("{}", game.score()), x, y, FONT_LG, WHITE);
+        y += LH + 8.0;
+
+        self.draw_text("GRADE", x, y, FONT_SM, DIM);
+        y += LH;
+        self.draw_text(&format!("{}", game.grade()), x, y, FONT_LG, WHITE);
+    }
+
+    fn render_overlay(&self, game: &Game) {
+        let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
+        let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
+        if game.game_won {
+            self.draw_text("LEVEL 999", cx - 60.0, cy - 16.0, 28.0, WHITE);
+            self.draw_text(
+                &format_time(game.ticks_elapsed),
+                cx - 50.0,
+                cy + 20.0,
+                22.0,
+                LIGHTGRAY,
+            );
+        } else if game.game_over {
+            self.draw_text("GAME OVER", cx - 62.0, cy, 28.0, WHITE);
+        }
+    }
+
+    fn render_main_menu(&self, menu: &Menu) {
+        const FONT: f32 = 24.0;
+        const LH: f32 = 36.0;
+
+        let mode_str = match menu.game_mode() {
+            GameMode::Master => "MASTER",
+            GameMode::TwentyG => "20G",
+        };
+        let rot_str = match menu.rotation() {
+            Kind::Ars => "ARS",
+            Kind::Srs => "SRS",
+        };
+
+        let mode_label = maybe_bracket(mode_str, menu.cursor() == 0);
+        let rot_label = maybe_bracket(rot_str, menu.cursor() == 1);
+        let hi_label = maybe_bracket("HI SCORES", menu.cursor() == 2);
+        let ctrl_label = maybe_bracket("CONTROLS", menu.cursor() == 3);
+        let start_label = maybe_bracket("START", menu.cursor() == 4);
+
+        let lines: &[Option<(&str, Color)>] = &[
+            Some(("GAME MODE", GRAY)),
+            Some((&mode_label, WHITE)),
+            None,
+            Some(("ROTATION", GRAY)),
+            Some((&rot_label, WHITE)),
+            None,
+            Some((&hi_label, WHITE)),
+            Some((&ctrl_label, WHITE)),
+            None,
+            Some((&start_label, WHITE)),
+        ];
+
+        let total_h = lines.len() as f32 * LH;
+        let start_y = (screen_height() - total_h) / 2.0 + LH;
+
+        for (i, line) in lines.iter().enumerate() {
+            if let Some((text, color)) = line {
+                self.draw_centered(text, start_y + i as f32 * LH, FONT, *color);
+            }
+        }
+    }
+
+    fn render_subscreen(&self, title: &str) {
+        const FONT: f32 = 24.0;
+        let cy = screen_height() / 2.0;
+        self.draw_centered(title, cy - 20.0, FONT, WHITE);
+        self.draw_centered("BKSP to go back", cy + 20.0, 18.0, GRAY);
+    }
+
+    fn render_hi_scores(&self, menu: &Menu) {
+        const FONT: f32 = 22.0;
+        const SMALL: f32 = 16.0;
+        const LH: f32 = 28.0;
+
+        let tab_names = ["MASTER / ARS", "MASTER / SRS", "20G / ARS", "20G / SRS"];
+        let tab = menu.hi_scores_tab();
+        let data = &menu.hi_scores_data()[tab];
+
+        let cy = screen_height() / 2.0;
+
+        let label = format!("< {} >", tab_names[tab]);
+        self.draw_centered(&label, cy - LH * 4.0, FONT, WHITE);
+
+        for i in 0..5usize {
+            let y = cy - LH * 2.5 + i as f32 * LH;
+            let text = if let Some(entry) = data.get(i) {
+                format!("{}. {}   {}", i + 1, entry.grade, format_time(entry.ticks))
+            } else {
+                format!("{}. ---", i + 1)
+            };
+            self.draw_centered(&text, y, SMALL, if i == 0 { WHITE } else { LIGHTGRAY });
+        }
+
+        self.draw_centered("BKSP to go back", cy + LH * 3.5, SMALL, GRAY);
+    }
+}
+
+fn make_cell_texture() -> Texture2D {
     const SIZE: usize = 32;
     let mut pixels = [255u8; SIZE * SIZE * 4];
     for y in 0..SIZE {
@@ -42,8 +362,8 @@ pub fn make_cell_texture() -> Texture2D {
 fn draw_cell_bordered(
     origin_x: f32,
     origin_y: f32,
-    col: usize,
-    row: usize,
+    col: i32,
+    row: i32,
     color: Color,
     texture: &Texture2D,
     left_border: bool,
@@ -84,14 +404,7 @@ fn draw_cell_at(x: f32, y: f32, color: Color, texture: &Texture2D) {
 }
 
 /// Draw a single CELL×CELL block at grid position (col, row) relative to (origin_x, origin_y).
-fn draw_cell(
-    origin_x: f32,
-    origin_y: f32,
-    col: usize,
-    row: usize,
-    color: Color,
-    texture: &Texture2D,
-) {
+fn draw_cell(origin_x: f32, origin_y: f32, col: i32, row: i32, color: Color, texture: &Texture2D) {
     draw_cell_at(
         origin_x + col as f32 * CELL,
         origin_y + row as f32 * CELL,
@@ -145,275 +458,10 @@ fn compute_ghost_row(game: &Game) -> i32 {
     ghost_row
 }
 
-fn render_board(game: &Game, texture: &Texture2D) {
-    // Background
-    draw_rectangle(
-        BOARD_X,
-        BOARD_Y,
-        BOARD_COLS as f32 * CELL,
-        BOARD_ROWS as f32 * CELL,
-        BOARD_BG,
-    );
-
-    let show_active = !matches!(
-        game.piece_phase,
-        PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
-    );
-
-    // Ghost piece
-    if show_active {
-        let ghost_row = compute_ghost_row(game);
-        if ghost_row != game.active.row {
-            let base = piece_color(game.active.kind);
-            let ghost_color = Color { a: 0.25, ..base };
-            for (dc, dr) in game
-                .rotation_system
-                .cells(game.active.kind, game.active.rotation)
-            {
-                let c = game.active.col + dc;
-                let r = ghost_row + dr;
-                if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
-                    draw_cell(
-                        BOARD_X,
-                        BOARD_Y,
-                        c as usize,
-                        r as usize,
-                        ghost_color,
-                        texture,
-                    );
-                }
-            }
-        }
-    }
-
-    // Locked cells (skip rows pending compaction — they are drawn as particles below)
-    for (r, row) in game.board.iter().enumerate() {
-        if game.rows_pending_compaction.contains(&r) {
-            continue;
-        }
-        for (c, cell) in row.iter().enumerate() {
-            if let Some(kind) = cell {
-                let left_border = c == 0 || game.board[r][c - 1].is_none();
-                let top_border = r == 0 || game.board[r - 1][c].is_none();
-                let right_border = c == BOARD_COLS - 1 || game.board[r][c + 1].is_none();
-                let bottom_border = r == BOARD_ROWS - 1 || game.board[r + 1][c].is_none();
-                draw_cell_bordered(
-                    BOARD_X,
-                    BOARD_Y,
-                    c,
-                    r,
-                    piece_color(*kind),
-                    texture,
-                    left_border,
-                    top_border,
-                    right_border,
-                    bottom_border,
-                );
-            }
-        }
-    }
-
-    // Particles: cells from cleared rows fly off screen during LineClearDelay
-    if let PiecePhase::LineClearDelay { ticks_left } = game.piece_phase {
-        let t = (LINE_CLEAR_DELAY - ticks_left) as f32;
-        for &r in &game.rows_pending_compaction {
-            for (c, cell) in game.board[r].iter().enumerate() {
-                if let Some(kind) = cell {
-                    let initial_x = BOARD_X + c as f32 * CELL;
-                    let initial_y = BOARD_Y + r as f32 * CELL;
-                    let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
-                    let height = (BOARD_ROWS - r) as f32 / BOARD_ROWS as f32;
-                    let vx_raw = dist * height;
-                    let vy_raw = (r + 1) as f32 / BOARD_ROWS as f32;
-                    let len = (vx_raw * vx_raw + vy_raw * vy_raw).sqrt();
-                    let vx = vx_raw / len * PARTICLE_INITIAL_SPEED;
-                    let vy = vy_raw / len * PARTICLE_INITIAL_SPEED;
-                    let px = initial_x + vx * t;
-                    let py = initial_y + vy * t + 0.5 * PARTICLE_GRAVITY * t * t;
-                    if px > -CELL && px < screen_width() && py > -CELL && py < screen_height() {
-                        draw_cell_at(px, py, piece_color(*kind), texture);
-                    }
-                }
-            }
-        }
-    }
-
-    // Active piece
-    if show_active {
-        for (dc, dr) in game
-            .rotation_system
-            .cells(game.active.kind, game.active.rotation)
-        {
-            let c = game.active.col + dc;
-            let r = game.active.row + dr;
-            if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
-                draw_cell(
-                    BOARD_X,
-                    BOARD_Y,
-                    c as usize,
-                    r as usize,
-                    piece_color(game.active.kind),
-                    texture,
-                );
-            }
-        }
-    }
-}
-
-fn render_sidebar(game: &Game, texture: &Texture2D) {
-    let x = SIDEBAR_X;
-    let mut y = BOARD_Y + 16.0;
-
-    draw_text("NEXT", x, y, 18.0, LIGHTGRAY);
-    y += 8.0;
-
-    for (dc, dr) in game
-        .rotation_system
-        .cells(game.next.kind, game.next.rotation)
-    {
-        let c = dc as usize;
-        let r = dr as usize;
-        draw_cell(x, y, c, r, piece_color(game.next.kind), texture);
-    }
-    y += 4.0 * CELL + 16.0;
-
-    draw_text(&format!("Level {}", game.level), x, y, 18.0, WHITE);
-    y += 26.0;
-    draw_text(&format!("Line  {}", game.lines), x, y, 18.0, WHITE);
-    y += 26.0;
-    draw_text(&format_time(game.ticks_elapsed), x, y, 18.0, WHITE);
-    y += 26.0;
-    draw_text(&format!("Score {}", game.score()), x, y, 18.0, WHITE);
-    y += 26.0;
-    draw_text(&format!("Grade {}", game.grade()), x, y, 18.0, WHITE);
-}
-
-fn render_overlay(game: &Game) {
-    let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
-    let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
-    if game.game_won {
-        draw_text("LEVEL 999", cx - 60.0, cy - 16.0, 28.0, WHITE);
-        draw_text(
-            &format_time(game.ticks_elapsed),
-            cx - 50.0,
-            cy + 20.0,
-            22.0,
-            LIGHTGRAY,
-        );
-    } else if game.game_over {
-        draw_text("GAME OVER", cx - 62.0, cy, 28.0, WHITE);
-    }
-}
-
-pub fn render(game: &Game, texture: &Texture2D) {
-    clear_background(Color::from_rgba(10, 10, 18, 255));
-    render_board(game, texture);
-    render_sidebar(game, texture);
-    render_overlay(game);
-}
-
 fn maybe_bracket(s: &str, active: bool) -> String {
     if active {
         format!("< {} >", s)
     } else {
         format!("  {}  ", s)
-    }
-}
-
-fn draw_centered(text: &str, y: f32, font_size: f32, color: Color) {
-    let dims = measure_text(text, None, font_size as u16, 1.0);
-    draw_text(
-        text,
-        (screen_width() - dims.width) / 2.0,
-        y,
-        font_size,
-        color,
-    );
-}
-
-fn render_main_menu(menu: &Menu) {
-    const FONT: f32 = 24.0;
-    const LH: f32 = 36.0;
-
-    let mode_str = match menu.game_mode() {
-        GameMode::Master => "MASTER",
-        GameMode::TwentyG => "20G",
-    };
-    let rot_str = match menu.rotation() {
-        Kind::Ars => "ARS",
-        Kind::Srs => "SRS",
-    };
-
-    let mode_label = maybe_bracket(mode_str, menu.cursor() == 0);
-    let rot_label = maybe_bracket(rot_str, menu.cursor() == 1);
-    let hi_label = maybe_bracket("HI SCORES", menu.cursor() == 2);
-    let ctrl_label = maybe_bracket("CONTROLS", menu.cursor() == 3);
-    let start_label = maybe_bracket("START", menu.cursor() == 4);
-
-    let lines: &[Option<(&str, Color)>] = &[
-        Some(("GAME MODE", GRAY)),
-        Some((&mode_label, WHITE)),
-        None,
-        Some(("ROTATION", GRAY)),
-        Some((&rot_label, WHITE)),
-        None,
-        Some((&hi_label, WHITE)),
-        Some((&ctrl_label, WHITE)),
-        None,
-        Some((&start_label, WHITE)),
-    ];
-
-    let total_h = lines.len() as f32 * LH;
-    let start_y = (screen_height() - total_h) / 2.0 + LH;
-
-    for (i, line) in lines.iter().enumerate() {
-        if let Some((text, color)) = line {
-            draw_centered(text, start_y + i as f32 * LH, FONT, *color);
-        }
-    }
-}
-
-fn render_subscreen(title: &str) {
-    const FONT: f32 = 24.0;
-    let cy = screen_height() / 2.0;
-    draw_centered(title, cy - 20.0, FONT, WHITE);
-    draw_centered("BKSP to go back", cy + 20.0, 18.0, GRAY);
-}
-
-fn render_hi_scores(menu: &Menu) {
-    const FONT: f32 = 22.0;
-    const SMALL: f32 = 16.0;
-    const LH: f32 = 28.0;
-
-    let tab_names = ["MASTER / ARS", "MASTER / SRS", "20G / ARS", "20G / SRS"];
-    let tab = menu.hi_scores_tab();
-    let data = &menu.hi_scores_data()[tab];
-
-    let cy = screen_height() / 2.0;
-
-    // Tab header with left/right chevrons
-    let label = format!("< {} >", tab_names[tab]);
-    draw_centered(&label, cy - LH * 4.0, FONT, WHITE);
-
-    // Entries
-    for i in 0..5usize {
-        let y = cy - LH * 2.5 + i as f32 * LH;
-        let text = if let Some(entry) = data.get(i) {
-            format!("{}. {}   {}", i + 1, entry.grade, format_time(entry.ticks))
-        } else {
-            format!("{}. ---", i + 1)
-        };
-        draw_centered(&text, y, SMALL, if i == 0 { WHITE } else { LIGHTGRAY });
-    }
-
-    draw_centered("BKSP to go back", cy + LH * 3.5, SMALL, GRAY);
-}
-
-pub fn render_menu(menu: &Menu) {
-    clear_background(Color::from_rgba(10, 10, 18, 255));
-    match menu.screen() {
-        MenuScreen::Main => render_main_menu(menu),
-        MenuScreen::HiScores => render_hi_scores(menu),
-        MenuScreen::Controls => render_subscreen("CONTROLS"),
     }
 }

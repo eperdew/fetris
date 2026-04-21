@@ -27,7 +27,7 @@ fn window_conf() -> Conf {
     Conf {
         window_title: String::from("fetris"),
         window_width: 530,
-        window_height: 680,
+        window_height: 780,
         window_resizable: false,
         ..Default::default()
     }
@@ -72,7 +72,7 @@ fn build_menu_input() -> MenuInput {
 #[macroquad::main(window_conf)]
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
-    let cell_texture = renderer::make_cell_texture();
+    let renderer = renderer::Renderer::new();
     let mut state = AppState::Menu(Menu::new());
     let mut accumulator = 0.0f64;
     let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
@@ -100,7 +100,7 @@ async fn main() {
                         rotation.create(),
                     )));
                 }
-                renderer::render_menu(menu);
+                renderer.render_menu(menu);
             }
             AppState::Playing(game) => {
                 if escape {
@@ -125,7 +125,7 @@ async fn main() {
                 if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {
                     new_state = Some(AppState::Menu(Menu::new()));
                 }
-                renderer::render(game, &cell_texture);
+                renderer.render(game);
             }
         }
 
