@@ -52,6 +52,11 @@ impl Renderer {
         );
     }
 
+    fn draw_centered_x(&self, text: &str, cx: f32, y: f32, font_size: f32, color: Color) {
+        let dims = measure_text(text, Some(&self.font), font_size as u16, 1.0);
+        self.draw_text(text, cx - dims.width / 2.0, y, font_size, color);
+    }
+
     pub fn render(&self, game: &Game) {
         clear_background(Color::from_rgba(10, 10, 18, 255));
         self.render_board(game);
@@ -305,30 +310,54 @@ impl Renderer {
     }
 
     fn render_hi_scores(&self, menu: &Menu) {
-        const FONT: f32 = 22.0;
-        const SMALL: f32 = 16.0;
-        const LH: f32 = 28.0;
+        const TITLE: f32 = 26.0;
+        const HDR: f32 = 15.0;
+        const ENTRY: f32 = 22.0;
+        const HINT: f32 = 14.0;
+        const LH: f32 = 36.0;
 
         let tab_names = ["MASTER / ARS", "MASTER / SRS", "20G / ARS", "20G / SRS"];
         let tab = menu.hi_scores_tab();
         let data = &menu.hi_scores_data()[tab];
 
+        let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
 
         let label = format!("< {} >", tab_names[tab]);
-        self.draw_centered(&label, cy - LH * 4.0, FONT, WHITE);
+        self.draw_centered(&label, cy - LH * 4.5, TITLE, WHITE);
+
+        let col_rank = cx - 160.0;
+        let col_grade = cx;
+        let col_time = cx + 150.0;
+
+        let hdr_y = cy - LH * 2.8;
+        self.draw_centered_x("#", col_rank, hdr_y, HDR, GRAY);
+        self.draw_centered_x("GRADE", col_grade, hdr_y, HDR, GRAY);
+        self.draw_centered_x("TIME", col_time, hdr_y, HDR, GRAY);
+
+        draw_line(
+            cx - 200.0,
+            hdr_y + 8.0,
+            cx + 200.0,
+            hdr_y + 8.0,
+            1.0,
+            DARKGRAY,
+        );
 
         for i in 0..5usize {
-            let y = cy - LH * 2.5 + i as f32 * LH;
-            let text = if let Some(entry) = data.get(i) {
-                format!("{}. {}   {}", i + 1, entry.grade, format_time(entry.ticks))
+            let y = cy - LH * 1.8 + i as f32 * LH;
+            let color = if i == 0 { WHITE } else { LIGHTGRAY };
+            self.draw_centered_x(&format!("{}", i + 1), col_rank, y, ENTRY, color);
+            if let Some(entry) = data.get(i) {
+                self.draw_centered_x(&format!("{}", entry.grade), col_grade, y, ENTRY, color);
+                self.draw_centered_x(&format_time(entry.ticks), col_time, y, ENTRY, color);
             } else {
-                format!("{}. ---", i + 1)
-            };
-            self.draw_centered(&text, y, SMALL, if i == 0 { WHITE } else { LIGHTGRAY });
+                self.draw_centered_x("---", col_grade, y, ENTRY, DARKGRAY);
+                self.draw_centered_x("---", col_time, y, ENTRY, DARKGRAY);
+            }
         }
 
-        self.draw_centered("BKSP to go back", cy + LH * 3.5, SMALL, GRAY);
+        self.draw_centered("BKSP to go back", cy + LH * 3.5, HINT, GRAY);
     }
 }
 
