@@ -26,20 +26,34 @@ fn storage_key(mode: GameMode, rotation: Kind) -> &'static str {
     }
 }
 
-pub fn load(storage: &crate::storage::Storage, mode: GameMode, rotation: Kind) -> Vec<HiScoreEntry> {
+pub fn load(
+    storage: &crate::storage::Storage,
+    mode: GameMode,
+    rotation: Kind,
+) -> Vec<HiScoreEntry> {
     storage
         .get(storage_key(mode, rotation))
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
 }
 
-pub fn save(storage: &mut crate::storage::Storage, mode: GameMode, rotation: Kind, entries: Vec<HiScoreEntry>) {
+pub fn save(
+    storage: &mut crate::storage::Storage,
+    mode: GameMode,
+    rotation: Kind,
+    entries: Vec<HiScoreEntry>,
+) {
     if let Ok(json) = serde_json::to_string(&entries) {
         storage.set(storage_key(mode, rotation), &json);
     }
 }
 
-pub fn submit(storage: &mut crate::storage::Storage, mode: GameMode, rotation: Kind, entry: HiScoreEntry) {
+pub fn submit(
+    storage: &mut crate::storage::Storage,
+    mode: GameMode,
+    rotation: Kind,
+    entry: HiScoreEntry,
+) {
     let mut entries = load(storage, mode, rotation);
     insert_entry(&mut entries, entry, 5);
     save(storage, mode, rotation, entries);
