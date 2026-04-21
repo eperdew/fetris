@@ -69,7 +69,7 @@ impl Renderer {
         match menu.screen() {
             MenuScreen::Main => self.render_main_menu(menu),
             MenuScreen::HiScores => self.render_hi_scores(menu),
-            MenuScreen::Controls => self.render_subscreen("CONTROLS"),
+            MenuScreen::Controls => self.render_controls(),
         }
     }
 
@@ -302,11 +302,51 @@ impl Renderer {
         }
     }
 
-    fn render_subscreen(&self, title: &str) {
-        const FONT: f32 = 24.0;
+    fn render_controls(&self) {
+        const TITLE: f32 = 26.0;
+        const HDR: f32 = 15.0;
+        const ENTRY: f32 = 20.0;
+        const HINT: f32 = 14.0;
+        const LH: f32 = 32.0;
+
+        let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
-        self.draw_centered(title, cy - 20.0, FONT, WHITE);
-        self.draw_centered("BKSP to go back", cy + 20.0, 18.0, GRAY);
+
+        self.draw_centered("CONTROLS", cy - LH * 5.0, TITLE, WHITE);
+
+        let col_key = cx - 100.0;
+        let col_action = cx + 100.0;
+
+        let hdr_y = cy - LH * 3.5;
+        self.draw_centered_x("KEY", col_key, hdr_y, HDR, GRAY);
+        self.draw_centered_x("ACTION", col_action, hdr_y, HDR, GRAY);
+        draw_line(
+            cx - 200.0,
+            hdr_y + 8.0,
+            cx + 200.0,
+            hdr_y + 8.0,
+            1.0,
+            DARKGRAY,
+        );
+
+        let rows: &[(&str, &str)] = &[
+            ("Left / H", "Move left"),
+            ("Right / L", "Move right"),
+            ("Down / J", "Soft drop"),
+            ("Space", "Sonic drop"),
+            ("X", "Rotate CW"),
+            ("Z", "Rotate CCW"),
+            ("Backspace", "Back / quit"),
+        ];
+
+        for (i, (key, action)) in rows.iter().enumerate() {
+            let y = cy - LH * 2.5 + i as f32 * LH;
+            let color = LIGHTGRAY;
+            self.draw_centered_x(key, col_key, y, ENTRY, color);
+            self.draw_centered_x(action, col_action, y, ENTRY, color);
+        }
+
+        self.draw_centered("BKSP to go back", cy + LH * 4.5, HINT, GRAY);
     }
 
     fn render_hi_scores(&self, menu: &Menu) {
