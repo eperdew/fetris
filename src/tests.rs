@@ -1815,14 +1815,26 @@ mod menu_tests {
     #[test]
     fn cursor_moves_down() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { down: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        );
         assert_eq!(m.cursor(), 1);
     }
 
     #[test]
     fn cursor_clamps_at_top() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { up: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                up: true,
+                ..input()
+            },
+        );
         assert_eq!(m.cursor(), 0);
     }
 
@@ -1830,7 +1842,13 @@ mod menu_tests {
     fn cursor_clamps_at_bottom() {
         let mut m = menu();
         for _ in 0..10 {
-            tick(&mut m, &MenuInput { down: true, ..input() });
+            tick(
+                &mut m,
+                &MenuInput {
+                    down: true,
+                    ..input()
+                },
+            );
         }
         assert_eq!(m.cursor(), 4);
     }
@@ -1838,56 +1856,140 @@ mod menu_tests {
     #[test]
     fn cursor_moves_up_after_down() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { down: true, ..input() });
-        tick(&mut m, &MenuInput { down: true, ..input() });
-        tick(&mut m, &MenuInput { up: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        );
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        );
+        tick(
+            &mut m,
+            &MenuInput {
+                up: true,
+                ..input()
+            },
+        );
         assert_eq!(m.cursor(), 1);
     }
 
     #[test]
     fn game_mode_toggles_on_right() {
         let mut m = menu(); // cursor=0, mode=Master
-        tick(&mut m, &MenuInput { right: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        );
         assert_eq!(m.game_mode(), GameMode::TwentyG);
     }
 
     #[test]
     fn game_mode_toggles_back_on_second_right() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { right: true, ..input() });
-        tick(&mut m, &MenuInput { right: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        );
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        );
         assert_eq!(m.game_mode(), GameMode::Master);
     }
 
     #[test]
     fn game_mode_toggles_on_left() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { left: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                left: true,
+                ..input()
+            },
+        );
         assert_eq!(m.game_mode(), GameMode::TwentyG);
     }
 
     #[test]
     fn rotation_toggles_when_cursor_on_rotation() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=1
-        tick(&mut m, &MenuInput { right: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=1
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        );
         assert_eq!(m.rotation(), Kind::Srs);
     }
 
     #[test]
     fn toggle_noop_when_cursor_not_on_item() {
         let mut m = menu(); // cursor=0 (game mode)
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=1 (rotation)
-        tick(&mut m, &MenuInput { right: true, ..input() }); // toggles rotation, not game mode
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=1 (rotation)
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        ); // toggles rotation, not game mode
         assert_eq!(m.game_mode(), GameMode::Master); // unchanged
     }
 
     #[test]
     fn confirm_on_hiscores_item_opens_hiscores() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=1
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=2 (HI SCORES)
-        tick(&mut m, &MenuInput { confirm: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=1
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=2 (HI SCORES)
+        tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        );
         assert_eq!(m.screen(), MenuScreen::HiScores);
     }
 
@@ -1895,36 +1997,102 @@ mod menu_tests {
     fn confirm_on_controls_item_opens_controls() {
         let mut m = menu();
         for _ in 0..3 {
-            tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=3
+            tick(
+                &mut m,
+                &MenuInput {
+                    down: true,
+                    ..input()
+                },
+            ); // cursor=3
         }
-        tick(&mut m, &MenuInput { confirm: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        );
         assert_eq!(m.screen(), MenuScreen::Controls);
     }
 
     #[test]
     fn back_from_hiscores_returns_to_main() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { down: true, ..input() });
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=2
-        tick(&mut m, &MenuInput { confirm: true, ..input() }); // open HiScores
-        tick(&mut m, &MenuInput { back: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        );
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=2
+        tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        ); // open HiScores
+        tick(
+            &mut m,
+            &MenuInput {
+                back: true,
+                ..input()
+            },
+        );
         assert_eq!(m.screen(), MenuScreen::Main);
     }
 
     #[test]
     fn cursor_preserved_after_returning_from_subscreen() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { down: true, ..input() });
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=2
-        tick(&mut m, &MenuInput { confirm: true, ..input() }); // open HiScores
-        tick(&mut m, &MenuInput { back: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        );
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=2
+        tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        ); // open HiScores
+        tick(
+            &mut m,
+            &MenuInput {
+                back: true,
+                ..input()
+            },
+        );
         assert_eq!(m.cursor(), 2);
     }
 
     #[test]
     fn confirm_on_toggle_item_does_not_open_subscreen() {
         let mut m = menu(); // cursor=0
-        tick(&mut m, &MenuInput { confirm: true, ..input() });
+        tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        );
         assert_eq!(m.screen(), MenuScreen::Main);
     }
 
@@ -1932,9 +2100,21 @@ mod menu_tests {
     fn start_returns_start_game_with_defaults() {
         let mut m = menu();
         for _ in 0..4 {
-            tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=4
+            tick(
+                &mut m,
+                &MenuInput {
+                    down: true,
+                    ..input()
+                },
+            ); // cursor=4
         }
-        let result = tick(&mut m, &MenuInput { confirm: true, ..input() });
+        let result = tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        );
         assert!(matches!(
             result,
             MenuResult::StartGame {
@@ -1947,13 +2127,43 @@ mod menu_tests {
     #[test]
     fn start_returns_selected_settings() {
         let mut m = menu();
-        tick(&mut m, &MenuInput { right: true, ..input() }); // game mode → TwentyG (cursor=0)
-        tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=1
-        tick(&mut m, &MenuInput { right: true, ..input() }); // rotation → Srs
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        ); // game mode → TwentyG (cursor=0)
+        tick(
+            &mut m,
+            &MenuInput {
+                down: true,
+                ..input()
+            },
+        ); // cursor=1
+        tick(
+            &mut m,
+            &MenuInput {
+                right: true,
+                ..input()
+            },
+        ); // rotation → Srs
         for _ in 0..3 {
-            tick(&mut m, &MenuInput { down: true, ..input() }); // cursor=4
+            tick(
+                &mut m,
+                &MenuInput {
+                    down: true,
+                    ..input()
+                },
+            ); // cursor=4
         }
-        let result = tick(&mut m, &MenuInput { confirm: true, ..input() });
+        let result = tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        );
         assert!(matches!(
             result,
             MenuResult::StartGame {
@@ -1966,7 +2176,13 @@ mod menu_tests {
     #[test]
     fn confirm_on_non_start_item_returns_stay() {
         let mut m = menu(); // cursor=0
-        let result = tick(&mut m, &MenuInput { confirm: true, ..input() });
+        let result = tick(
+            &mut m,
+            &MenuInput {
+                confirm: true,
+                ..input()
+            },
+        );
         assert!(matches!(result, MenuResult::Stay));
     }
 }

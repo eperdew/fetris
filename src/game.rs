@@ -5,7 +5,7 @@ use crate::constants::{
 use crate::judge::Judge;
 use crate::rotation_system;
 use crate::types::{
-    Board, BOARD_COLS, BOARD_ROWS, GameKey, GameMode, Grade, HorizDir, InputState, JudgeEvent,
+    BOARD_COLS, BOARD_ROWS, Board, GameKey, GameMode, Grade, HorizDir, InputState, JudgeEvent,
     Kind, Piece, PieceKind, PiecePhase, RotationDirection,
 };
 

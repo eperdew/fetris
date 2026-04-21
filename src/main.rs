@@ -6,9 +6,9 @@ mod menu;
 mod renderer;
 mod rotation_system;
 mod storage;
-mod types;
 #[cfg(test)]
 mod tests;
+mod types;
 
 use game::Game;
 use macroquad::prelude::*;
