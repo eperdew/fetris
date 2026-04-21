@@ -429,6 +429,46 @@ impl Game {
         self.rows_pending_compaction.clear();
     }
 
+    pub fn tick_ready(&mut self, input: &InputState) {
+        // IRS: buffer rotation key (cleared if neither held, matching Spawning phase behavior)
+        if input.held.contains(&GameKey::RotateCw) {
+            self.rotation_buffer = Some(RotationDirection::Clockwise);
+        } else if input.held.contains(&GameKey::RotateCcw) {
+            self.rotation_buffer = Some(RotationDirection::Counterclockwise);
+        } else {
+            self.rotation_buffer = None;
+        }
+
+        // DAS charging
+        let horiz = if input.held.contains(&GameKey::Left) {
+            Some(HorizDir::Left)
+        } else if input.held.contains(&GameKey::Right) {
+            Some(HorizDir::Right)
+        } else {
+            None
+        };
+        match horiz {
+            None => {
+                self.das_direction = None;
+                self.das_counter = 0;
+            }
+            Some(dir) => {
+                if self.das_direction != Some(dir) {
+                    self.das_direction = Some(dir);
+                    self.das_counter = 0;
+                } else {
+                    self.das_counter += 1;
+                }
+            }
+        }
+    }
+
+    pub fn apply_irs(&mut self) {
+        if let Some(dir) = self.rotation_buffer.take() {
+            self.try_rotate(dir);
+        }
+    }
+
     pub fn score(&self) -> u32 {
         self.judge.score()
     }

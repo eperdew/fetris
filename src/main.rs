@@ -18,6 +18,7 @@ use types::{GameConfig, GameKey, InputState, MenuInput, MenuResult, MenuScreen};
 
 enum AppState {
     Menu(Menu),
+    Ready { game: Game, ticks_left: u32 },
     Playing(Game),
 }
 
@@ -98,13 +99,37 @@ async fn main() {
                         rotation,
                     }
                     .save(&mut storage);
-                    new_state = Some(AppState::Playing(Game::new(
-                        mode,
-                        rotation,
-                        rotation.create(),
-                    )));
+                    new_state = Some(AppState::Ready {
+                        game: Game::new(mode, rotation, rotation.create()),
+                        ticks_left: 90,
+                    });
                 }
                 renderer.render_menu(menu);
+            }
+            AppState::Ready { game, ticks_left } => {
+                if escape {
+                    break;
+                }
+                accumulator += get_frame_time() as f64;
+                let frame_input = build_input_state();
+                pending_just_pressed.extend(&frame_input.just_pressed);
+                while accumulator >= TICK {
+                    accumulator -= TICK;
+                    if *ticks_left > 0 {
+                        game.tick_ready(&frame_input);
+                        *ticks_left -= 1;
+                        if *ticks_left == 0 {
+                            game.apply_irs();
+                        }
+                    } else {
+                        let input = InputState {
+                            held: frame_input.held.clone(),
+                            just_pressed: std::mem::take(&mut pending_just_pressed),
+                        };
+                        game.tick(&input);
+                    }
+                }
+                renderer.render_ready(game);
             }
             AppState::Playing(game) => {
                 if escape {
@@ -138,7 +163,12 @@ async fn main() {
             }
         }
 
-        if let Some(s) = new_state {
+        if matches!(state, AppState::Ready { ticks_left: 0, .. }) {
+            if let AppState::Ready { game, .. } = state {
+                pending_just_pressed.clear();
+                state = AppState::Playing(game);
+            }
+        } else if let Some(s) = new_state {
             if matches!(s, AppState::Playing(_)) {
                 accumulator = 0.0;
                 pending_just_pressed.clear();

@@ -243,6 +243,42 @@ impl Renderer {
         self.draw_text(&format!("{}", game.grade()), x, y, FONT_LG, WHITE);
     }
 
+    pub fn render_ready(&self, game: &Game) {
+        clear_background(Color::from_rgba(10, 10, 18, 255));
+
+        // Board background (empty — no active piece, no locked cells yet)
+        draw_rectangle(
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
+            BOARD_BG,
+        );
+
+        // Preview shows the first piece (active) since it hasn't spawned yet
+        for (dc, dr) in game
+            .rotation_system
+            .cells(game.active.kind, game.active.rotation)
+        {
+            let c = 3 + dc;
+            let r = -3 + dr;
+            draw_cell(
+                BOARD_X,
+                BOARD_Y - PAD,
+                c,
+                r,
+                piece_color(game.active.kind),
+                &self.cell_texture,
+            );
+        }
+
+        self.render_sidebar(game);
+
+        let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
+        let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
+        self.draw_centered_x("READY", cx, cy, 28.0, WHITE);
+    }
+
     fn render_overlay(&self, game: &Game) {
         let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
         let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
