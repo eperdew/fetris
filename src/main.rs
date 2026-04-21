@@ -73,6 +73,7 @@ fn build_menu_input() -> MenuInput {
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let renderer = renderer::Renderer::new();
+    let mut storage = storage::Storage::new();
     let mut state = AppState::Menu(Menu::new());
     let mut accumulator = 0.0f64;
     let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
@@ -93,7 +94,7 @@ async fn main() {
                         input.back = true;
                     }
                 }
-                if let MenuResult::StartGame { mode, rotation } = menu.tick(&input) {
+                if let MenuResult::StartGame { mode, rotation } = menu.tick(&input, &storage) {
                     new_state = Some(AppState::Playing(Game::new(
                         mode,
                         rotation,
@@ -119,7 +120,7 @@ async fn main() {
                 }
                 // Submit score exactly once on game end
                 if (game.game_over || game.game_won) && !game.score_submitted {
-                    hiscores::submit(game.game_mode, game.rotation_kind, game.judge.grade_entry());
+                    hiscores::submit(&mut storage, game.game_mode, game.rotation_kind, game.judge.grade_entry());
                     game.score_submitted = true;
                 }
                 if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {

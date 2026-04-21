@@ -70,9 +70,9 @@ impl Menu {
         &self.hi_scores_data
     }
 
-    pub fn tick(&mut self, input: &MenuInput) -> MenuResult {
+    pub fn tick(&mut self, input: &MenuInput, storage: &crate::storage::Storage) -> MenuResult {
         match self.screen {
-            MenuScreen::Main => self.tick_main(input),
+            MenuScreen::Main => self.tick_main(input, storage),
             MenuScreen::HiScores => {
                 if input.back {
                     self.screen = MenuScreen::Main;
@@ -92,7 +92,7 @@ impl Menu {
         }
     }
 
-    fn tick_main(&mut self, input: &MenuInput) -> MenuResult {
+    fn tick_main(&mut self, input: &MenuInput, storage: &crate::storage::Storage) -> MenuResult {
         if input.up {
             self.cursor = self.cursor.saturating_sub(1);
         }
@@ -120,10 +120,10 @@ impl Menu {
                 if input.confirm {
                     self.hi_scores_tab = 0;
                     self.hi_scores_data = [
-                        hiscores::load(GameMode::Master, Kind::Ars),
-                        hiscores::load(GameMode::Master, Kind::Srs),
-                        hiscores::load(GameMode::TwentyG, Kind::Ars),
-                        hiscores::load(GameMode::TwentyG, Kind::Srs),
+                        hiscores::load(storage, GameMode::Master, Kind::Ars),
+                        hiscores::load(storage, GameMode::Master, Kind::Srs),
+                        hiscores::load(storage, GameMode::TwentyG, Kind::Ars),
+                        hiscores::load(storage, GameMode::TwentyG, Kind::Srs),
                     ];
                     self.screen = MenuScreen::HiScores;
                 }
