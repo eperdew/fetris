@@ -299,6 +299,8 @@ const I_KICKS: [[(i32, i32); 5]; 8] = [
 pub trait RotationSystem {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4];
 
+    fn preview_y_offset(&self, kind: PieceKind) -> i32;
+
     /// Returns true if the piece at (col, row) with the given rotation fits on the board
     /// (all cells in bounds and unoccupied).
     fn fits(&self, board: &Board, kind: PieceKind, col: i32, row: i32, rotation: usize) -> bool {
@@ -357,6 +359,10 @@ impl Ars {
 impl RotationSystem for Ars {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
         ars_cells(kind, rotation)
+    }
+
+    fn preview_y_offset(&self, _: PieceKind) -> i32 {
+        0
     }
 
     fn try_rotate(
@@ -418,6 +424,14 @@ pub struct Srs;
 impl RotationSystem for Srs {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4] {
         srs_cells(kind, rotation)
+    }
+
+    fn preview_y_offset(&self, kind: PieceKind) -> i32 {
+        use PieceKind::*;
+        match kind {
+            I | O => 0,
+            T | S | Z | L | J => 1,
+        }
     }
 
     fn try_rotate(

@@ -1,7 +1,9 @@
 use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEED};
 use crate::game::Game;
 use crate::menu::Menu;
-use crate::types::{BOARD_COLS, BOARD_ROWS, GameMode, Kind, MenuScreen, PieceKind, PiecePhase};
+use crate::types::{
+    BOARD_COLS, BOARD_ROWS, GameMode, Kind, MenuScreen, Piece, PieceKind, PiecePhase,
+};
 use macroquad::prelude::*;
 
 const CELL: f32 = 32.0;
@@ -70,6 +72,22 @@ impl Renderer {
             MenuScreen::Main => self.render_main_menu(menu),
             MenuScreen::HiScores => self.render_hi_scores(menu),
             MenuScreen::Controls => self.render_controls(),
+        }
+    }
+
+    fn render_piece_preview(&self, game: &Game, piece: &Piece) {
+        for (dc, dr) in game.rotation_system.cells(piece.kind, piece.rotation) {
+            let y_offset = game.rotation_system.preview_y_offset(piece.kind);
+            let c = 3 + dc;
+            let r = -3 + dr + y_offset;
+            draw_cell(
+                BOARD_X,
+                BOARD_Y - PAD,
+                c,
+                r,
+                piece_color(piece.kind),
+                &self.cell_texture,
+            );
         }
     }
 
@@ -181,22 +199,7 @@ impl Renderer {
             }
         }
 
-        // Piece preview
-        for (dc, dr) in game
-            .rotation_system
-            .cells(game.next.kind, game.next.rotation)
-        {
-            let c = 3 + dc;
-            let r = -3 + dr;
-            draw_cell(
-                BOARD_X,
-                BOARD_Y - PAD,
-                c,
-                r,
-                piece_color(game.next.kind),
-                texture,
-            );
-        }
+        self.render_piece_preview(game, &game.next);
     }
 
     fn render_sidebar(&self, game: &Game) {
@@ -256,21 +259,7 @@ impl Renderer {
         );
 
         // Preview shows the first piece (active) since it hasn't spawned yet
-        for (dc, dr) in game
-            .rotation_system
-            .cells(game.active.kind, game.active.rotation)
-        {
-            let c = 3 + dc;
-            let r = -3 + dr;
-            draw_cell(
-                BOARD_X,
-                BOARD_Y - PAD,
-                c,
-                r,
-                piece_color(game.active.kind),
-                &self.cell_texture,
-            );
-        }
+        self.render_piece_preview(game, &game.active);
 
         self.render_sidebar(game);
 
