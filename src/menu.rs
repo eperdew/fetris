@@ -1,7 +1,37 @@
 use crate::hiscores::{self, HiScoreEntry};
 use crate::rotation_system::Kind;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub struct GameConfig {
+    pub game_mode: GameMode,
+    pub rotation: Kind,
+}
+
+impl Default for GameConfig {
+    fn default() -> Self {
+        Self {
+            game_mode: GameMode::Master,
+            rotation: Kind::Ars,
+        }
+    }
+}
+
+impl GameConfig {
+    pub fn load(storage: &crate::storage::Storage) -> Self {
+        storage
+            .get("game_config")
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    pub fn save(&self, storage: &mut crate::storage::Storage) {
+        if let Ok(json) = serde_json::to_string(self) {
+            storage.set("game_config", &json);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum GameMode {
     Master,
     TwentyG,
@@ -39,12 +69,12 @@ pub enum MenuResult {
 }
 
 impl Menu {
-    pub fn new() -> Self {
+    pub fn new(config: GameConfig) -> Self {
         Self {
             screen: MenuScreen::Main,
             cursor: 0,
-            game_mode: GameMode::Master,
-            rotation: Kind::Ars,
+            game_mode: config.game_mode,
+            rotation: config.rotation,
             hi_scores_tab: 0,
             hi_scores_data: [vec![], vec![], vec![], vec![]],
         }
@@ -118,7 +148,12 @@ impl Menu {
             }
             2 => {
                 if input.confirm {
-                    self.hi_scores_tab = 0;
+                    self.hi_scores_tab = match (self.game_mode, self.rotation) {
+                        (GameMode::Master, Kind::Ars) => 0,
+                        (GameMode::Master, Kind::Srs) => 1,
+                        (GameMode::TwentyG, Kind::Ars) => 2,
+                        (GameMode::TwentyG, Kind::Srs) => 3,
+                    };
                     self.hi_scores_data = [
                         hiscores::load(storage, GameMode::Master, Kind::Ars),
                         hiscores::load(storage, GameMode::Master, Kind::Srs),

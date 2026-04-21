@@ -15,7 +15,7 @@ mod tests;
 use game::Game;
 use input::{GameKey, InputState};
 use macroquad::prelude::*;
-use menu::{Menu, MenuInput, MenuResult, MenuScreen};
+use menu::{GameConfig, Menu, MenuInput, MenuResult, MenuScreen};
 use std::collections::HashSet;
 
 enum AppState {
@@ -74,7 +74,7 @@ async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let renderer = renderer::Renderer::new();
     let mut storage = storage::Storage::new();
-    let mut state = AppState::Menu(Menu::new());
+    let mut state = AppState::Menu(Menu::new(GameConfig::load(&storage)));
     let mut accumulator = 0.0f64;
     let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
     const TICK: f64 = 1.0 / 60.0;
@@ -95,6 +95,7 @@ async fn main() {
                     }
                 }
                 if let MenuResult::StartGame { mode, rotation } = menu.tick(&input, &storage) {
+                    GameConfig { game_mode: mode, rotation }.save(&mut storage);
                     new_state = Some(AppState::Playing(Game::new(
                         mode,
                         rotation,
@@ -129,7 +130,7 @@ async fn main() {
                     game.score_submitted = true;
                 }
                 if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {
-                    new_state = Some(AppState::Menu(Menu::new()));
+                    new_state = Some(AppState::Menu(Menu::new(GameConfig::load(&storage))));
                 }
                 renderer.render(game);
             }

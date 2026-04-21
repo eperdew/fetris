@@ -325,7 +325,7 @@ pub trait RotationSystem {
 
 /// Menu-facing enum for selecting which rotation system to use.
 /// Call `.create()` to obtain a `Box<dyn RotationSystem>`.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Kind {
     Ars,
     Srs,
