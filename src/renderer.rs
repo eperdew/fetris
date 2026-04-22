@@ -22,7 +22,7 @@ pub(crate) struct Renderer {
 impl Renderer {
     pub fn new() -> Self {
         let font =
-            load_ttf_font_from_bytes(include_bytes!("../assets/Oxanium-Regular.ttf")).unwrap();
+            load_ttf_font_from_bytes(include_bytes!("../assets/font/Oxanium-Regular.ttf")).unwrap();
         Self {
             cell_texture: make_cell_texture(),
             font,

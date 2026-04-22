@@ -1,3 +1,5 @@
+use crate::audio_player::AudioPlayer;
+use std::sync::Arc;
 use crate::constants::{
     ARE_DAS_FROZEN_FRAMES, DAS_CHARGE, DAS_REPEAT, LINE_CLEAR_DELAY, LOCK_DELAY,
     SPAWN_DELAY_NORMAL, gravity_g,
@@ -77,6 +79,7 @@ pub(crate) struct Game {
     pub sonic_drop_rows: u32,
     pub rotation_kind: Kind,
     pub score_submitted: bool,
+    pub audio: Arc<dyn AudioPlayer>,
 }
 
 impl Game {
@@ -84,6 +87,7 @@ impl Game {
         game_mode: GameMode,
         rotation_kind: Kind,
         rotation_system: Box<dyn rotation_system::RotationSystem>,
+        audio: Arc<dyn AudioPlayer>,
     ) -> Self {
         let mut randomizer = Randomizer::new();
         let active = Piece::new(randomizer.next());
@@ -111,6 +115,7 @@ impl Game {
             sonic_drop_rows: 0,
             rotation_kind,
             score_submitted: false,
+            audio,
         }
     }
 
@@ -260,6 +265,7 @@ impl Game {
                     self.piece_phase = PiecePhase::Locking {
                         ticks_left: LOCK_DELAY,
                     };
+                    self.audio.piece_begin_locking();
                 }
             }
             PiecePhase::Locking { ref mut ticks_left } => {
@@ -332,7 +338,11 @@ impl Game {
                 self.board[r][c] = Some(self.active.kind);
             }
         }
+        self.audio.piece_locked();
         let lines_cleared = self.clear_lines();
+        if lines_cleared > 0 {
+            self.audio.lines_cleared(lines_cleared);
+        }
         // Buffer any held rotation key so it applies when the next piece spawns.
         if input.held.contains(&GameKey::RotateCw) {
             self.rotation_buffer = Some(RotationDirection::Clockwise);

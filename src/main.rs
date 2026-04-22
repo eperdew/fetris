@@ -1,3 +1,4 @@
+mod audio_player;
 mod constants;
 mod game;
 mod hiscores;
@@ -13,6 +14,7 @@ mod types;
 use game::Game;
 use macroquad::prelude::*;
 use menu::Menu;
+use std::sync::Arc;
 use std::collections::HashSet;
 use types::{GameConfig, GameKey, InputState, MenuInput, MenuResult, MenuScreen};
 
@@ -72,6 +74,7 @@ fn build_menu_input() -> MenuInput {
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let renderer = renderer::Renderer::new();
+    let audio: Arc<dyn audio_player::AudioPlayer> = Arc::new(audio_player::null::Null);
     let mut storage = storage::Storage::new();
     let mut state = AppState::Menu(Menu::new(GameConfig::load(&storage)));
     let mut accumulator = 0.0f64;
@@ -99,8 +102,10 @@ async fn main() {
                         rotation,
                     }
                     .save(&mut storage);
+                    let game = Game::new(mode, rotation, rotation.create(), Arc::clone(&audio));
+                    game.audio.ready();
                     new_state = Some(AppState::Ready {
-                        game: Game::new(mode, rotation, rotation.create()),
+                        game,
                         ticks_left: 90,
                     });
                 }

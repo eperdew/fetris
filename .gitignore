@@ -1,4 +1,4 @@
 /target
 /.worktrees
 /local.data
-/.DS_Store
+**/.DS_Store
