@@ -14,8 +14,8 @@ mod types;
 use game::Game;
 use macroquad::prelude::*;
 use menu::Menu;
-use std::sync::Arc;
 use std::collections::HashSet;
+use std::sync::Arc;
 use types::{GameConfig, GameKey, InputState, MenuInput, MenuResult, MenuScreen};
 
 enum AppState {

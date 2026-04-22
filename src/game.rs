@@ -1,5 +1,4 @@
 use crate::audio_player::AudioPlayer;
-use std::sync::Arc;
 use crate::constants::{
     ARE_DAS_FROZEN_FRAMES, DAS_CHARGE, DAS_REPEAT, LINE_CLEAR_DELAY, LOCK_DELAY,
     SPAWN_DELAY_NORMAL, gravity_g,
@@ -10,6 +9,7 @@ use crate::types::{
     BOARD_COLS, BOARD_ROWS, Board, GameKey, GameMode, Grade, HorizDir, InputState, JudgeEvent,
     Kind, Piece, PieceKind, PiecePhase, RotationDirection,
 };
+use std::sync::Arc;
 
 /// TGM-style randomizer. Keeps a 4-piece history (initialized to [Z; 4]) and
 /// makes up to 4 attempts to produce a piece not in that history.

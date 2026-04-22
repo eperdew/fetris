@@ -1,5 +1,4 @@
 use crate::audio_player::null::Null;
-use std::sync::Arc;
 use crate::constants::{DAS_CHARGE, LINE_CLEAR_DELAY, LOCK_DELAY, SPAWN_DELAY_NORMAL, gravity_g};
 use crate::game::{Game, can_piece_increment};
 use crate::rotation_system::Ars;
@@ -8,6 +7,7 @@ use crate::types::{
     PiecePhase,
 };
 use std::collections::HashSet;
+use std::sync::Arc;
 
 fn make_game_with(game_mode: GameMode, rotation_kind: Kind, kind: PieceKind) -> Game {
     let rotation_system = rotation_kind.create();
