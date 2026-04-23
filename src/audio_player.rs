@@ -73,9 +73,7 @@ pub mod macroquad {
             };
             Self {
                 piece_locked: load("assets/audio/piece_locked.ogg").await.unwrap(),
-                piece_begin_locking: load("assets/audio/piece_begin_locking.ogg")
-                    .await
-                    .unwrap(),
+                piece_begin_locking: load("assets/audio/piece_begin_locking.ogg").await.unwrap(),
                 ready: load("assets/audio/voice/ready.ogg").await.unwrap(),
                 single: load("assets/audio/voice/single.ogg").await.unwrap(),
                 double: load("assets/audio/voice/double.ogg").await.unwrap(),
