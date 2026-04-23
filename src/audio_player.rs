@@ -7,8 +7,11 @@ pub trait AudioPlayer {
     fn ready(&self);
     fn grade_changed(&self, grade: Grade);
     fn game_over(&self);
+    fn set_muted(&self, muted: bool);
+    fn is_muted(&self) -> bool;
 }
 
+#[cfg(test)]
 pub mod null {
     use super::{AudioPlayer, Grade};
 
@@ -21,12 +24,17 @@ pub mod null {
         fn ready(&self) {}
         fn grade_changed(&self, _grade: Grade) {}
         fn game_over(&self) {}
+        fn set_muted(&self, _muted: bool) {}
+        fn is_muted(&self) -> bool {
+            false
+        }
     }
 }
 
 pub mod macroquad {
     use super::{AudioPlayer, Grade};
     use ::macroquad::audio::{Sound, play_sound_once};
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     pub struct Macroquad {
         piece_locked: Sound,
@@ -39,6 +47,7 @@ pub mod macroquad {
         game_over: Sound,
         // Indexed by grade ordinal: Nine=0, Eight=1, ..., SNine=17
         grades: Vec<Sound>,
+        muted: AtomicBool,
     }
 
     impl Macroquad {
@@ -81,6 +90,13 @@ pub mod macroquad {
                 fetris: load("assets/audio/voice/fetris.ogg").await.unwrap(),
                 game_over: load("assets/audio/voice/game_over.ogg").await.unwrap(),
                 grades,
+                muted: AtomicBool::new(false),
+            }
+        }
+
+        fn play(&self, snd: &Sound) {
+            if !self.muted.load(Ordering::Relaxed) {
+                play_sound_once(snd);
             }
         }
 
@@ -111,10 +127,10 @@ pub mod macroquad {
 
     impl AudioPlayer for Macroquad {
         fn piece_locked(&self) {
-            play_sound_once(&self.piece_locked);
+            self.play(&self.piece_locked);
         }
         fn piece_begin_locking(&self) {
-            play_sound_once(&self.piece_begin_locking);
+            self.play(&self.piece_begin_locking);
         }
         fn lines_cleared(&self, count: u32) {
             let snd = match count {
@@ -123,16 +139,22 @@ pub mod macroquad {
                 3 => &self.triple,
                 _ => &self.fetris,
             };
-            play_sound_once(snd);
+            self.play(snd);
         }
         fn ready(&self) {
-            play_sound_once(&self.ready);
+            self.play(&self.ready);
         }
         fn grade_changed(&self, grade: Grade) {
-            play_sound_once(self.grade_sound(grade));
+            self.play(self.grade_sound(grade));
         }
         fn game_over(&self) {
-            play_sound_once(&self.game_over);
+            self.play(&self.game_over);
+        }
+        fn set_muted(&self, muted: bool) {
+            self.muted.store(muted, Ordering::Relaxed);
+        }
+        fn is_muted(&self) -> bool {
+            self.muted.load(Ordering::Relaxed)
         }
     }
 }

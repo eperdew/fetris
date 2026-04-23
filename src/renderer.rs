@@ -66,13 +66,19 @@ impl Renderer {
         self.render_overlay(game);
     }
 
-    pub fn render_menu(&self, menu: &Menu) {
+    pub fn render_menu(&self, menu: &Menu, muted: bool) {
         clear_background(Color::from_rgba(10, 10, 18, 255));
         match menu.screen() {
             MenuScreen::Main => self.render_main_menu(menu),
             MenuScreen::HiScores => self.render_hi_scores(menu),
             MenuScreen::Controls => self.render_controls(),
         }
+        let (label, color) = if muted {
+            ("[M]  MUTED", Color::new(0.8, 0.4, 0.4, 1.0))
+        } else {
+            ("[M]  SOUND ON", GRAY)
+        };
+        self.draw_centered(label, screen_height() - 24.0, 14.0, color);
     }
 
     fn render_piece_preview(&self, game: &Game, piece: &Piece) {

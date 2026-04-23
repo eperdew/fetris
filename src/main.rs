@@ -74,15 +74,25 @@ fn build_menu_input() -> MenuInput {
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let renderer = renderer::Renderer::new();
-    let audio: Arc<dyn audio_player::AudioPlayer> =
-        Arc::new(audio_player::macroquad::Macroquad::create().await);
     let mut storage = storage::Storage::new();
+    let audio: Arc<dyn audio_player::AudioPlayer> = {
+        use audio_player::AudioPlayer as _;
+        let player = audio_player::macroquad::Macroquad::create().await;
+        let muted = storage.get("muted").map(|v| v == "true").unwrap_or(false);
+        player.set_muted(muted);
+        Arc::new(player)
+    };
     let mut state = AppState::Menu(Menu::new(GameConfig::load(&storage)));
     let mut accumulator = 0.0f64;
     let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
     const TICK: f64 = 1.0 / 60.0;
 
     loop {
+        if is_key_pressed(KeyCode::M) {
+            let muted = !audio.is_muted();
+            audio.set_muted(muted);
+            storage.set("muted", if muted { "true" } else { "false" });
+        }
         let escape = is_key_pressed(KeyCode::Escape);
         let mut new_state: Option<AppState> = None;
 
@@ -110,7 +120,7 @@ async fn main() {
                         ticks_left: 90,
                     });
                 }
-                renderer.render_menu(menu);
+                renderer.render_menu(menu, audio.is_muted());
             }
             AppState::Ready { game, ticks_left } => {
                 if escape {
