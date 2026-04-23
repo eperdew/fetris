@@ -2,7 +2,7 @@ use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEE
 use crate::game::Game;
 use crate::menu::Menu;
 use crate::types::{
-    BOARD_COLS, BOARD_ROWS, Grade, GameMode, Kind, MenuScreen, Piece, PieceKind, PiecePhase,
+    BOARD_COLS, BOARD_ROWS, GameMode, Grade, Kind, MenuScreen, Piece, PieceKind, PiecePhase,
 };
 use macroquad::prelude::*;
 
