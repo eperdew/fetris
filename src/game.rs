@@ -340,9 +340,6 @@ impl Game {
         }
         self.audio.piece_locked();
         let lines_cleared = self.clear_lines();
-        if lines_cleared > 0 {
-            self.audio.lines_cleared(lines_cleared);
-        }
         // Buffer any held rotation key so it applies when the next piece spawns.
         if input.held.contains(&GameKey::RotateCw) {
             self.rotation_buffer = Some(RotationDirection::Clockwise);
@@ -374,7 +371,14 @@ impl Game {
         } else {
             JudgeEvent::LockedWithoutClear
         };
+        let old_grade = self.judge.grade();
         self.judge.on_event(&judge_event);
+        let new_grade = self.judge.grade();
+        if new_grade > old_grade {
+            self.audio.grade_changed(new_grade);
+        } else if lines_cleared > 0 {
+            self.audio.lines_cleared(lines_cleared);
+        }
     }
 
     fn spawn_piece(&mut self) {
@@ -395,6 +399,7 @@ impl Game {
         }
         if !self.fits(self.active.col, self.active.row, self.active.rotation) {
             self.game_over = true;
+            self.audio.game_over();
         }
 
         // Gravity applies immediately upon spawning. This is necessary so that we spawn

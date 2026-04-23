@@ -74,7 +74,8 @@ fn build_menu_input() -> MenuInput {
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
     let renderer = renderer::Renderer::new();
-    let audio: Arc<dyn audio_player::AudioPlayer> = Arc::new(audio_player::null::Null);
+    let audio: Arc<dyn audio_player::AudioPlayer> =
+        Arc::new(audio_player::macroquad::Macroquad::create().await);
     let mut storage = storage::Storage::new();
     let mut state = AppState::Menu(Menu::new(GameConfig::load(&storage)));
     let mut accumulator = 0.0f64;

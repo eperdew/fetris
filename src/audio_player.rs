@@ -1,12 +1,16 @@
+use crate::types::Grade;
+
 pub trait AudioPlayer {
     fn piece_locked(&self);
     fn piece_begin_locking(&self);
     fn lines_cleared(&self, count: u32);
     fn ready(&self);
+    fn grade_changed(&self, grade: Grade);
+    fn game_over(&self);
 }
 
 pub mod null {
-    use super::AudioPlayer;
+    use super::{AudioPlayer, Grade};
 
     pub struct Null;
 
@@ -15,29 +19,95 @@ pub mod null {
         fn piece_begin_locking(&self) {}
         fn lines_cleared(&self, _count: u32) {}
         fn ready(&self) {}
+        fn grade_changed(&self, _grade: Grade) {}
+        fn game_over(&self) {}
     }
 }
 
 pub mod macroquad {
-    use super::AudioPlayer;
+    use super::{AudioPlayer, Grade};
     use ::macroquad::audio::{Sound, play_sound_once};
 
     pub struct Macroquad {
-        pub piece_locked: Sound,
-        pub piece_begin_locking: Sound,
-        pub line_clear: Sound,
-        pub ready: Sound,
+        piece_locked: Sound,
+        piece_begin_locking: Sound,
+        ready: Sound,
+        single: Sound,
+        double: Sound,
+        triple: Sound,
+        fetris: Sound,
+        game_over: Sound,
+        // Indexed by grade ordinal: Nine=0, Eight=1, ..., SNine=17
+        grades: Vec<Sound>,
     }
 
     impl Macroquad {
         pub async fn create() -> Self {
             let load = |path| ::macroquad::audio::load_sound(path);
+            let grades = {
+                const FILES: &[&str] = &[
+                    "assets/audio/voice/grade_9.ogg",
+                    "assets/audio/voice/grade_8.ogg",
+                    "assets/audio/voice/grade_7.ogg",
+                    "assets/audio/voice/grade_6.ogg",
+                    "assets/audio/voice/grade_5.ogg",
+                    "assets/audio/voice/grade_4.ogg",
+                    "assets/audio/voice/grade_3.ogg",
+                    "assets/audio/voice/grade_2.ogg",
+                    "assets/audio/voice/grade_1.ogg",
+                    "assets/audio/voice/grade_s1.ogg",
+                    "assets/audio/voice/grade_s2.ogg",
+                    "assets/audio/voice/grade_s3.ogg",
+                    "assets/audio/voice/grade_s4.ogg",
+                    "assets/audio/voice/grade_s5.ogg",
+                    "assets/audio/voice/grade_s6.ogg",
+                    "assets/audio/voice/grade_s7.ogg",
+                    "assets/audio/voice/grade_s8.ogg",
+                    "assets/audio/voice/grade_s9.ogg",
+                ];
+                let mut v = Vec::with_capacity(FILES.len());
+                for &path in FILES {
+                    v.push(load(path).await.unwrap());
+                }
+                v
+            };
             Self {
                 piece_locked: load("assets/audio/piece_locked.ogg").await.unwrap(),
-                piece_begin_locking: load("assets/audio/piece_begin_locking.ogg").await.unwrap(),
-                line_clear: load("assets/audio/line_clear.ogg").await.unwrap(),
-                ready: load("assets/audio/ready.ogg").await.unwrap(),
+                piece_begin_locking: load("assets/audio/piece_begin_locking.ogg")
+                    .await
+                    .unwrap(),
+                ready: load("assets/audio/voice/ready.ogg").await.unwrap(),
+                single: load("assets/audio/voice/single.ogg").await.unwrap(),
+                double: load("assets/audio/voice/double.ogg").await.unwrap(),
+                triple: load("assets/audio/voice/triple.ogg").await.unwrap(),
+                fetris: load("assets/audio/voice/fetris.ogg").await.unwrap(),
+                game_over: load("assets/audio/voice/game_over.ogg").await.unwrap(),
+                grades,
             }
+        }
+
+        fn grade_sound(&self, grade: Grade) -> &Sound {
+            let idx = match grade {
+                Grade::Nine => 0,
+                Grade::Eight => 1,
+                Grade::Seven => 2,
+                Grade::Six => 3,
+                Grade::Five => 4,
+                Grade::Four => 5,
+                Grade::Three => 6,
+                Grade::Two => 7,
+                Grade::One => 8,
+                Grade::SOne => 9,
+                Grade::STwo => 10,
+                Grade::SThree => 11,
+                Grade::SFour => 12,
+                Grade::SFive => 13,
+                Grade::SSix => 14,
+                Grade::SSeven => 15,
+                Grade::SEight => 16,
+                Grade::SNine => 17,
+            };
+            &self.grades[idx]
         }
     }
 
@@ -48,11 +118,23 @@ pub mod macroquad {
         fn piece_begin_locking(&self) {
             play_sound_once(&self.piece_begin_locking);
         }
-        fn lines_cleared(&self, _count: u32) {
-            play_sound_once(&self.line_clear);
+        fn lines_cleared(&self, count: u32) {
+            let snd = match count {
+                1 => &self.single,
+                2 => &self.double,
+                3 => &self.triple,
+                _ => &self.fetris,
+            };
+            play_sound_once(snd);
         }
         fn ready(&self) {
             play_sound_once(&self.ready);
+        }
+        fn grade_changed(&self, grade: Grade) {
+            play_sound_once(self.grade_sound(grade));
+        }
+        fn game_over(&self) {
+            play_sound_once(&self.game_over);
         }
     }
 }
