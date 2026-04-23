@@ -65,7 +65,7 @@ impl Renderer {
     }
 
     pub fn render(&self, game: &Game) {
-        clear_background(Color::from_rgba(10, 10, 18, 255));
+        clear_background(grade_bg_color(game.grade().index()));
         self.render_board(game);
         self.render_grade_bar(game);
         self.render_sidebar(game);
@@ -212,6 +212,14 @@ impl Renderer {
         }
 
         self.render_piece_preview(game, &game.next);
+
+        draw_rectangle(
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
+            Color::new(0.0, 0.0, 0.0, 0.1),
+        );
     }
 
     fn render_grade_bar(&self, game: &Game) {
@@ -224,7 +232,18 @@ impl Renderer {
         };
 
         let bar_h = BOARD_ROWS as f32 * CELL;
-        let fill_h = bar_h * progress;
+        const SHADOW_PAD: f32 = 2.0;
+        let inner_h = bar_h - SHADOW_PAD * 2.0;
+        let fill_h = inner_h * progress;
+
+        // Shadow flush with playfield vertically; extends SHADOW_PAD horizontally
+        draw_rectangle(
+            BAR_X - SHADOW_PAD,
+            BOARD_Y,
+            BAR_WIDTH + SHADOW_PAD * 2.0,
+            bar_h,
+            Color::new(0.0, 0.0, 0.0, 0.55),
+        );
 
         draw_line(
             DIVIDER_X,
@@ -234,10 +253,10 @@ impl Renderer {
             1.5,
             Color::new(0.25, 0.25, 0.35, 1.0),
         );
-        draw_rectangle(BAR_X, BOARD_Y, BAR_WIDTH, bar_h, BOARD_BG);
+        draw_rectangle(BAR_X, BOARD_Y + SHADOW_PAD, BAR_WIDTH, inner_h, BOARD_BG);
         draw_rectangle(
             BAR_X,
-            BOARD_Y + bar_h - fill_h,
+            BOARD_Y + SHADOW_PAD + inner_h - fill_h,
             BAR_WIDTH,
             fill_h,
             grade_bar_color(grade.index()),
@@ -299,7 +318,7 @@ impl Renderer {
     }
 
     pub fn render_ready(&self, game: &Game) {
-        clear_background(Color::from_rgba(10, 10, 18, 255));
+        clear_background(grade_bg_color(game.grade().index()));
 
         // Board background (empty — no active piece, no locked cells yet)
         draw_rectangle(
@@ -312,6 +331,14 @@ impl Renderer {
 
         // Preview shows the first piece (active) since it hasn't spawned yet
         self.render_piece_preview(game, &game.active);
+
+        draw_rectangle(
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
+            Color::new(0.0, 0.0, 0.0, 0.1),
+        );
 
         self.render_grade_bar(game);
         self.render_sidebar(game);
@@ -561,14 +588,24 @@ fn draw_cell(origin_x: f32, origin_y: f32, col: i32, row: i32, color: Color, tex
 
 fn grade_bar_color(grade_idx: usize) -> Color {
     match grade_idx % 7 {
-        0 => Color::from_rgba(220, 50, 50, 255),
-        1 => Color::from_rgba(230, 130, 0, 255),
-        2 => Color::from_rgba(220, 210, 0, 255),
-        3 => Color::from_rgba(50, 180, 50, 255),
-        4 => Color::from_rgba(50, 100, 220, 255),
-        5 => Color::from_rgba(80, 0, 200, 255),
-        _ => Color::from_rgba(150, 0, 220, 255),
+        0 => Color::from_rgba(220, 50, 50, 200),
+        1 => Color::from_rgba(230, 130, 0, 200),
+        2 => Color::from_rgba(220, 210, 0, 200),
+        3 => Color::from_rgba(50, 180, 50, 200),
+        4 => Color::from_rgba(50, 100, 220, 200),
+        5 => Color::from_rgba(80, 0, 200, 200),
+        _ => Color::from_rgba(150, 0, 220, 200),
     }
+}
+
+fn grade_bg_color(grade_idx: usize) -> Color {
+    let tint = grade_bar_color(grade_idx);
+    Color::new(
+        0.04 + tint.r * 0.14,
+        0.04 + tint.g * 0.14,
+        0.07 + tint.b * 0.14,
+        1.0,
+    )
 }
 
 fn piece_color(kind: PieceKind) -> Color {
