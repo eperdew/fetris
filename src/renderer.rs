@@ -2,7 +2,7 @@ use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEE
 use crate::game::Game;
 use crate::menu::Menu;
 use crate::types::{
-    BOARD_COLS, BOARD_ROWS, GameMode, Kind, MenuScreen, Piece, PieceKind, PiecePhase,
+    BOARD_COLS, BOARD_ROWS, Grade, GameMode, Kind, MenuScreen, Piece, PieceKind, PiecePhase,
 };
 use macroquad::prelude::*;
 
@@ -11,7 +11,12 @@ const INSET: f32 = 2.0;
 const PAD: f32 = 20.0;
 const BOARD_X: f32 = PAD;
 const BOARD_Y: f32 = 2.0 * CELL + 2.0 * PAD;
-const SIDEBAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + 10.0;
+const BAR_WIDTH: f32 = 24.0;
+const BAR_LEFT_GAP: f32 = 24.0;
+const BAR_RIGHT_GAP: f32 = 14.0;
+const BAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + BAR_LEFT_GAP;
+const SIDEBAR_X: f32 = BAR_X + BAR_WIDTH + BAR_RIGHT_GAP;
+const DIVIDER_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + BAR_LEFT_GAP / 2.0;
 const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
 
 pub(crate) struct Renderer {
@@ -62,6 +67,7 @@ impl Renderer {
     pub fn render(&self, game: &Game) {
         clear_background(Color::from_rgba(10, 10, 18, 255));
         self.render_board(game);
+        self.render_grade_bar(game);
         self.render_sidebar(game);
         self.render_overlay(game);
     }
@@ -208,6 +214,36 @@ impl Renderer {
         self.render_piece_preview(game, &game.next);
     }
 
+    fn render_grade_bar(&self, game: &Game) {
+        let score = game.score();
+        let grade = game.grade();
+        let (prev, next_opt) = Grade::grade_progress(score);
+        let progress: f32 = match next_opt {
+            None => 1.0,
+            Some(next) => (score - prev) as f32 / (next - prev) as f32,
+        };
+
+        let bar_h = BOARD_ROWS as f32 * CELL;
+        let fill_h = bar_h * progress;
+
+        draw_line(
+            DIVIDER_X,
+            BOARD_Y,
+            DIVIDER_X,
+            BOARD_Y + bar_h,
+            1.5,
+            Color::new(0.25, 0.25, 0.35, 1.0),
+        );
+        draw_rectangle(BAR_X, BOARD_Y, BAR_WIDTH, bar_h, BOARD_BG);
+        draw_rectangle(
+            BAR_X,
+            BOARD_Y + bar_h - fill_h,
+            BAR_WIDTH,
+            fill_h,
+            grade_bar_color(grade.index()),
+        );
+    }
+
     fn render_sidebar(&self, game: &Game) {
         const FONT_LG: f32 = 26.0;
         const FONT_SM: f32 = 18.0;
@@ -250,6 +286,16 @@ impl Renderer {
         self.draw_text("GRADE", x, y, FONT_SM, DIM);
         y += LH;
         self.draw_text(&format!("{}", game.grade()), x, y, FONT_LG, WHITE);
+        y += LH + 8.0;
+
+        self.draw_text("NEXT", x, y, FONT_SM, DIM);
+        y += LH;
+        let (_, next_opt) = Grade::grade_progress(game.score());
+        let next_str = match next_opt {
+            Some(n) => format!("{}", n),
+            None => "??????".to_string(),
+        };
+        self.draw_text(&next_str, x, y, FONT_LG, WHITE);
     }
 
     pub fn render_ready(&self, game: &Game) {
@@ -267,6 +313,7 @@ impl Renderer {
         // Preview shows the first piece (active) since it hasn't spawned yet
         self.render_piece_preview(game, &game.active);
 
+        self.render_grade_bar(game);
         self.render_sidebar(game);
 
         let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
@@ -510,6 +557,18 @@ fn draw_cell(origin_x: f32, origin_y: f32, col: i32, row: i32, color: Color, tex
         color,
         texture,
     );
+}
+
+fn grade_bar_color(grade_idx: usize) -> Color {
+    match grade_idx % 7 {
+        0 => Color::from_rgba(220, 50, 50, 255),
+        1 => Color::from_rgba(230, 130, 0, 255),
+        2 => Color::from_rgba(220, 210, 0, 255),
+        3 => Color::from_rgba(50, 180, 50, 255),
+        4 => Color::from_rgba(50, 100, 220, 255),
+        5 => Color::from_rgba(80, 0, 200, 255),
+        _ => Color::from_rgba(150, 0, 220, 255),
+    }
 }
 
 fn piece_color(kind: PieceKind) -> Color {

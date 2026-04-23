@@ -27,7 +27,7 @@ enum AppState {
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("fetris"),
-        window_width: 530,
+        window_width: 560,
         window_height: 780,
         window_resizable: false,
         ..Default::default()

@@ -267,6 +267,26 @@ impl Grade {
             .map(|(_, g)| *g)
             .unwrap_or(Grade::Nine)
     }
+
+    /// Index of this grade in SCORE_TABLE (Nine=0, Eight=1, ..., SNine=17).
+    pub fn index(self) -> usize {
+        Self::SCORE_TABLE
+            .iter()
+            .position(|(_, g)| *g == self)
+            .unwrap_or(0)
+    }
+
+    /// Returns (prev_threshold, Some(next_threshold)) for progress within the current grade,
+    /// or (prev_threshold, None) at the max grade.
+    pub fn grade_progress(score: u32) -> (u32, Option<u32>) {
+        let idx = Self::SCORE_TABLE
+            .iter()
+            .rposition(|(threshold, _)| score >= *threshold)
+            .unwrap_or(0);
+        let prev = Self::SCORE_TABLE[idx].0;
+        let next = Self::SCORE_TABLE.get(idx + 1).map(|(t, _)| *t);
+        (prev, next)
+    }
 }
 
 impl std::fmt::Display for Grade {
