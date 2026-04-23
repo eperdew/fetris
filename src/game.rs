@@ -198,9 +198,12 @@ impl Game {
             let row_before = self.active.row;
             while self.try_move(0, 1) {}
             self.sonic_drop_rows += (self.active.row - row_before) as u32;
-            self.piece_phase = PiecePhase::Locking {
-                ticks_left: LOCK_DELAY,
-            };
+            if matches!(self.piece_phase, PiecePhase::Falling) {
+                self.piece_phase = PiecePhase::Locking {
+                    ticks_left: LOCK_DELAY,
+                };
+                self.audio.piece_begin_locking();
+            }
             return;
         }
 
@@ -338,7 +341,6 @@ impl Game {
                 self.board[r][c] = Some(self.active.kind);
             }
         }
-        self.audio.piece_locked();
         let lines_cleared = self.clear_lines();
         // Buffer any held rotation key so it applies when the next piece spawns.
         if input.held.contains(&GameKey::RotateCw) {

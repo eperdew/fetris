@@ -1,7 +1,6 @@
 use crate::types::Grade;
 
 pub trait AudioPlayer {
-    fn piece_locked(&self);
     fn piece_begin_locking(&self);
     fn lines_cleared(&self, count: u32);
     fn ready(&self);
@@ -18,7 +17,6 @@ pub mod null {
     pub struct Null;
 
     impl AudioPlayer for Null {
-        fn piece_locked(&self) {}
         fn piece_begin_locking(&self) {}
         fn lines_cleared(&self, _count: u32) {}
         fn ready(&self) {}
@@ -37,7 +35,6 @@ pub mod macroquad {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     pub struct Macroquad {
-        piece_locked: Sound,
         piece_begin_locking: Sound,
         ready: Sound,
         single: Sound,
@@ -52,43 +49,58 @@ pub mod macroquad {
 
     impl Macroquad {
         pub async fn create() -> Self {
-            let load = |path| ::macroquad::audio::load_sound(path);
+            let load = |bytes: &'static [u8]| ::macroquad::audio::load_sound_from_bytes(bytes);
             let grades = {
-                const FILES: &[&str] = &[
-                    "assets/audio/voice/grade_9.ogg",
-                    "assets/audio/voice/grade_8.ogg",
-                    "assets/audio/voice/grade_7.ogg",
-                    "assets/audio/voice/grade_6.ogg",
-                    "assets/audio/voice/grade_5.ogg",
-                    "assets/audio/voice/grade_4.ogg",
-                    "assets/audio/voice/grade_3.ogg",
-                    "assets/audio/voice/grade_2.ogg",
-                    "assets/audio/voice/grade_1.ogg",
-                    "assets/audio/voice/grade_s1.ogg",
-                    "assets/audio/voice/grade_s2.ogg",
-                    "assets/audio/voice/grade_s3.ogg",
-                    "assets/audio/voice/grade_s4.ogg",
-                    "assets/audio/voice/grade_s5.ogg",
-                    "assets/audio/voice/grade_s6.ogg",
-                    "assets/audio/voice/grade_s7.ogg",
-                    "assets/audio/voice/grade_s8.ogg",
-                    "assets/audio/voice/grade_s9.ogg",
+                let files: &[&[u8]] = &[
+                    include_bytes!("../assets/audio/grade_9.ogg"),
+                    include_bytes!("../assets/audio/grade_8.ogg"),
+                    include_bytes!("../assets/audio/grade_7.ogg"),
+                    include_bytes!("../assets/audio/grade_6.ogg"),
+                    include_bytes!("../assets/audio/grade_5.ogg"),
+                    include_bytes!("../assets/audio/grade_4.ogg"),
+                    include_bytes!("../assets/audio/grade_3.ogg"),
+                    include_bytes!("../assets/audio/grade_2.ogg"),
+                    include_bytes!("../assets/audio/grade_1.ogg"),
+                    include_bytes!("../assets/audio/grade_s1.ogg"),
+                    include_bytes!("../assets/audio/grade_s2.ogg"),
+                    include_bytes!("../assets/audio/grade_s3.ogg"),
+                    include_bytes!("../assets/audio/grade_s4.ogg"),
+                    include_bytes!("../assets/audio/grade_s5.ogg"),
+                    include_bytes!("../assets/audio/grade_s6.ogg"),
+                    include_bytes!("../assets/audio/grade_s7.ogg"),
+                    include_bytes!("../assets/audio/grade_s8.ogg"),
+                    include_bytes!("../assets/audio/grade_s9.ogg"),
                 ];
-                let mut v = Vec::with_capacity(FILES.len());
-                for &path in FILES {
-                    v.push(load(path).await.unwrap());
+                let mut v = Vec::with_capacity(files.len());
+                for &bytes in files {
+                    v.push(load(bytes).await.unwrap());
                 }
                 v
             };
             Self {
-                piece_locked: load("assets/audio/piece_locked.ogg").await.unwrap(),
-                piece_begin_locking: load("assets/audio/piece_begin_locking.ogg").await.unwrap(),
-                ready: load("assets/audio/voice/ready.ogg").await.unwrap(),
-                single: load("assets/audio/voice/single.ogg").await.unwrap(),
-                double: load("assets/audio/voice/double.ogg").await.unwrap(),
-                triple: load("assets/audio/voice/triple.ogg").await.unwrap(),
-                fetris: load("assets/audio/voice/fetris.ogg").await.unwrap(),
-                game_over: load("assets/audio/voice/game_over.ogg").await.unwrap(),
+                piece_begin_locking: load(include_bytes!(
+                    "../assets/audio/piece_begin_locking.wav"
+                ))
+                .await
+                .unwrap(),
+                ready: load(include_bytes!("../assets/audio/ready.ogg"))
+                    .await
+                    .unwrap(),
+                single: load(include_bytes!("../assets/audio/single.ogg"))
+                    .await
+                    .unwrap(),
+                double: load(include_bytes!("../assets/audio/double.ogg"))
+                    .await
+                    .unwrap(),
+                triple: load(include_bytes!("../assets/audio/triple.ogg"))
+                    .await
+                    .unwrap(),
+                fetris: load(include_bytes!("../assets/audio/fetris.ogg"))
+                    .await
+                    .unwrap(),
+                game_over: load(include_bytes!("../assets/audio/game_over.ogg"))
+                    .await
+                    .unwrap(),
                 grades,
                 muted: AtomicBool::new(false),
             }
@@ -126,9 +138,6 @@ pub mod macroquad {
     }
 
     impl AudioPlayer for Macroquad {
-        fn piece_locked(&self) {
-            self.play(&self.piece_locked);
-        }
         fn piece_begin_locking(&self) {
             self.play(&self.piece_begin_locking);
         }
