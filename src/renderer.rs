@@ -4,6 +4,99 @@ use crate::types::{
 };
 use macroquad::prelude::*;
 
+const OVERLAY_VERTEX_SHADER: &str = r#"
+    #version 100
+    attribute vec3 position;
+    attribute vec2 texcoord;
+    attribute vec4 color0;
+    varying vec2 uv;
+    varying vec4 color;
+    uniform mat4 Model;
+    uniform mat4 Projection;
+    void main() {
+        gl_Position = Projection * Model * vec4(position, 1.0);
+        color = color0 / 255.0;
+        uv = texcoord;
+    }
+"#;
+
+const OVERLAY_FRAGMENT_SHADER: &str = r#"
+    #version 100
+    precision mediump float;
+    varying vec2 uv;
+    varying vec4 color;
+    uniform sampler2D Texture;
+    uniform float frame_parity;
+    uniform float hue_shift;
+    uniform float overlay_opacity;
+
+    vec3 hue_rotate(vec3 col, float angle) {
+        float c = cos(angle);
+        float s = sin(angle);
+        return vec3(
+            dot(col, vec3(0.299 + 0.701*c + 0.168*s,
+                          0.587 - 0.587*c + 0.330*s,
+                          0.114 - 0.114*c - 0.497*s)),
+            dot(col, vec3(0.299 - 0.299*c - 0.328*s,
+                          0.587 + 0.413*c + 0.035*s,
+                          0.114 - 0.114*c + 0.292*s)),
+            dot(col, vec3(0.299 - 0.300*c + 1.250*s,
+                          0.587 - 0.588*c - 1.050*s,
+                          0.114 + 0.886*c - 0.203*s))
+        );
+    }
+
+    void main() {
+        if (mod(floor(gl_FragCoord.y), 2.0) != frame_parity) {
+            discard;
+        }
+        vec4 tex = texture2D(Texture, uv) * color;
+        if (hue_shift > 0.001) {
+            tex.rgb = hue_rotate(tex.rgb, hue_shift * 6.28318);
+        }
+        tex.a *= overlay_opacity;
+        gl_FragColor = tex;
+    }
+"#;
+
+const OVERLAY_LIFETIME: u32 = 90;
+
+enum OverlayKind {
+    Double,
+    Triple,
+    Fetris,
+}
+
+struct LineClearOverlay {
+    kind: OverlayKind,
+    frames_remaining: u32,
+}
+
+impl LineClearOverlay {
+    fn label(&self) -> &'static str {
+        match self.kind {
+            OverlayKind::Double => "DOUBLE",
+            OverlayKind::Triple => "TRIPLE",
+            OverlayKind::Fetris => "FETRIS",
+        }
+    }
+
+    fn base_opacity(&self) -> f32 {
+        match self.kind {
+            OverlayKind::Double => 0.45,
+            OverlayKind::Triple => 0.75,
+            OverlayKind::Fetris => 1.0,
+        }
+    }
+
+    fn hue_shift(&self, ticks_elapsed: u64) -> f32 {
+        match self.kind {
+            OverlayKind::Fetris => (ticks_elapsed as f32 * 0.03) % 1.0,
+            _ => 0.0,
+        }
+    }
+}
+
 struct Particle {
     x: f32,
     y: f32,
@@ -35,16 +128,39 @@ pub(crate) struct Renderer {
     cell_texture: Texture2D,
     font: Font,
     particles: Vec<Particle>,
+    overlay: Option<LineClearOverlay>,
+    overlay_target: RenderTarget,
+    overlay_material: Material,
 }
 
 impl Renderer {
     pub fn new() -> Self {
         let font =
             load_ttf_font_from_bytes(include_bytes!("../assets/font/Oxanium-Regular.ttf")).unwrap();
+        let overlay_target = render_target(560, 780);
+        overlay_target.texture.set_filter(FilterMode::Nearest);
+        let overlay_material = load_material(
+            ShaderSource::Glsl {
+                vertex: OVERLAY_VERTEX_SHADER,
+                fragment: OVERLAY_FRAGMENT_SHADER,
+            },
+            MaterialParams {
+                uniforms: vec![
+                    UniformDesc::new("frame_parity", UniformType::Float1),
+                    UniformDesc::new("hue_shift", UniformType::Float1),
+                    UniformDesc::new("overlay_opacity", UniformType::Float1),
+                ],
+                ..Default::default()
+            },
+        )
+        .expect("overlay shader failed to compile");
         Self {
             cell_texture: make_cell_texture(),
             font,
             particles: Vec::new(),
+            overlay: None,
+            overlay_target,
+            overlay_material,
         }
     }
 
@@ -89,6 +205,12 @@ impl Renderer {
                         &snapshot.rows_pending_compaction,
                         *count,
                     );
+                    self.overlay = match count {
+                        2 => Some(LineClearOverlay { kind: OverlayKind::Double, frames_remaining: OVERLAY_LIFETIME }),
+                        3 => Some(LineClearOverlay { kind: OverlayKind::Triple, frames_remaining: OVERLAY_LIFETIME }),
+                        4 => Some(LineClearOverlay { kind: OverlayKind::Fetris, frames_remaining: OVERLAY_LIFETIME }),
+                        _ => None,
+                    };
                 }
             }
         }
@@ -101,6 +223,7 @@ impl Renderer {
         self.render_grade_bar(snapshot);
         self.render_sidebar(snapshot);
         self.render_overlay(snapshot);
+        self.render_line_clear_overlay(snapshot.ticks_elapsed);
     }
 
     fn update_particles(&mut self) {
@@ -117,8 +240,16 @@ impl Renderer {
     fn render_particles(&self) {
         for p in &self.particles {
             let alpha = 1.0 - p.age as f32 / p.lifetime as f32;
-            let color = Color { a: alpha, ..p.color };
-            draw_cell_at(p.x - CELL * 0.5, p.y - CELL * 0.5, color, &self.cell_texture);
+            let color = Color {
+                a: alpha,
+                ..p.color
+            };
+            draw_cell_at(
+                p.x - CELL * 0.5,
+                p.y - CELL * 0.5,
+                color,
+                &self.cell_texture,
+            );
         }
     }
 
@@ -353,6 +484,61 @@ impl Renderer {
         let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
         let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
         self.draw_centered_x("READY", cx, cy, 28.0, WHITE);
+    }
+
+    fn render_line_clear_overlay(&mut self, ticks_elapsed: u64) {
+        // Extract all data from overlay before any rendering calls to avoid borrow conflicts.
+        let (label, opacity, hue_shift, frame_parity) = match &self.overlay {
+            None => return,
+            Some(o) => {
+                let progress = o.frames_remaining as f32 / OVERLAY_LIFETIME as f32;
+                (
+                    o.label(),
+                    o.base_opacity() * progress,
+                    o.hue_shift(ticks_elapsed),
+                    (o.frames_remaining % 2) as f32,
+                )
+            }
+        };
+
+        // Render text to off-screen target.
+        set_camera(&Camera2D {
+            zoom: vec2(2.0 / 560.0, -2.0 / 780.0),
+            target: vec2(280.0, 390.0),
+            render_target: Some(self.overlay_target.clone()),
+            ..Default::default()
+        });
+        clear_background(Color::new(0.0, 0.0, 0.0, 0.0));
+        let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
+        let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
+        self.draw_centered_x(label, cx, cy, 40.0, WHITE);
+        set_default_camera();
+
+        // Draw to screen with scanline shader.
+        self.overlay_material.set_uniform("frame_parity", frame_parity);
+        self.overlay_material.set_uniform("hue_shift", hue_shift);
+        self.overlay_material.set_uniform("overlay_opacity", opacity);
+        gl_use_material(&self.overlay_material);
+        draw_texture_ex(
+            &self.overlay_target.texture,
+            0.0,
+            0.0,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(560.0, 780.0)),
+                flip_y: true,
+                ..Default::default()
+            },
+        );
+        gl_use_default_material();
+
+        // Tick the overlay.
+        let done = self.overlay.as_ref().map_or(true, |o| o.frames_remaining == 0);
+        if done {
+            self.overlay = None;
+        } else if let Some(o) = &mut self.overlay {
+            o.frames_remaining -= 1;
+        }
     }
 
     fn render_overlay(&self, snapshot: &GameSnapshot) {
