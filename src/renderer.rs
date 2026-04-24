@@ -61,12 +61,14 @@ const OVERLAY_FRAGMENT_SHADER: &str = r#"
 
 const OVERLAY_LIFETIME: u32 = 90;
 
+#[derive(Debug)]
 enum OverlayKind {
     Double,
     Triple,
     Fetris,
 }
 
+#[derive(Debug)]
 struct LineClearOverlay {
     kind: OverlayKind,
     frames_remaining: u32,
@@ -123,6 +125,8 @@ const BAR_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + BAR_LEFT_GAP;
 const SIDEBAR_X: f32 = BAR_X + BAR_WIDTH + BAR_RIGHT_GAP;
 const DIVIDER_X: f32 = BOARD_X + BOARD_COLS as f32 * CELL + BAR_LEFT_GAP / 2.0;
 const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
+const WINDOW_W: f32 = 560.0;
+const WINDOW_H: f32 = 780.0;
 
 pub(crate) struct Renderer {
     cell_texture: Texture2D,
@@ -137,7 +141,7 @@ impl Renderer {
     pub fn new() -> Self {
         let font =
             load_ttf_font_from_bytes(include_bytes!("../assets/font/Oxanium-Regular.ttf")).unwrap();
-        let overlay_target = render_target(560, 780);
+        let overlay_target = render_target(WINDOW_W as u32, WINDOW_H as u32);
         overlay_target.texture.set_filter(FilterMode::Nearest);
         let overlay_material = load_material(
             ShaderSource::Glsl {
@@ -206,9 +210,18 @@ impl Renderer {
                         *count,
                     );
                     self.overlay = match count {
-                        2 => Some(LineClearOverlay { kind: OverlayKind::Double, frames_remaining: OVERLAY_LIFETIME }),
-                        3 => Some(LineClearOverlay { kind: OverlayKind::Triple, frames_remaining: OVERLAY_LIFETIME }),
-                        4 => Some(LineClearOverlay { kind: OverlayKind::Fetris, frames_remaining: OVERLAY_LIFETIME }),
+                        2 => Some(LineClearOverlay {
+                            kind: OverlayKind::Double,
+                            frames_remaining: OVERLAY_LIFETIME,
+                        }),
+                        3 => Some(LineClearOverlay {
+                            kind: OverlayKind::Triple,
+                            frames_remaining: OVERLAY_LIFETIME,
+                        }),
+                        4 => Some(LineClearOverlay {
+                            kind: OverlayKind::Fetris,
+                            frames_remaining: OVERLAY_LIFETIME,
+                        }),
                         _ => None,
                     };
                 }
@@ -487,6 +500,10 @@ impl Renderer {
     }
 
     fn render_line_clear_overlay(&mut self, ticks_elapsed: u64) {
+        // Clear expired overlay before extracting data.
+        if matches!(&self.overlay, Some(o) if o.frames_remaining == 0) {
+            self.overlay = None;
+        }
         // Extract all data from overlay before any rendering calls to avoid borrow conflicts.
         let (label, opacity, hue_shift, frame_parity) = match &self.overlay {
             None => return,
@@ -503,7 +520,7 @@ impl Renderer {
 
         // Render text to off-screen target.
         set_camera(&Camera2D {
-            zoom: vec2(2.0 / 560.0, -2.0 / 780.0),
+            zoom: vec2(2.0 / WINDOW_W, -2.0 / WINDOW_H),
             target: vec2(280.0, 390.0),
             render_target: Some(self.overlay_target.clone()),
             ..Default::default()
@@ -515,9 +532,11 @@ impl Renderer {
         set_default_camera();
 
         // Draw to screen with scanline shader.
-        self.overlay_material.set_uniform("frame_parity", frame_parity);
+        self.overlay_material
+            .set_uniform("frame_parity", frame_parity);
         self.overlay_material.set_uniform("hue_shift", hue_shift);
-        self.overlay_material.set_uniform("overlay_opacity", opacity);
+        self.overlay_material
+            .set_uniform("overlay_opacity", opacity);
         gl_use_material(&self.overlay_material);
         draw_texture_ex(
             &self.overlay_target.texture,
@@ -525,7 +544,7 @@ impl Renderer {
             0.0,
             WHITE,
             DrawTextureParams {
-                dest_size: Some(vec2(560.0, 780.0)),
+                dest_size: Some(vec2(WINDOW_W, WINDOW_H)),
                 flip_y: true,
                 ..Default::default()
             },
@@ -533,7 +552,10 @@ impl Renderer {
         gl_use_default_material();
 
         // Tick the overlay.
-        let done = self.overlay.as_ref().map_or(true, |o| o.frames_remaining == 0);
+        let done = self
+            .overlay
+            .as_ref()
+            .map_or(true, |o| o.frames_remaining == 0);
         if done {
             self.overlay = None;
         } else if let Some(o) = &mut self.overlay {
