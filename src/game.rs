@@ -394,7 +394,6 @@ impl Game {
             next_kind: self.next.kind,
             next_preview_offsets: next_offsets,
             next_preview_y_offset: self.rotation_system.preview_y_offset(self.next.kind),
-            piece_phase: self.piece_phase,
             rows_pending_compaction: self.rows_pending_compaction.clone(),
             level: self.level,
             lines: self.lines,

@@ -352,7 +352,6 @@ pub struct GameSnapshot {
     pub next_kind: PieceKind,
     pub next_preview_offsets: [(i32, i32); 4],
     pub next_preview_y_offset: i32,
-    pub piece_phase: PiecePhase,
     pub rows_pending_compaction: Vec<usize>,
     pub level: u32,
     pub lines: u32,
