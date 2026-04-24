@@ -2,6 +2,7 @@ use crate::menu::Menu;
 use crate::types::{
     BOARD_COLS, BOARD_ROWS, GameEvent, GameMode, GameSnapshot, Grade, Kind, MenuScreen, PieceKind,
 };
+use macroquad::miniquad::{BlendFactor, BlendState, BlendValue, Equation, PipelineParams};
 use macroquad::prelude::*;
 
 const OVERLAY_VERTEX_SHADER: &str = r#"
@@ -83,7 +84,7 @@ impl LineClearOverlay {
         }
     }
 
-    fn base_opacity(&self) -> f32 {
+    fn opacity(&self) -> f32 {
         match self.kind {
             OverlayKind::Double => 0.45,
             OverlayKind::Triple => 0.75,
@@ -149,6 +150,19 @@ impl Renderer {
                 fragment: OVERLAY_FRAGMENT_SHADER,
             },
             MaterialParams {
+                pipeline_params: PipelineParams {
+                    color_blend: Some(BlendState::new(
+                        Equation::Add,
+                        BlendFactor::Value(BlendValue::SourceAlpha),
+                        BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+                    )),
+                    alpha_blend: Some(BlendState::new(
+                        Equation::Add,
+                        BlendFactor::One,
+                        BlendFactor::OneMinusValue(BlendValue::SourceAlpha),
+                    )),
+                    ..Default::default()
+                },
                 uniforms: vec![
                     UniformDesc::new("frame_parity", UniformType::Float1),
                     UniformDesc::new("hue_shift", UniformType::Float1),
@@ -507,15 +521,12 @@ impl Renderer {
         // Extract all data from overlay before any rendering calls to avoid borrow conflicts.
         let (label, opacity, hue_shift, frame_parity) = match &self.overlay {
             None => return,
-            Some(o) => {
-                let progress = o.frames_remaining as f32 / OVERLAY_LIFETIME as f32;
-                (
-                    o.label(),
-                    o.base_opacity() * progress,
-                    o.hue_shift(ticks_elapsed),
-                    (o.frames_remaining % 2) as f32,
-                )
-            }
+            Some(o) => (
+                o.label(),
+                o.opacity(),
+                o.hue_shift(ticks_elapsed),
+                (o.frames_remaining % 2) as f32,
+            ),
         };
 
         // Render text to off-screen target.

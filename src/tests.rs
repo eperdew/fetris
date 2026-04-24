@@ -2411,7 +2411,10 @@ fn snapshot_active_hidden_during_spawning() {
     // Force the Spawning phase.
     game.piece_phase = PiecePhase::Spawning { ticks_left: 5 };
     let snap = game.snapshot();
-    assert!(snap.active_kind.is_none(), "active should be hidden during Spawning");
+    assert!(
+        snap.active_kind.is_none(),
+        "active should be hidden during Spawning"
+    );
     assert!(snap.active_cells.is_none());
     assert!(snap.ghost_cells.is_none());
 }

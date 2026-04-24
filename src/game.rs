@@ -574,10 +574,6 @@ impl Game {
         self.judge.grade()
     }
 
-    pub fn level(&self) -> u32 {
-        self.level
-    }
-
     pub fn drain_events(&mut self) -> Vec<GameEvent> {
         std::mem::take(&mut self.events)
     }
