@@ -2400,3 +2400,59 @@ fn drain_events_clears_after_drain() {
     let events2 = game.drain_events();
     assert!(events2.is_empty(), "drain_events should clear the buffer");
 }
+
+// ---------------------------------------------------------------------------
+// snapshot
+// ---------------------------------------------------------------------------
+
+#[test]
+fn snapshot_active_hidden_during_spawning() {
+    let mut game = make_game(PieceKind::T);
+    // Force the Spawning phase.
+    game.piece_phase = PiecePhase::Spawning { ticks_left: 5 };
+    let snap = game.snapshot();
+    assert!(snap.active_kind.is_none(), "active should be hidden during Spawning");
+    assert!(snap.active_cells.is_none());
+    assert!(snap.ghost_cells.is_none());
+}
+
+#[test]
+fn snapshot_active_hidden_during_line_clear_delay() {
+    let mut game = make_game(PieceKind::T);
+    game.piece_phase = PiecePhase::LineClearDelay { ticks_left: 10 };
+    let snap = game.snapshot();
+    assert!(snap.active_kind.is_none());
+}
+
+#[test]
+fn snapshot_active_visible_during_falling() {
+    let game = make_game(PieceKind::T);
+    // Default piece_phase is Falling.
+    let snap = game.snapshot();
+    assert_eq!(snap.active_kind, Some(PieceKind::T));
+    assert!(snap.active_cells.is_some());
+}
+
+#[test]
+fn snapshot_ghost_none_when_piece_on_floor() {
+    let mut game = make_game(PieceKind::O);
+    // Move O piece to the bottom row (rows 18-19 for ARS O in rotation 0).
+    game.active.row = 18;
+    let snap = game.snapshot();
+    // Ghost row == active row → ghost_cells should be None.
+    assert!(
+        snap.ghost_cells.is_none(),
+        "ghost should be None when piece is already on floor"
+    );
+}
+
+#[test]
+fn snapshot_ghost_present_above_floor() {
+    let mut game = make_game(PieceKind::O);
+    game.active.row = 0; // piece near top, lots of room to fall
+    let snap = game.snapshot();
+    assert!(
+        snap.ghost_cells.is_some(),
+        "ghost should be Some when piece can still fall"
+    );
+}

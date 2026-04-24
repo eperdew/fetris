@@ -9,6 +9,7 @@ use crate::types::{
     BOARD_COLS, BOARD_ROWS, Board, GameEvent, GameKey, GameMode, Grade, HorizDir, InputState,
     JudgeEvent, Kind, Piece, PieceKind, PiecePhase, RotationDirection,
 };
+use crate::types::GameSnapshot;
 use std::sync::Arc;
 
 /// TGM-style randomizer. Keeps a 4-piece history (initialized to [Z; 4]) and
@@ -332,6 +333,84 @@ impl Game {
         self.board.iter().all(|row| row.iter().all(Option::is_none))
     }
 
+    fn compute_ghost_row(&self) -> i32 {
+        let mut ghost_row = self.active.row;
+        loop {
+            let next = ghost_row + 1;
+            let blocked = self
+                .rotation_system
+                .cells(self.active.kind, self.active.rotation)
+                .iter()
+                .any(|&(dc, dr)| {
+                    let c = self.active.col + dc;
+                    let r = next + dr;
+                    r >= BOARD_ROWS as i32
+                        || (c >= 0
+                            && c < BOARD_COLS as i32
+                            && r >= 0
+                            && self.board[r as usize][c as usize].is_some())
+                });
+            if blocked {
+                break;
+            }
+            ghost_row = next;
+        }
+        ghost_row
+    }
+
+    pub fn snapshot(&self) -> GameSnapshot {
+        let show_active = !matches!(
+            self.piece_phase,
+            PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
+        );
+
+        let active_offsets = self
+            .rotation_system
+            .cells(self.active.kind, self.active.rotation);
+
+        let (active_kind, active_cells, ghost_cells) = if show_active {
+            let cells = active_offsets
+                .map(|(dc, dr)| (self.active.col + dc, self.active.row + dr));
+            let ghost_row = self.compute_ghost_row();
+            let ghost = if ghost_row != self.active.row {
+                Some(
+                    active_offsets
+                        .map(|(dc, dr)| (self.active.col + dc, ghost_row + dr)),
+                )
+            } else {
+                None
+            };
+            (Some(self.active.kind), Some(cells), ghost)
+        } else {
+            (None, None, None)
+        };
+
+        let next_offsets = self
+            .rotation_system
+            .cells(self.next.kind, self.next.rotation);
+
+        GameSnapshot {
+            board: self.board,
+            active_kind,
+            active_cells,
+            ghost_cells,
+            active_preview_offsets: active_offsets,
+            active_preview_y_offset: self.rotation_system.preview_y_offset(self.active.kind),
+            next_kind: self.next.kind,
+            next_preview_offsets: next_offsets,
+            next_preview_y_offset: self.rotation_system.preview_y_offset(self.next.kind),
+            piece_phase: self.piece_phase,
+            rows_pending_compaction: self.rows_pending_compaction.clone(),
+            level: self.level,
+            lines: self.lines,
+            ticks_elapsed: self.ticks_elapsed,
+            score: self.score(),
+            grade: self.grade(),
+            game_over: self.game_over,
+            game_won: self.game_won,
+        }
+    }
+
     fn lock_piece(&mut self, input: &InputState) {
         for (dc, dr) in self
             .rotation_system
@@ -345,7 +424,9 @@ impl Game {
         }
         let lines_cleared = self.clear_lines();
         if lines_cleared > 0 {
-            self.events.push(GameEvent::LineClear { count: lines_cleared });
+            self.events.push(GameEvent::LineClear {
+                count: lines_cleared,
+            });
         }
         // Buffer any held rotation key so it applies when the next piece spawns.
         if input.held.contains(&GameKey::RotateCw) {

@@ -336,6 +336,32 @@ pub enum GameEvent {
     LineClear { count: u32 },
 }
 
+pub struct GameSnapshot {
+    pub board: Board,
+    /// Kind of the active piece (for color); None during Spawning / LineClearDelay.
+    pub active_kind: Option<PieceKind>,
+    /// Absolute board positions of the active piece cells; None when hidden.
+    pub active_cells: Option<[(i32, i32); 4]>,
+    /// Absolute board positions of the ghost piece cells; None when hidden or piece is on floor.
+    pub ghost_cells: Option<[(i32, i32); 4]>,
+    /// Relative (dc, dr) offsets for the active piece — always set, used for preview in Ready state.
+    pub active_preview_offsets: [(i32, i32); 4],
+    pub active_preview_y_offset: i32,
+    /// Relative (dc, dr) offsets for the next piece, used for its preview.
+    pub next_kind: PieceKind,
+    pub next_preview_offsets: [(i32, i32); 4],
+    pub next_preview_y_offset: i32,
+    pub piece_phase: PiecePhase,
+    pub rows_pending_compaction: Vec<usize>,
+    pub level: u32,
+    pub lines: u32,
+    pub ticks_elapsed: u64,
+    pub score: u32,
+    pub grade: Grade,
+    pub game_over: bool,
+    pub game_won: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Hi scores
 // ---------------------------------------------------------------------------
