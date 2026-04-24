@@ -145,7 +145,7 @@ async fn main() {
                         game.tick(&input);
                     }
                 }
-                renderer.render_ready(game);
+                renderer.render_ready(&game.snapshot());
             }
             AppState::Playing(game) => {
                 if escape {
@@ -175,7 +175,9 @@ async fn main() {
                 if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {
                     new_state = Some(AppState::Menu(Menu::new(GameConfig::load(&storage))));
                 }
-                renderer.render(game);
+                let snapshot = game.snapshot();
+                let _events = game.drain_events(); // will be used in Task 5
+                renderer.render(&snapshot);
             }
         }
 

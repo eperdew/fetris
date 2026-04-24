@@ -579,11 +579,6 @@ impl Game {
         self.level
     }
 
-    pub fn next_level_barrier(&self) -> u32 {
-        let round_up = (self.level + 1).next_multiple_of(100);
-        if round_up == 1000 { 999 } else { round_up }
-    }
-
     pub fn drain_events(&mut self) -> Vec<GameEvent> {
         std::mem::take(&mut self.events)
     }

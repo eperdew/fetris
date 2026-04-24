@@ -1,8 +1,6 @@
-use crate::constants::{LINE_CLEAR_DELAY, PARTICLE_GRAVITY, PARTICLE_INITIAL_SPEED};
-use crate::game::Game;
 use crate::menu::Menu;
 use crate::types::{
-    BOARD_COLS, BOARD_ROWS, GameMode, Grade, Kind, MenuScreen, Piece, PieceKind, PiecePhase,
+    BOARD_COLS, BOARD_ROWS, GameSnapshot, Grade, GameMode, Kind, MenuScreen, PieceKind,
 };
 use macroquad::prelude::*;
 
@@ -64,12 +62,12 @@ impl Renderer {
         self.draw_text(text, cx - dims.width / 2.0, y, font_size, color);
     }
 
-    pub fn render(&self, game: &Game) {
-        clear_background(grade_bg_color(game.grade().index()));
-        self.render_board(game);
-        self.render_grade_bar(game);
-        self.render_sidebar(game);
-        self.render_overlay(game);
+    pub fn render(&self, snapshot: &GameSnapshot) {
+        clear_background(grade_bg_color(snapshot.grade.index()));
+        self.render_board(snapshot);
+        self.render_grade_bar(snapshot);
+        self.render_sidebar(snapshot);
+        self.render_overlay(snapshot);
     }
 
     pub fn render_menu(&self, menu: &Menu, muted: bool) {
@@ -87,144 +85,86 @@ impl Renderer {
         self.draw_centered(label, screen_height() - 24.0, 14.0, color);
     }
 
-    fn render_piece_preview(&self, game: &Game, piece: &Piece) {
-        for (dc, dr) in game.rotation_system.cells(piece.kind, piece.rotation) {
-            let y_offset = game.rotation_system.preview_y_offset(piece.kind);
+    fn render_piece_preview(
+        &self,
+        kind: PieceKind,
+        offsets: &[(i32, i32); 4],
+        preview_y_offset: i32,
+    ) {
+        for &(dc, dr) in offsets {
             let c = 3 + dc;
-            let r = -3 + dr + y_offset;
-            draw_cell(
-                BOARD_X,
-                BOARD_Y - PAD,
-                c,
-                r,
-                piece_color(piece.kind),
-                &self.cell_texture,
-            );
+            let r = -3 + dr + preview_y_offset;
+            draw_cell(BOARD_X, BOARD_Y - PAD, c, r, piece_color(kind), &self.cell_texture);
         }
     }
 
-    fn render_board(&self, game: &Game) {
+    fn render_board(&self, snapshot: &GameSnapshot) {
         let texture = &self.cell_texture;
 
         draw_rectangle(
-            BOARD_X,
-            BOARD_Y,
-            BOARD_COLS as f32 * CELL,
-            BOARD_ROWS as f32 * CELL,
+            BOARD_X, BOARD_Y,
+            BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL,
             BOARD_BG,
         );
 
-        let show_active = !matches!(
-            game.piece_phase,
-            PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
-        );
-
         // Ghost piece
-        if show_active {
-            let ghost_row = compute_ghost_row(game);
-            if ghost_row != game.active.row {
-                let base = piece_color(game.active.kind);
-                let ghost_color = Color { a: 0.25, ..base };
-                for (dc, dr) in game
-                    .rotation_system
-                    .cells(game.active.kind, game.active.rotation)
-                {
-                    let c = game.active.col + dc;
-                    let r = ghost_row + dr;
-                    if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
-                        draw_cell(BOARD_X, BOARD_Y, c, r, ghost_color, texture);
-                    }
+        if let (Some(kind), Some(ghost_cells)) = (snapshot.active_kind, &snapshot.ghost_cells) {
+            let base = piece_color(kind);
+            let ghost_color = Color { a: 0.25, ..base };
+            for &(c, r) in ghost_cells {
+                if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
+                    draw_cell(BOARD_X, BOARD_Y, c, r, ghost_color, texture);
                 }
             }
         }
 
-        // Locked cells (skip rows pending compaction — they are drawn as particles below)
-        for (r, row) in game.board.iter().enumerate() {
-            if game.rows_pending_compaction.contains(&r) {
+        // Locked cells (skip rows pending compaction — drawn as particles)
+        for (r, row) in snapshot.board.iter().enumerate() {
+            if snapshot.rows_pending_compaction.contains(&r) {
                 continue;
             }
             for (c, cell) in row.iter().enumerate() {
                 if let Some(kind) = cell {
-                    let left_border = c == 0 || game.board[r][c - 1].is_none();
-                    let top_border = r == 0 || game.board[r - 1][c].is_none();
-                    let right_border = c == BOARD_COLS - 1 || game.board[r][c + 1].is_none();
-                    let bottom_border = r == BOARD_ROWS - 1 || game.board[r + 1][c].is_none();
+                    let left_border   = c == 0              || snapshot.board[r][c - 1].is_none();
+                    let top_border    = r == 0              || snapshot.board[r - 1][c].is_none();
+                    let right_border  = c == BOARD_COLS - 1 || snapshot.board[r][c + 1].is_none();
+                    let bottom_border = r == BOARD_ROWS - 1 || snapshot.board[r + 1][c].is_none();
                     draw_cell_bordered(
-                        BOARD_X,
-                        BOARD_Y,
-                        c as i32,
-                        r as i32,
-                        piece_color(*kind),
-                        texture,
-                        left_border,
-                        top_border,
-                        right_border,
-                        bottom_border,
+                        BOARD_X, BOARD_Y, c as i32, r as i32,
+                        piece_color(*kind), texture,
+                        left_border, top_border, right_border, bottom_border,
                     );
                 }
             }
         }
 
-        // Particles: cells from cleared rows fly off screen during LineClearDelay
-        if let PiecePhase::LineClearDelay { ticks_left } = game.piece_phase {
-            let t = (LINE_CLEAR_DELAY - ticks_left) as f32;
-            for &r in &game.rows_pending_compaction {
-                for (c, cell) in game.board[r].iter().enumerate() {
-                    if let Some(kind) = cell {
-                        let initial_x = BOARD_X + c as f32 * CELL;
-                        let initial_y = BOARD_Y + r as f32 * CELL;
-                        let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
-                        let height = (BOARD_ROWS - r) as f32 / BOARD_ROWS as f32;
-                        let vx_raw = dist * height;
-                        let vy_raw = (r + 1) as f32 / BOARD_ROWS as f32;
-                        let len = (vx_raw * vx_raw + vy_raw * vy_raw).sqrt();
-                        let vx = vx_raw / len * PARTICLE_INITIAL_SPEED;
-                        let vy = vy_raw / len * PARTICLE_INITIAL_SPEED;
-                        let px = initial_x + vx * t;
-                        let py = initial_y + vy * t + 0.5 * PARTICLE_GRAVITY * t * t;
-                        if px > -CELL && px < screen_width() && py > -CELL && py < screen_height() {
-                            draw_cell_at(px, py, piece_color(*kind), texture);
-                        }
-                    }
-                }
-            }
-        }
+        // Particles — now handled by the stateful particle system (rendered separately)
 
         // Active piece
-        if show_active {
-            for (dc, dr) in game
-                .rotation_system
-                .cells(game.active.kind, game.active.rotation)
-            {
-                let c = game.active.col + dc;
-                let r = game.active.row + dr;
+        if let (Some(kind), Some(active_cells)) = (snapshot.active_kind, &snapshot.active_cells) {
+            for &(c, r) in active_cells {
                 if c >= 0 && r >= 0 && (r as usize) < BOARD_ROWS && (c as usize) < BOARD_COLS {
-                    draw_cell(
-                        BOARD_X,
-                        BOARD_Y,
-                        c,
-                        r,
-                        piece_color(game.active.kind),
-                        texture,
-                    );
+                    draw_cell(BOARD_X, BOARD_Y, c, r, piece_color(kind), texture);
                 }
             }
         }
 
-        self.render_piece_preview(game, &game.next);
+        self.render_piece_preview(
+            snapshot.next_kind,
+            &snapshot.next_preview_offsets,
+            snapshot.next_preview_y_offset,
+        );
 
         draw_rectangle(
-            BOARD_X,
-            BOARD_Y,
-            BOARD_COLS as f32 * CELL,
-            BOARD_ROWS as f32 * CELL,
+            BOARD_X, BOARD_Y,
+            BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL,
             Color::new(0.0, 0.0, 0.0, 0.1),
         );
     }
 
-    fn render_grade_bar(&self, game: &Game) {
-        let score = game.score();
-        let grade = game.grade();
+    fn render_grade_bar(&self, snapshot: &GameSnapshot) {
+        let score = snapshot.score;
+        let grade = snapshot.grade;
         let (prev, next_opt) = Grade::grade_progress(score);
         let progress: f32 = match next_opt {
             None => 1.0,
@@ -263,7 +203,7 @@ impl Renderer {
         );
     }
 
-    fn render_sidebar(&self, game: &Game) {
+    fn render_sidebar(&self, snapshot: &GameSnapshot) {
         const FONT_LG: f32 = 26.0;
         const FONT_SM: f32 = 18.0;
         const LH: f32 = 30.0;
@@ -274,42 +214,36 @@ impl Renderer {
 
         self.draw_text("LEVEL", x, y, FONT_SM, DIM);
         y += LH;
-        self.draw_text(&format!("{:03}", game.level()), x, y, FONT_LG, WHITE);
+        self.draw_text(&format!("{:03}", snapshot.level), x, y, FONT_LG, WHITE);
         y += 6.0;
         draw_line(x, y, x + 48.0, y, 2.0, DIM);
         y += 24.0;
-        self.draw_text(
-            &format!("{}", game.next_level_barrier()),
-            x,
-            y,
-            FONT_LG,
-            WHITE,
-        );
+        self.draw_text(&format!("{}", next_level_barrier(snapshot.level)), x, y, FONT_LG, WHITE);
         y += LH + 8.0;
 
         self.draw_text("LINES", x, y, FONT_SM, DIM);
         y += LH;
-        self.draw_text(&format!("{}", game.lines), x, y, FONT_LG, WHITE);
+        self.draw_text(&format!("{}", snapshot.lines), x, y, FONT_LG, WHITE);
         y += LH + 8.0;
 
         self.draw_text("TIME", x, y, FONT_SM, DIM);
         y += LH;
-        self.draw_text(&format_time(game.ticks_elapsed), x, y, FONT_LG, WHITE);
+        self.draw_text(&format_time(snapshot.ticks_elapsed), x, y, FONT_LG, WHITE);
         y += LH + 8.0;
 
         self.draw_text("SCORE", x, y, FONT_SM, DIM);
         y += LH;
-        self.draw_text(&format!("{}", game.score()), x, y, FONT_LG, WHITE);
+        self.draw_text(&format!("{}", snapshot.score), x, y, FONT_LG, WHITE);
         y += LH + 8.0;
 
         self.draw_text("GRADE", x, y, FONT_SM, DIM);
         y += LH;
-        self.draw_text(&format!("{}", game.grade()), x, y, FONT_LG, WHITE);
+        self.draw_text(&format!("{}", snapshot.grade), x, y, FONT_LG, WHITE);
         y += LH + 8.0;
 
         self.draw_text("NEXT", x, y, FONT_SM, DIM);
         y += LH;
-        let (_, next_opt) = Grade::grade_progress(game.score());
+        let (_, next_opt) = Grade::grade_progress(snapshot.score);
         let next_str = match next_opt {
             Some(n) => format!("{}", n),
             None => "??????".to_string(),
@@ -317,50 +251,29 @@ impl Renderer {
         self.draw_text(&next_str, x, y, FONT_LG, WHITE);
     }
 
-    pub fn render_ready(&self, game: &Game) {
-        clear_background(grade_bg_color(game.grade().index()));
-
-        // Board background (empty — no active piece, no locked cells yet)
-        draw_rectangle(
-            BOARD_X,
-            BOARD_Y,
-            BOARD_COLS as f32 * CELL,
-            BOARD_ROWS as f32 * CELL,
-            BOARD_BG,
+    pub fn render_ready(&self, snapshot: &GameSnapshot) {
+        clear_background(grade_bg_color(snapshot.grade.index()));
+        draw_rectangle(BOARD_X, BOARD_Y, BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL, BOARD_BG);
+        self.render_piece_preview(
+            snapshot.active_kind.unwrap_or(snapshot.next_kind),
+            &snapshot.active_preview_offsets,
+            snapshot.active_preview_y_offset,
         );
-
-        // Preview shows the first piece (active) since it hasn't spawned yet
-        self.render_piece_preview(game, &game.active);
-
-        draw_rectangle(
-            BOARD_X,
-            BOARD_Y,
-            BOARD_COLS as f32 * CELL,
-            BOARD_ROWS as f32 * CELL,
-            Color::new(0.0, 0.0, 0.0, 0.1),
-        );
-
-        self.render_grade_bar(game);
-        self.render_sidebar(game);
-
+        draw_rectangle(BOARD_X, BOARD_Y, BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL, Color::new(0.0, 0.0, 0.0, 0.1));
+        self.render_grade_bar(snapshot);
+        self.render_sidebar(snapshot);
         let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
         let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
         self.draw_centered_x("READY", cx, cy, 28.0, WHITE);
     }
 
-    fn render_overlay(&self, game: &Game) {
+    fn render_overlay(&self, snapshot: &GameSnapshot) {
         let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
         let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
-        if game.game_won {
+        if snapshot.game_won {
             self.draw_text("LEVEL 999", cx - 60.0, cy - 16.0, 28.0, WHITE);
-            self.draw_text(
-                &format_time(game.ticks_elapsed),
-                cx - 50.0,
-                cy + 20.0,
-                22.0,
-                LIGHTGRAY,
-            );
-        } else if game.game_over {
+            self.draw_text(&format_time(snapshot.ticks_elapsed), cx - 50.0, cy + 20.0, 22.0, LIGHTGRAY);
+        } else if snapshot.game_over {
             self.draw_text("GAME OVER", cx - 62.0, cy, 28.0, WHITE);
         }
     }
@@ -628,29 +541,9 @@ pub fn format_time(ticks: u64) -> String {
     format!("{:02}:{:02}.{:03}", mm, ss, ms)
 }
 
-fn compute_ghost_row(game: &Game) -> i32 {
-    let mut ghost_row = game.active.row;
-    loop {
-        let next = ghost_row + 1;
-        let blocked = game
-            .rotation_system
-            .cells(game.active.kind, game.active.rotation)
-            .iter()
-            .any(|&(dc, dr)| {
-                let c = game.active.col + dc;
-                let r = next + dr;
-                r >= BOARD_ROWS as i32
-                    || (c >= 0
-                        && c < BOARD_COLS as i32
-                        && r >= 0
-                        && game.board[r as usize][c as usize].is_some())
-            });
-        if blocked {
-            break;
-        }
-        ghost_row = next;
-    }
-    ghost_row
+fn next_level_barrier(level: u32) -> u32 {
+    let round_up = (level + 1).next_multiple_of(100);
+    if round_up == 1000 { 999 } else { round_up }
 }
 
 fn maybe_bracket(s: &str, active: bool) -> String {
