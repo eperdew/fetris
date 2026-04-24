@@ -73,6 +73,7 @@ fn build_menu_input() -> MenuInput {
 #[macroquad::main(window_conf)]
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
+    console_error_panic_hook::set_once();
     let mut renderer = renderer::Renderer::new();
     let mut storage = storage::Storage::new();
     let audio: Arc<dyn audio_player::AudioPlayer> = {
