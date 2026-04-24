@@ -10,8 +10,8 @@ const OVERLAY_VERTEX_SHADER: &str = r#"
     attribute vec3 position;
     attribute vec2 texcoord;
     attribute vec4 color0;
-    varying vec2 uv;
-    varying vec4 color;
+    varying lowp vec2 uv;
+    varying lowp vec4 color;
     uniform mat4 Model;
     uniform mat4 Projection;
     void main() {
@@ -24,8 +24,8 @@ const OVERLAY_VERTEX_SHADER: &str = r#"
 const OVERLAY_FRAGMENT_SHADER: &str = r#"
     #version 100
     precision mediump float;
-    varying vec2 uv;
-    varying vec4 color;
+    varying lowp vec2 uv;
+    varying lowp vec4 color;
     uniform sampler2D Texture;
     uniform float frame_parity;
     uniform float hue_shift;
@@ -140,10 +140,28 @@ pub(crate) struct Renderer {
 
 impl Renderer {
     pub fn new() -> Self {
+        info!("renderer: loading font");
         let font =
             load_ttf_font_from_bytes(include_bytes!("../assets/font/Oxanium-Regular.ttf")).unwrap();
-        let overlay_target = render_target(WINDOW_W as u32, WINDOW_H as u32);
+        info!("renderer: creating render target");
+        // render_target() hardcodes sample_count:1, but render_target_ex checks
+        // `sample_count != 0` to decide whether to use the MSAA resolve path.
+        // That path uses READ_FRAMEBUFFER/readBuffer which are WebGL 2 only, so
+        // sample_count:1 silently breaks on WebGL 1. sample_count:0 skips it.
+        // See: https://github.com/not-fl3/macroquad/issues/989
+        let overlay_target = macroquad::texture::render_target_ex(
+            WINDOW_W as u32,
+            WINDOW_H as u32,
+            macroquad::texture::RenderTargetParams {
+                sample_count: 0,
+                ..Default::default()
+            },
+        );
         overlay_target.texture.set_filter(FilterMode::Nearest);
+        info!(
+            "renderer: loading material (vertex shader len={})",
+            OVERLAY_VERTEX_SHADER.len()
+        );
         let overlay_material = load_material(
             ShaderSource::Glsl {
                 vertex: OVERLAY_VERTEX_SHADER,
@@ -171,7 +189,8 @@ impl Renderer {
                 ..Default::default()
             },
         )
-        .expect("overlay shader failed to compile");
+        .unwrap_or_else(|e| panic!("overlay shader failed to compile: {e:?}"));
+        info!("renderer: material loaded, building cell texture");
         Self {
             cell_texture: make_cell_texture(),
             font,
