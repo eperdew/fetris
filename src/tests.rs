@@ -2330,3 +2330,73 @@ fn lock_and_move_regression_test() {
     20└────────────────────┘
     ");
 }
+
+// ---------------------------------------------------------------------------
+// drain_events
+// ---------------------------------------------------------------------------
+
+/// Helper: fill all cells in a row on the given board.
+fn fill_row(board: &mut Board, row: usize) {
+    for c in 0..BOARD_COLS {
+        board[row][c] = Some(PieceKind::O);
+    }
+}
+
+#[test]
+fn drain_events_no_clear_is_empty() {
+    let mut game = make_game(PieceKind::T);
+    // Drop a T-piece into an empty board — no line clear.
+    while game.piece_phase == PiecePhase::Falling {
+        idle(&mut game, 1);
+    }
+    let events = game.drain_events();
+    assert!(events.is_empty(), "no line clear should produce no events");
+}
+
+#[test]
+fn drain_events_single_clear() {
+    let mut game = make_game(PieceKind::I);
+    // Pre-fill the bottom row with gaps only where the I-piece will land.
+    fill_row(&mut game.board, BOARD_ROWS - 1);
+    game.board[BOARD_ROWS - 1][3] = None;
+    game.board[BOARD_ROWS - 1][4] = None;
+    game.board[BOARD_ROWS - 1][5] = None;
+    game.board[BOARD_ROWS - 1][6] = None;
+    // Place active I-piece at the bottom row in horizontal orientation.
+    game.active.row = BOARD_ROWS as i32 - 2;
+    game.active.col = 3;
+    // Drop to floor and enter locking state
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1); // enter Locking
+    // Lock immediately with soft drop.
+    press(&mut game, GameKey::SoftDrop);
+    let events = game.drain_events();
+    let counts: Vec<u32> = events
+        .iter()
+        .filter_map(|e| match e {
+            crate::types::GameEvent::LineClear { count } => Some(*count),
+        })
+        .collect();
+    assert_eq!(counts, vec![1]);
+}
+
+#[test]
+fn drain_events_clears_after_drain() {
+    let mut game = make_game(PieceKind::I);
+    fill_row(&mut game.board, BOARD_ROWS - 1);
+    game.board[BOARD_ROWS - 1][3] = None;
+    game.board[BOARD_ROWS - 1][4] = None;
+    game.board[BOARD_ROWS - 1][5] = None;
+    game.board[BOARD_ROWS - 1][6] = None;
+    game.active.row = BOARD_ROWS as i32 - 2;
+    game.active.col = 3;
+    // Drop to floor and enter locking state
+    while game.try_move(0, 1) {}
+    idle(&mut game, 1); // enter Locking
+    // Lock immediately with soft drop.
+    press(&mut game, GameKey::SoftDrop);
+    let _ = game.drain_events();
+    // Second drain should be empty.
+    let events2 = game.drain_events();
+    assert!(events2.is_empty(), "drain_events should clear the buffer");
+}

@@ -6,8 +6,8 @@ use crate::constants::{
 use crate::judge::Judge;
 use crate::rotation_system;
 use crate::types::{
-    BOARD_COLS, BOARD_ROWS, Board, GameKey, GameMode, Grade, HorizDir, InputState, JudgeEvent,
-    Kind, Piece, PieceKind, PiecePhase, RotationDirection,
+    BOARD_COLS, BOARD_ROWS, Board, GameEvent, GameKey, GameMode, Grade, HorizDir, InputState,
+    JudgeEvent, Kind, Piece, PieceKind, PiecePhase, RotationDirection,
 };
 use std::sync::Arc;
 
@@ -80,6 +80,7 @@ pub(crate) struct Game {
     pub rotation_kind: Kind,
     pub score_submitted: bool,
     pub audio: Arc<dyn AudioPlayer>,
+    events: Vec<GameEvent>,
 }
 
 impl Game {
@@ -116,6 +117,7 @@ impl Game {
             rotation_kind,
             score_submitted: false,
             audio,
+            events: Vec::new(),
         }
     }
 
@@ -342,6 +344,9 @@ impl Game {
             }
         }
         let lines_cleared = self.clear_lines();
+        if lines_cleared > 0 {
+            self.events.push(GameEvent::LineClear { count: lines_cleared });
+        }
         // Buffer any held rotation key so it applies when the next piece spawns.
         if input.held.contains(&GameKey::RotateCw) {
             self.rotation_buffer = Some(RotationDirection::Clockwise);
@@ -501,6 +506,10 @@ impl Game {
     pub fn next_level_barrier(&self) -> u32 {
         let round_up = (self.level + 1).next_multiple_of(100);
         if round_up == 1000 { 999 } else { round_up }
+    }
+
+    pub fn drain_events(&mut self) -> Vec<GameEvent> {
+        std::mem::take(&mut self.events)
     }
 }
 
