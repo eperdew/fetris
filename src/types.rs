@@ -331,6 +331,7 @@ pub enum JudgeEvent {
 // Renderer events
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GameEvent {
     LineClear { count: u32 },
 }
