@@ -6,10 +6,9 @@ use crate::constants::{
 use crate::judge::Judge;
 use crate::rotation_system;
 use crate::types::{
-    BOARD_COLS, BOARD_ROWS, Board, GameEvent, GameKey, GameMode, Grade, HorizDir, InputState,
-    JudgeEvent, Kind, Piece, PieceKind, PiecePhase, RotationDirection,
+    BOARD_COLS, BOARD_ROWS, Board, GameEvent, GameKey, GameMode, GameSnapshot, Grade, HorizDir,
+    InputState, JudgeEvent, Kind, Piece, PieceKind, PiecePhase, RotationDirection,
 };
-use crate::types::GameSnapshot;
 use std::sync::Arc;
 
 /// TGM-style randomizer. Keeps a 4-piece history (initialized to [Z; 4]) and
@@ -369,14 +368,10 @@ impl Game {
             .cells(self.active.kind, self.active.rotation);
 
         let (active_kind, active_cells, ghost_cells) = if show_active {
-            let cells = active_offsets
-                .map(|(dc, dr)| (self.active.col + dc, self.active.row + dr));
+            let cells = active_offsets.map(|(dc, dr)| (self.active.col + dc, self.active.row + dr));
             let ghost_row = self.compute_ghost_row();
             let ghost = if ghost_row != self.active.row {
-                Some(
-                    active_offsets
-                        .map(|(dc, dr)| (self.active.col + dc, ghost_row + dr)),
-                )
+                Some(active_offsets.map(|(dc, dr)| (self.active.col + dc, ghost_row + dr)))
             } else {
                 None
             };

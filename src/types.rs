@@ -336,6 +336,7 @@ pub enum GameEvent {
     LineClear { count: u32 },
 }
 
+#[derive(Debug, Clone)]
 pub struct GameSnapshot {
     pub board: Board,
     /// Kind of the active piece (for color); None during Spawning / LineClearDelay.
