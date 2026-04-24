@@ -60,7 +60,7 @@ const OVERLAY_FRAGMENT_SHADER: &str = r#"
     }
 "#;
 
-const OVERLAY_LIFETIME: u32 = 90;
+const OVERLAY_LIFETIME: u32 = 45;
 
 #[derive(Debug)]
 enum OverlayKind {
@@ -72,7 +72,7 @@ enum OverlayKind {
 #[derive(Debug)]
 struct LineClearOverlay {
     kind: OverlayKind,
-    frames_remaining: u32,
+    expires_at_tick: u64,
 }
 
 impl LineClearOverlay {
@@ -245,15 +245,15 @@ impl Renderer {
                     self.overlay = match count {
                         2 => Some(LineClearOverlay {
                             kind: OverlayKind::Double,
-                            frames_remaining: OVERLAY_LIFETIME,
+                            expires_at_tick: snapshot.ticks_elapsed + OVERLAY_LIFETIME as u64,
                         }),
                         3 => Some(LineClearOverlay {
                             kind: OverlayKind::Triple,
-                            frames_remaining: OVERLAY_LIFETIME,
+                            expires_at_tick: snapshot.ticks_elapsed + OVERLAY_LIFETIME as u64,
                         }),
                         4 => Some(LineClearOverlay {
                             kind: OverlayKind::Fetris,
-                            frames_remaining: OVERLAY_LIFETIME,
+                            expires_at_tick: snapshot.ticks_elapsed + OVERLAY_LIFETIME as u64,
                         }),
                         _ => None,
                     };
@@ -534,7 +534,7 @@ impl Renderer {
 
     fn render_line_clear_overlay(&mut self, ticks_elapsed: u64) {
         // Clear expired overlay before extracting data.
-        if matches!(&self.overlay, Some(o) if o.frames_remaining == 0) {
+        if matches!(&self.overlay, Some(o) if ticks_elapsed >= o.expires_at_tick) {
             self.overlay = None;
         }
         // Extract all data from overlay before any rendering calls to avoid borrow conflicts.
@@ -544,7 +544,7 @@ impl Renderer {
                 o.label(),
                 o.opacity(),
                 o.hue_shift(ticks_elapsed),
-                (o.frames_remaining % 2) as f32,
+                (ticks_elapsed % 2) as f32,
             ),
         };
 
@@ -580,17 +580,6 @@ impl Renderer {
             },
         );
         gl_use_default_material();
-
-        // Tick the overlay.
-        let done = self
-            .overlay
-            .as_ref()
-            .map_or(true, |o| o.frames_remaining == 0);
-        if done {
-            self.overlay = None;
-        } else if let Some(o) = &mut self.overlay {
-            o.frames_remaining -= 1;
-        }
     }
 
     fn render_overlay(&self, snapshot: &GameSnapshot) {
