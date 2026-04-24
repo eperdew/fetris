@@ -1,8 +1,22 @@
 use crate::menu::Menu;
 use crate::types::{
-    BOARD_COLS, BOARD_ROWS, GameSnapshot, Grade, GameMode, Kind, MenuScreen, PieceKind,
+    BOARD_COLS, BOARD_ROWS, GameEvent, GameMode, GameSnapshot, Grade, Kind, MenuScreen, PieceKind,
 };
 use macroquad::prelude::*;
+
+struct Particle {
+    x: f32,
+    y: f32,
+    vx: f32,
+    vy: f32,
+    age: u32,
+    lifetime: u32,
+    color: Color,
+}
+
+fn rand_f32() -> f32 {
+    macroquad::rand::rand() as f32 / u32::MAX as f32
+}
 
 const CELL: f32 = 32.0;
 const INSET: f32 = 2.0;
@@ -20,6 +34,7 @@ const BOARD_BG: Color = Color::new(0.06, 0.06, 0.10, 1.0);
 pub(crate) struct Renderer {
     cell_texture: Texture2D,
     font: Font,
+    particles: Vec<Particle>,
 }
 
 impl Renderer {
@@ -29,6 +44,7 @@ impl Renderer {
         Self {
             cell_texture: make_cell_texture(),
             font,
+            particles: Vec::new(),
         }
     }
 
@@ -62,12 +78,48 @@ impl Renderer {
         self.draw_text(text, cx - dims.width / 2.0, y, font_size, color);
     }
 
-    pub fn render(&self, snapshot: &GameSnapshot) {
+    pub fn render(&mut self, snapshot: &GameSnapshot, events: &[GameEvent]) {
+        // Process events: spawn particles.
+        for event in events {
+            match event {
+                GameEvent::LineClear { count } => {
+                    spawn_particles(
+                        &mut self.particles,
+                        &snapshot.board,
+                        &snapshot.rows_pending_compaction,
+                        *count,
+                    );
+                }
+            }
+        }
+
+        self.update_particles();
+
         clear_background(grade_bg_color(snapshot.grade.index()));
         self.render_board(snapshot);
+        self.render_particles();
         self.render_grade_bar(snapshot);
         self.render_sidebar(snapshot);
         self.render_overlay(snapshot);
+    }
+
+    fn update_particles(&mut self) {
+        use crate::constants::PARTICLE_GRAVITY;
+        for p in &mut self.particles {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += PARTICLE_GRAVITY;
+            p.age += 1;
+        }
+        self.particles.retain(|p| p.age < p.lifetime);
+    }
+
+    fn render_particles(&self) {
+        for p in &self.particles {
+            let alpha = 1.0 - p.age as f32 / p.lifetime as f32;
+            let color = Color { a: alpha, ..p.color };
+            draw_cell_at(p.x - CELL * 0.5, p.y - CELL * 0.5, color, &self.cell_texture);
+        }
     }
 
     pub fn render_menu(&self, menu: &Menu, muted: bool) {
@@ -94,7 +146,14 @@ impl Renderer {
         for &(dc, dr) in offsets {
             let c = 3 + dc;
             let r = -3 + dr + preview_y_offset;
-            draw_cell(BOARD_X, BOARD_Y - PAD, c, r, piece_color(kind), &self.cell_texture);
+            draw_cell(
+                BOARD_X,
+                BOARD_Y - PAD,
+                c,
+                r,
+                piece_color(kind),
+                &self.cell_texture,
+            );
         }
     }
 
@@ -102,8 +161,10 @@ impl Renderer {
         let texture = &self.cell_texture;
 
         draw_rectangle(
-            BOARD_X, BOARD_Y,
-            BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL,
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
             BOARD_BG,
         );
 
@@ -125,14 +186,21 @@ impl Renderer {
             }
             for (c, cell) in row.iter().enumerate() {
                 if let Some(kind) = cell {
-                    let left_border   = c == 0              || snapshot.board[r][c - 1].is_none();
-                    let top_border    = r == 0              || snapshot.board[r - 1][c].is_none();
-                    let right_border  = c == BOARD_COLS - 1 || snapshot.board[r][c + 1].is_none();
+                    let left_border = c == 0 || snapshot.board[r][c - 1].is_none();
+                    let top_border = r == 0 || snapshot.board[r - 1][c].is_none();
+                    let right_border = c == BOARD_COLS - 1 || snapshot.board[r][c + 1].is_none();
                     let bottom_border = r == BOARD_ROWS - 1 || snapshot.board[r + 1][c].is_none();
                     draw_cell_bordered(
-                        BOARD_X, BOARD_Y, c as i32, r as i32,
-                        piece_color(*kind), texture,
-                        left_border, top_border, right_border, bottom_border,
+                        BOARD_X,
+                        BOARD_Y,
+                        c as i32,
+                        r as i32,
+                        piece_color(*kind),
+                        texture,
+                        left_border,
+                        top_border,
+                        right_border,
+                        bottom_border,
                     );
                 }
             }
@@ -156,8 +224,10 @@ impl Renderer {
         );
 
         draw_rectangle(
-            BOARD_X, BOARD_Y,
-            BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL,
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
             Color::new(0.0, 0.0, 0.0, 0.1),
         );
     }
@@ -218,7 +288,13 @@ impl Renderer {
         y += 6.0;
         draw_line(x, y, x + 48.0, y, 2.0, DIM);
         y += 24.0;
-        self.draw_text(&format!("{}", next_level_barrier(snapshot.level)), x, y, FONT_LG, WHITE);
+        self.draw_text(
+            &format!("{}", next_level_barrier(snapshot.level)),
+            x,
+            y,
+            FONT_LG,
+            WHITE,
+        );
         y += LH + 8.0;
 
         self.draw_text("LINES", x, y, FONT_SM, DIM);
@@ -253,13 +329,25 @@ impl Renderer {
 
     pub fn render_ready(&self, snapshot: &GameSnapshot) {
         clear_background(grade_bg_color(snapshot.grade.index()));
-        draw_rectangle(BOARD_X, BOARD_Y, BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL, BOARD_BG);
+        draw_rectangle(
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
+            BOARD_BG,
+        );
         self.render_piece_preview(
             snapshot.active_kind.unwrap_or(snapshot.next_kind),
             &snapshot.active_preview_offsets,
             snapshot.active_preview_y_offset,
         );
-        draw_rectangle(BOARD_X, BOARD_Y, BOARD_COLS as f32 * CELL, BOARD_ROWS as f32 * CELL, Color::new(0.0, 0.0, 0.0, 0.1));
+        draw_rectangle(
+            BOARD_X,
+            BOARD_Y,
+            BOARD_COLS as f32 * CELL,
+            BOARD_ROWS as f32 * CELL,
+            Color::new(0.0, 0.0, 0.0, 0.1),
+        );
         self.render_grade_bar(snapshot);
         self.render_sidebar(snapshot);
         let cx = BOARD_X + BOARD_COLS as f32 * CELL * 0.5;
@@ -272,7 +360,13 @@ impl Renderer {
         let cy = BOARD_Y + BOARD_ROWS as f32 * CELL * 0.5;
         if snapshot.game_won {
             self.draw_text("LEVEL 999", cx - 60.0, cy - 16.0, 28.0, WHITE);
-            self.draw_text(&format_time(snapshot.ticks_elapsed), cx - 50.0, cy + 20.0, 22.0, LIGHTGRAY);
+            self.draw_text(
+                &format_time(snapshot.ticks_elapsed),
+                cx - 50.0,
+                cy + 20.0,
+                22.0,
+                LIGHTGRAY,
+            );
         } else if snapshot.game_over {
             self.draw_text("GAME OVER", cx - 62.0, cy, 28.0, WHITE);
         }
@@ -416,6 +510,49 @@ impl Renderer {
         }
 
         self.draw_centered("BKSP to go back", cy + LH * 3.5, HINT, GRAY);
+    }
+}
+
+fn spawn_particles(
+    particles: &mut Vec<Particle>,
+    board: &crate::types::Board,
+    rows: &[usize],
+    count: u32,
+) {
+    use crate::constants::{PARTICLE_BASE_LIFETIME, PARTICLE_BASE_SPEED};
+
+    let particles_per_cell: u32 = if count >= 4 { 3 } else { 1 };
+    let speed_scale = match count {
+        1 => 1.0,
+        2 => 1.4,
+        3 => 1.8,
+        _ => 2.5,
+    };
+
+    for &r in rows {
+        for (c, cell) in board[r].iter().enumerate() {
+            if let Some(kind) = cell {
+                for _ in 0..particles_per_cell {
+                    // Base outward direction from horizontal center, slight upward bias.
+                    let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
+                    let base_angle = dist.atan2(-1.5_f32); // negative y = upward in screen coords
+                    let spread = (rand_f32() - 0.5) * std::f32::consts::FRAC_PI_3;
+                    let angle = base_angle + spread;
+                    let speed = PARTICLE_BASE_SPEED * speed_scale * (0.6 + 0.8 * rand_f32());
+
+                    let lifetime = PARTICLE_BASE_LIFETIME + (rand_f32() * 25.0) as u32;
+                    particles.push(Particle {
+                        x: BOARD_X + c as f32 * CELL + CELL * 0.5,
+                        y: BOARD_Y + r as f32 * CELL + CELL * 0.5,
+                        vx: angle.sin() * speed,
+                        vy: -angle.cos().abs() * speed,
+                        age: 0,
+                        lifetime,
+                        color: piece_color(*kind),
+                    });
+                }
+            }
+        }
     }
 }
 

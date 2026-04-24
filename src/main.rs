@@ -73,7 +73,7 @@ fn build_menu_input() -> MenuInput {
 #[macroquad::main(window_conf)]
 async fn main() {
     macroquad::rand::srand(miniquad::date::now().to_bits());
-    let renderer = renderer::Renderer::new();
+    let mut renderer = renderer::Renderer::new();
     let mut storage = storage::Storage::new();
     let audio: Arc<dyn audio_player::AudioPlayer> = {
         use audio_player::AudioPlayer as _;
@@ -176,8 +176,8 @@ async fn main() {
                     new_state = Some(AppState::Menu(Menu::new(GameConfig::load(&storage))));
                 }
                 let snapshot = game.snapshot();
-                let _events = game.drain_events(); // will be used in Task 5
-                renderer.render(&snapshot);
+                let events = game.drain_events();
+                renderer.render(&snapshot, &events);
             }
         }
 
