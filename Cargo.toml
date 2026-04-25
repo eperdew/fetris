@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.18", default-features = false, features = ["2d", "bevy_state"] }
 bevy_egui = "0.39"
+bevy_pkv = "0.13"
 getrandom = { version = "0.2", features = ["js"] }
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
