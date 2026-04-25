@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 mod constants;
 mod data;
+mod rotation_system;
 
 fn main() {
     App::new()

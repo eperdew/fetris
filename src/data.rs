@@ -8,19 +8,37 @@ use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PieceKind {
-    I, O, T, S, Z, J, L,
+    I,
+    O,
+    T,
+    S,
+    Z,
+    J,
+    L,
 }
 
 impl PieceKind {
     pub fn all() -> [Self; 7] {
-        [Self::I, Self::O, Self::T, Self::S, Self::Z, Self::J, Self::L]
+        [
+            Self::I,
+            Self::O,
+            Self::T,
+            Self::S,
+            Self::Z,
+            Self::J,
+            Self::L,
+        ]
     }
 
     /// Picks one of the 7 kinds uniformly using the supplied RNG.
     pub fn random<R: rand::Rng>(rng: &mut R) -> Self {
         match rng.gen_range(0..7) {
-            0 => Self::I, 1 => Self::O, 2 => Self::T,
-            3 => Self::S, 4 => Self::Z, 5 => Self::J,
+            0 => Self::I,
+            1 => Self::O,
+            2 => Self::T,
+            3 => Self::S,
+            4 => Self::Z,
+            5 => Self::J,
             _ => Self::L,
         }
     }
@@ -41,10 +59,16 @@ pub type BoardGrid = [[Option<PieceKind>; BOARD_COLS]; BOARD_ROWS];
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HorizDir { Left, Right }
+pub enum HorizDir {
+    Left,
+    Right,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RotationDirection { Clockwise, Counterclockwise }
+pub enum RotationDirection {
+    Clockwise,
+    Counterclockwise,
+}
 
 // ---------------------------------------------------------------------------
 // PiecePhase
@@ -64,7 +88,12 @@ pub enum PiecePhase {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GameKey {
-    Left, Right, RotateCw, RotateCcw, SoftDrop, SonicDrop,
+    Left,
+    Right,
+    RotateCw,
+    RotateCcw,
+    SoftDrop,
+    SonicDrop,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -74,7 +103,9 @@ pub struct InputSnapshot {
 }
 
 impl InputSnapshot {
-    pub fn empty() -> Self { Self::default() }
+    pub fn empty() -> Self {
+        Self::default()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -82,46 +113,97 @@ impl InputSnapshot {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum GameMode { Master, TwentyG }
+pub enum GameMode {
+    Master,
+    TwentyG,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Kind { Ars, Srs }
+pub enum Kind {
+    Ars,
+    Srs,
+}
 
-// `Kind::create()` returns a Box<dyn RotationSystem>; defined in rotation_system.rs (Task 6)
-// to avoid a forward-reference here.
+impl Kind {
+    pub fn create(self) -> Box<dyn crate::rotation_system::RotationSystem> {
+        match self {
+            Kind::Ars => Box::new(crate::rotation_system::Ars),
+            Kind::Srs => Box::new(crate::rotation_system::Srs),
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Grade + Score thresholds (TGM)
 // ---------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum Grade {
-    Nine, Eight, Seven, Six, Five, Four, Three, Two, One,
-    SOne, STwo, SThree, SFour, SFive, SSix, SSeven, SEight, SNine,
+    Nine,
+    Eight,
+    Seven,
+    Six,
+    Five,
+    Four,
+    Three,
+    Two,
+    One,
+    SOne,
+    STwo,
+    SThree,
+    SFour,
+    SFive,
+    SSix,
+    SSeven,
+    SEight,
+    SNine,
 }
 
 impl Grade {
     const SCORE_TABLE: &[(u32, Grade)] = &[
-        (0, Grade::Nine), (400, Grade::Eight), (800, Grade::Seven),
-        (1400, Grade::Six), (2000, Grade::Five), (3500, Grade::Four),
-        (5500, Grade::Three), (8000, Grade::Two), (12000, Grade::One),
-        (16000, Grade::SOne), (22000, Grade::STwo), (30000, Grade::SThree),
-        (40000, Grade::SFour), (52000, Grade::SFive), (66000, Grade::SSix),
-        (82000, Grade::SSeven), (100000, Grade::SEight), (120000, Grade::SNine),
+        (0, Grade::Nine),
+        (400, Grade::Eight),
+        (800, Grade::Seven),
+        (1400, Grade::Six),
+        (2000, Grade::Five),
+        (3500, Grade::Four),
+        (5500, Grade::Three),
+        (8000, Grade::Two),
+        (12000, Grade::One),
+        (16000, Grade::SOne),
+        (22000, Grade::STwo),
+        (30000, Grade::SThree),
+        (40000, Grade::SFour),
+        (52000, Grade::SFive),
+        (66000, Grade::SSix),
+        (82000, Grade::SSeven),
+        (100000, Grade::SEight),
+        (120000, Grade::SNine),
     ];
 
     pub fn of_score(score: u32) -> Self {
-        Self::SCORE_TABLE.iter().rev()
-            .find(|(t, _)| score >= *t).map(|(_, g)| *g)
+        Self::SCORE_TABLE
+            .iter()
+            .rev()
+            .find(|(t, _)| score >= *t)
+            .map(|(_, g)| *g)
             .unwrap_or(Grade::Nine)
     }
 
     pub fn index(self) -> usize {
-        Self::SCORE_TABLE.iter().position(|(_, g)| *g == self).unwrap_or(0)
+        Self::SCORE_TABLE
+            .iter()
+            .position(|(_, g)| *g == self)
+            .unwrap_or(0)
     }
 
     pub fn grade_progress(score: u32) -> (u32, Option<u32>) {
-        let idx = Self::SCORE_TABLE.iter().rposition(|(t, _)| score >= *t).unwrap_or(0);
+        let idx = Self::SCORE_TABLE
+            .iter()
+            .rposition(|(t, _)| score >= *t)
+            .unwrap_or(0);
         let prev = Self::SCORE_TABLE[idx].0;
         let next = Self::SCORE_TABLE.get(idx + 1).map(|(t, _)| *t);
         (prev, next)
@@ -131,12 +213,24 @@ impl Grade {
 impl std::fmt::Display for Grade {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::Nine => "9", Self::Eight => "8", Self::Seven => "7",
-            Self::Six => "6", Self::Five => "5", Self::Four => "4",
-            Self::Three => "3", Self::Two => "2", Self::One => "1",
-            Self::SOne => "S1", Self::STwo => "S2", Self::SThree => "S3",
-            Self::SFour => "S4", Self::SFive => "S5", Self::SSix => "S6",
-            Self::SSeven => "S7", Self::SEight => "S8", Self::SNine => "S9",
+            Self::Nine => "9",
+            Self::Eight => "8",
+            Self::Seven => "7",
+            Self::Six => "6",
+            Self::Five => "5",
+            Self::Four => "4",
+            Self::Three => "3",
+            Self::Two => "2",
+            Self::One => "1",
+            Self::SOne => "S1",
+            Self::STwo => "S2",
+            Self::SThree => "S3",
+            Self::SFour => "S4",
+            Self::SFive => "S5",
+            Self::SSix => "S6",
+            Self::SSeven => "S7",
+            Self::SEight => "S8",
+            Self::SNine => "S9",
         };
         write!(f, "{:>2}", s)
     }
@@ -182,7 +276,11 @@ pub struct HiScoreEntry {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MenuScreen { Main, HiScores, Controls }
+pub enum MenuScreen {
+    Main,
+    HiScores,
+    Controls,
+}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct GameConfig {
@@ -192,6 +290,9 @@ pub struct GameConfig {
 
 impl Default for GameConfig {
     fn default() -> Self {
-        Self { game_mode: GameMode::Master, rotation: Kind::Ars }
+        Self {
+            game_mode: GameMode::Master,
+            rotation: Kind::Ars,
+        }
     }
 }
