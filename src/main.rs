@@ -17,7 +17,7 @@ mod resources;
 mod rotation_system;
 mod snapshot;
 mod start_game;
-mod stub_storage;
+
 pub(crate) mod systems;
 
 #[cfg(test)]
@@ -145,9 +145,7 @@ fn main() {
         .init_resource::<crate::resources::TickStartPhase>()
         .init_resource::<crate::randomizer::Randomizer>()
         .init_resource::<Judge>()
-        .init_resource::<stub_storage::GameConfigRes>()
-        .init_resource::<stub_storage::HiScoresRes>()
-        .init_resource::<stub_storage::MutedRes>()
+
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
         .add_systems(Startup, (setup_camera, init_menu_state))
         .add_systems(OnEnter(AppState::Ready), start_game_on_ready)
