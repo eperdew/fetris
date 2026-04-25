@@ -39,6 +39,7 @@ fn main() {
         .init_resource::<crate::resources::PendingCompaction>()
         .init_resource::<crate::resources::DropTracking>()
         .init_resource::<crate::resources::InputState>()
+        .init_resource::<crate::resources::TickStartPhase>()
         .init_resource::<crate::randomizer::Randomizer>()
         .init_resource::<Judge>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind

@@ -10,8 +10,17 @@ pub fn line_clear_delay_system(
     mut rotation_buffer: ResMut<RotationBuffer>,
     progress: Res<GameProgress>,
     input: Res<InputState>,
+    start: Res<TickStartPhase>,
 ) {
     if progress.game_over || progress.game_won {
+        return;
+    }
+    // Gate on the start-of-tick phase to prevent running after a phase
+    // transition made by an earlier system in the same tick.
+    let Some(start_phase) = start.0 else {
+        return;
+    };
+    if !matches!(start_phase, PiecePhase::LineClearDelay { .. }) {
         return;
     }
     let PiecePhase::LineClearDelay { ticks_left } = &mut phase.0 else {

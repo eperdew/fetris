@@ -19,10 +19,19 @@ pub fn active_phase_system(
     rot_sys: Res<RotationSystemRes>,
     mode: Res<GameModeRes>,
     input: Res<InputState>,
+    start: Res<TickStartPhase>,
     mut judge_events: MessageWriter<JudgeEvent>,
     mut game_events: MessageWriter<GameEvent>,
 ) {
     if progress.game_over || progress.game_won {
+        return;
+    }
+    // Gate on the start-of-tick phase to prevent this system from running after
+    // a phase transition made by an earlier system in the same tick.
+    let Some(start_phase) = start.0 else {
+        return;
+    };
+    if !matches!(start_phase, PiecePhase::Falling | PiecePhase::Locking { .. }) {
         return;
     }
     if !matches!(phase.0, PiecePhase::Falling | PiecePhase::Locking { .. }) {

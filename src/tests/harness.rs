@@ -24,6 +24,7 @@ pub fn headless_app() -> App {
         .init_state::<AppState>()
         .add_message::<JudgeEvent>() // 0.18 API
         .add_message::<GameEvent>() // 0.18 API
+        .init_resource::<crate::resources::TickStartPhase>()
         .add_systems(
             FixedUpdate,
             (

@@ -86,3 +86,12 @@ pub struct GameModeRes(pub GameMode);
 
 #[derive(Resource)]
 pub struct RotationKind(pub Kind);
+
+/// Captures the piece phase at the very start of each tick.
+///
+/// Phase-specific systems gate on this value instead of the live `CurrentPhase`
+/// so that at most one phase system runs per tick — matching master's
+/// "one phase per tick" semantics. `None` means no tick is in progress
+/// (game not started, game over, or game won).
+#[derive(Resource, Default, Clone, Copy)]
+pub struct TickStartPhase(pub Option<crate::data::PiecePhase>);

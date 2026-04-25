@@ -95,16 +95,13 @@ fn normal_are_uses_spawn_delay_normal() {
     drop_to_floor(&mut app);
     idle(&mut app, 1); // enter Locking
     idle(&mut app, LOCK_DELAY + 1); // fire lock (no lines cleared)
-                                    // In the bevy port, spawning_system runs in the same update frame as
-                                    // active_phase_system (which fires the lock). So the observable ticks_left
-                                    // is SPAWN_DELAY_NORMAL - 1 = 28, not 29. This is expected behavior.
     assert!(
         matches!(
             piece_phase(&mut app),
-            PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL - 1
+            PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL
         ),
-        "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL-1={} }}, got {:?}",
-        SPAWN_DELAY_NORMAL - 1,
+        "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL={} }}, got {:?}",
+        SPAWN_DELAY_NORMAL,
         piece_phase(&mut app)
     );
 }

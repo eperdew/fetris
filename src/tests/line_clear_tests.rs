@@ -71,16 +71,13 @@ fn line_clear_enters_line_clear_delay() {
     start_with(&mut app, GameMode::Master, Kind::Ars, PieceKind::T);
     setup_line_clear(&mut app, 1);
     idle(&mut app, 1); // fire lock + 1 line clear
-                       // In the bevy port, line_clear_delay_system runs in the same update frame as
-                       // active_phase_system (which fires the lock). So the observable ticks_left is
-                       // LINE_CLEAR_DELAY - 1 = 39, not 40. This is expected behavior.
     assert!(
         matches!(
             piece_phase(&mut app),
-            PiecePhase::LineClearDelay { ticks_left } if ticks_left == LINE_CLEAR_DELAY - 1
+            PiecePhase::LineClearDelay { ticks_left } if ticks_left == LINE_CLEAR_DELAY
         ),
-        "expected LineClearDelay{{ ticks_left: LINE_CLEAR_DELAY-1={} }}, got {:?}",
-        LINE_CLEAR_DELAY - 1,
+        "expected LineClearDelay{{ ticks_left: LINE_CLEAR_DELAY={} }}, got {:?}",
+        LINE_CLEAR_DELAY,
         piece_phase(&mut app)
     );
 }
@@ -92,17 +89,13 @@ fn line_clear_delay_transitions_to_are() {
     setup_line_clear(&mut app, 1);
     idle(&mut app, 1); // fire lock → LineClearDelay
     idle(&mut app, LINE_CLEAR_DELAY + 1); // exhaust line clear delay → Spawning
-                                          // In the bevy port, both line_clear_delay_system and spawning_system run in the
-                                          // same update frame. When line_clear_delay fires the transition, spawning_system
-                                          // also runs and decrements twice (once on transition tick, once on next).
-                                          // Observable value is SPAWN_DELAY_NORMAL - 2 = 27.
     assert!(
         matches!(
             piece_phase(&mut app),
-            PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL - 2
+            PiecePhase::Spawning { ticks_left } if ticks_left == SPAWN_DELAY_NORMAL
         ),
-        "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL-2={} }}, got {:?}",
-        SPAWN_DELAY_NORMAL - 2,
+        "expected Spawning{{ ticks_left: SPAWN_DELAY_NORMAL={} }}, got {:?}",
+        SPAWN_DELAY_NORMAL,
         piece_phase(&mut app)
     );
 }
