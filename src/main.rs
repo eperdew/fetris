@@ -4,6 +4,7 @@ mod components;
 mod constants;
 mod data;
 mod randomizer;
+mod resources;
 mod rotation_system;
 
 fn main() {
