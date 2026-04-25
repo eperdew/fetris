@@ -3,6 +3,7 @@ use bevy::prelude::*;
 mod components;
 mod constants;
 mod data;
+mod randomizer;
 mod rotation_system;
 
 fn main() {
