@@ -1,5 +1,4 @@
-// gravity_g and GameMode-using helpers are restored in Task 5 once `data` exists.
-// use crate::types::GameMode;
+use crate::data::GameMode;
 
 /// Base speed for single-line-clear particles (pixels/frame). Scaled up by line count.
 pub const PARTICLE_BASE_SPEED: f32 = 3.5;
@@ -53,7 +52,6 @@ pub const MASTER_GRAVITY_TABLE: &[(u32, u32)] = &[
     (500, 5120), // 20G
 ];
 
-/*
 pub fn gravity_g(game_mode: GameMode, level: u32) -> u32 {
     match game_mode {
         GameMode::Master => MASTER_GRAVITY_TABLE
@@ -65,4 +63,3 @@ pub fn gravity_g(game_mode: GameMode, level: u32) -> u32 {
         GameMode::TwentyG => 20 * 256,
     }
 }
-*/
