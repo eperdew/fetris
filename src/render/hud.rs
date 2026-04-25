@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use crate::render::{BAR_WIDTH, BAR_X, BOARD_BG, BOARD_X, BOARD_Y, CELL, DIVIDER_X, SIDEBAR_X};
+use crate::data::{Grade, BOARD_ROWS};
 use crate::render::assets::GameAssets;
-use crate::data::{BOARD_ROWS, Grade};
+use crate::render::{BAR_WIDTH, BAR_X, BOARD_BG, BOARD_X, BOARD_Y, CELL, DIVIDER_X, SIDEBAR_X};
+use bevy::prelude::*;
 
 #[derive(Component, Clone, Copy)]
 pub struct HudNode;
@@ -35,16 +35,22 @@ pub fn render_hud(
             commands.spawn((
                 HudNode,
                 Text2d::new($text),
-                TextFont { font: assets.font.clone(), font_size: $size, ..default() },
+                TextFont {
+                    font: assets.font.clone(),
+                    font_size: $size,
+                    ..default()
+                },
                 TextColor($color),
-                bevy::sprite::Anchor::TOP_LEFT,
+                bevy::sprite::Anchor::BOTTOM_LEFT,
                 Transform::from_xyz(x, y, 10.0),
             ));
         };
     }
 
-    push!("LEVEL".to_string(), FONT_SM, dim); y += LH;
-    push!(format!("{:03}", progress.level), FONT_LG, Color::WHITE); y += 6.0;
+    push!("LEVEL".to_string(), FONT_SM, dim);
+    y += LH;
+    push!(format!("{:03}", progress.level), FONT_LG, Color::WHITE);
+    y += 6.0;
     commands.spawn((
         HudNode,
         Sprite {
@@ -52,25 +58,39 @@ pub fn render_hud(
             custom_size: Some(Vec2::new(48.0, 2.0)),
             ..default()
         },
-        bevy::sprite::Anchor::TOP_LEFT,
+        bevy::sprite::Anchor::BOTTOM_LEFT,
         Transform::from_xyz(x, y, 10.0),
     ));
     y += 24.0;
-    push!(format!("{}", next_level_barrier(progress.level)), FONT_LG, Color::WHITE); y += LH + 8.0;
+    push!(
+        format!("{}", next_level_barrier(progress.level)),
+        FONT_LG,
+        Color::WHITE
+    );
+    y += LH + 8.0;
 
-    push!("LINES".to_string(), FONT_SM, dim); y += LH;
-    push!(format!("{}", progress.lines), FONT_LG, Color::WHITE); y += LH + 8.0;
+    push!("LINES".to_string(), FONT_SM, dim);
+    y += LH;
+    push!(format!("{}", progress.lines), FONT_LG, Color::WHITE);
+    y += LH + 8.0;
 
-    push!("TIME".to_string(), FONT_SM, dim); y += LH;
-    push!(format_time(progress.ticks_elapsed), FONT_LG, Color::WHITE); y += LH + 8.0;
+    push!("TIME".to_string(), FONT_SM, dim);
+    y += LH;
+    push!(format_time(progress.ticks_elapsed), FONT_LG, Color::WHITE);
+    y += LH + 8.0;
 
-    push!("SCORE".to_string(), FONT_SM, dim); y += LH;
-    push!(format!("{}", judge.score()), FONT_LG, Color::WHITE); y += LH + 8.0;
+    push!("SCORE".to_string(), FONT_SM, dim);
+    y += LH;
+    push!(format!("{}", judge.score()), FONT_LG, Color::WHITE);
+    y += LH + 8.0;
 
-    push!("GRADE".to_string(), FONT_SM, dim); y += LH;
-    push!(format!("{}", judge.grade()), FONT_LG, Color::WHITE); y += LH + 8.0;
+    push!("GRADE".to_string(), FONT_SM, dim);
+    y += LH;
+    push!(format!("{}", judge.grade()), FONT_LG, Color::WHITE);
+    y += LH + 8.0;
 
-    push!("NEXT".to_string(), FONT_SM, dim); y += LH;
+    push!("NEXT".to_string(), FONT_SM, dim);
+    y += LH;
     let (_, next_opt) = Grade::grade_progress(judge.score());
     let next_str = match next_opt {
         Some(n) => format!("{}", n),
@@ -91,29 +111,49 @@ fn spawn_grade_bar(commands: &mut Commands, score: u32, grade: Grade) {
     let inner_h = bar_h - SHADOW_PAD * 2.0;
     let fill_h = inner_h * progress;
 
-    commands.spawn((HudNode, Sprite {
-        color: Color::srgba(0.0, 0.0, 0.0, 0.55),
-        custom_size: Some(Vec2::new(BAR_WIDTH + SHADOW_PAD * 2.0, bar_h)),
-        ..default()
-    }, bevy::sprite::Anchor::TOP_LEFT, Transform::from_xyz(BAR_X - SHADOW_PAD, BOARD_Y, 5.0)));
+    commands.spawn((
+        HudNode,
+        Sprite {
+            color: Color::srgba(0.0, 0.0, 0.0, 0.55),
+            custom_size: Some(Vec2::new(BAR_WIDTH + SHADOW_PAD * 2.0, bar_h)),
+            ..default()
+        },
+        bevy::sprite::Anchor::BOTTOM_LEFT,
+        Transform::from_xyz(BAR_X - SHADOW_PAD, BOARD_Y, 5.0),
+    ));
 
-    commands.spawn((HudNode, Sprite {
-        color: Color::srgba(0.25, 0.25, 0.35, 1.0),
-        custom_size: Some(Vec2::new(1.5, bar_h)),
-        ..default()
-    }, bevy::sprite::Anchor::TOP_LEFT, Transform::from_xyz(DIVIDER_X, BOARD_Y, 5.0)));
+    commands.spawn((
+        HudNode,
+        Sprite {
+            color: Color::srgba(0.25, 0.25, 0.35, 1.0),
+            custom_size: Some(Vec2::new(1.5, bar_h)),
+            ..default()
+        },
+        bevy::sprite::Anchor::BOTTOM_LEFT,
+        Transform::from_xyz(DIVIDER_X, BOARD_Y, 5.0),
+    ));
 
-    commands.spawn((HudNode, Sprite {
-        color: BOARD_BG,
-        custom_size: Some(Vec2::new(BAR_WIDTH, inner_h)),
-        ..default()
-    }, bevy::sprite::Anchor::TOP_LEFT, Transform::from_xyz(BAR_X, BOARD_Y + SHADOW_PAD, 6.0)));
+    commands.spawn((
+        HudNode,
+        Sprite {
+            color: BOARD_BG,
+            custom_size: Some(Vec2::new(BAR_WIDTH, inner_h)),
+            ..default()
+        },
+        bevy::sprite::Anchor::BOTTOM_LEFT,
+        Transform::from_xyz(BAR_X, BOARD_Y + SHADOW_PAD, 6.0),
+    ));
 
-    commands.spawn((HudNode, Sprite {
-        color: grade_bar_color(grade.index()),
-        custom_size: Some(Vec2::new(BAR_WIDTH, fill_h)),
-        ..default()
-    }, bevy::sprite::Anchor::TOP_LEFT, Transform::from_xyz(BAR_X, BOARD_Y + SHADOW_PAD + inner_h - fill_h, 7.0)));
+    commands.spawn((
+        HudNode,
+        Sprite {
+            color: grade_bar_color(grade.index()),
+            custom_size: Some(Vec2::new(BAR_WIDTH, fill_h)),
+            ..default()
+        },
+        bevy::sprite::Anchor::BOTTOM_LEFT,
+        Transform::from_xyz(BAR_X, BOARD_Y + SHADOW_PAD + inner_h - fill_h, 7.0),
+    ));
 }
 
 fn grade_bar_color(idx: usize) -> Color {
@@ -130,12 +170,21 @@ fn grade_bar_color(idx: usize) -> Color {
 
 fn grade_bg_color(idx: usize) -> Color {
     let tint = grade_bar_color(idx).to_srgba();
-    Color::srgba(0.04 + tint.red * 0.14, 0.04 + tint.green * 0.14, 0.07 + tint.blue * 0.14, 1.0)
+    Color::srgba(
+        0.04 + tint.red * 0.14,
+        0.04 + tint.green * 0.14,
+        0.07 + tint.blue * 0.14,
+        1.0,
+    )
 }
 
 fn next_level_barrier(level: u32) -> u32 {
     let round_up = (level + 1).next_multiple_of(100);
-    if round_up == 1000 { 999 } else { round_up }
+    if round_up == 1000 {
+        999
+    } else {
+        round_up
+    }
 }
 
 pub fn format_time(ticks: u64) -> String {
@@ -145,4 +194,3 @@ pub fn format_time(ticks: u64) -> String {
     let ss = seconds % 60;
     format!("{:02}:{:02}.{:03}", mm, ss, ms)
 }
-

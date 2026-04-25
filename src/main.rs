@@ -129,6 +129,10 @@ fn main() {
         .add_systems(Update, systems::global_input::handle_global_input)
         .add_systems(Update, systems::post_game::return_to_menu_on_space)
         .add_systems(
+            Update,
+            systems::input::sample_input.run_if(in_state(AppState::Playing)),
+        )
+        .add_systems(
             FixedUpdate,
             (
                 tick_counter,
@@ -137,6 +141,7 @@ fn main() {
                 spawning_system,
                 judge_system,
                 game_over_check,
+                systems::input::clear_just_pressed,
             )
                 .chain()
                 .run_if(in_state(AppState::Playing)),

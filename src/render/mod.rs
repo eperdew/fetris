@@ -89,8 +89,9 @@ pub fn piece_color(kind: crate::data::PieceKind) -> Color {
     }
 }
 
-/// Returns a bundle: (Sprite with image+color+custom_size, Anchor::TOP_LEFT, Transform).
+/// Returns a bundle: (Sprite with image+color+custom_size, Anchor::BOTTOM_LEFT, Transform).
 /// In Bevy 0.18, Anchor is a separate Component (not a field on Sprite).
+/// BOTTOM_LEFT is the visual top-left in our Y-flip camera (positive Y = down).
 pub fn cell_sprite(x: f32, y: f32, color: Color, texture: Handle<Image>, z: f32) -> impl Bundle {
     (
         Sprite {
@@ -99,7 +100,7 @@ pub fn cell_sprite(x: f32, y: f32, color: Color, texture: Handle<Image>, z: f32)
             custom_size: Some(Vec2::new(CELL - INSET * 2.0, CELL - INSET * 2.0)),
             ..default()
         },
-        bevy::sprite::Anchor::TOP_LEFT,
+        bevy::sprite::Anchor::BOTTOM_LEFT,
         Transform::from_xyz(x + INSET, y + INSET, z),
     )
 }
