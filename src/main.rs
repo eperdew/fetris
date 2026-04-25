@@ -1,6 +1,7 @@
 use bevy::camera::ScalingMode;
 use bevy::prelude::*;
 use bevy::window::{WindowPlugin, WindowResolution};
+use bevy_pkv::PkvStore;
 
 mod app_state;
 mod components;
@@ -102,6 +103,7 @@ fn main() {
         .add_plugins(render::RenderPlugin)
         .add_plugins(menu::MenuPlugin)
         .insert_resource(ClearColor(Color::srgba(0.04, 0.04, 0.07, 1.0)))
+        .insert_resource(PkvStore::new("fetris", "fetris"))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .init_state::<AppState>()
         .add_message::<JudgeEvent>()
