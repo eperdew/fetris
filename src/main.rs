@@ -78,6 +78,7 @@ fn main() {
         .init_resource::<stub_storage::MutedRes>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
         .add_systems(Startup, setup_camera)
+        .add_systems(Update, systems::global_input::handle_global_input)
         .add_systems(
             FixedUpdate,
             (
