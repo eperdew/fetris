@@ -1,9 +1,9 @@
-use bevy::prelude::*;
 use crate::components::*;
 use crate::data::{BoardGrid, Grade, PieceKind, PiecePhase};
 use crate::judge::Judge;
 use crate::resources::*;
 use crate::rotation_system::RotationSystem;
+use bevy::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct GameSnapshot {
@@ -61,15 +61,26 @@ impl GameSnapshot {
 
         let rot_sys = world.resource::<RotationSystemRes>();
 
-        let show_active = !matches!(phase, PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. });
+        let show_active = !matches!(
+            phase,
+            PiecePhase::Spawning { .. } | PiecePhase::LineClearDelay { .. }
+        );
         let active_offsets = rot_sys.0.cells(active_kind_val, active_rot.0);
 
         let (active_kind, active_cells, ghost_cells) = if show_active {
             let cells = active_offsets.map(|(dc, dr)| (active_pos.col + dc, active_pos.row + dr));
-            let ghost_row = compute_ghost_row(&board, &*rot_sys.0, active_kind_val, active_rot.0, active_pos);
+            let ghost_row = compute_ghost_row(
+                &board,
+                &*rot_sys.0,
+                active_kind_val,
+                active_rot.0,
+                active_pos,
+            );
             let ghost = if ghost_row != active_pos.row {
                 Some(active_offsets.map(|(dc, dr)| (active_pos.col + dc, ghost_row + dr)))
-            } else { None };
+            } else {
+                None
+            };
             (Some(active_kind_val), Some(cells), ghost)
         } else {
             (None, None, None)
@@ -114,10 +125,14 @@ fn compute_ghost_row(
             let c = pos.col + dc;
             let r = next + dr;
             r >= BOARD_ROWS as i32
-                || (c >= 0 && c < BOARD_COLS as i32 && r >= 0
+                || (c >= 0
+                    && c < BOARD_COLS as i32
+                    && r >= 0
                     && board[r as usize][c as usize].is_some())
         });
-        if blocked { break; }
+        if blocked {
+            break;
+        }
         ghost_row = next;
     }
     ghost_row

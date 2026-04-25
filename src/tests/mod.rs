@@ -1,18 +1,18 @@
 #[cfg(test)]
-pub mod harness;
+mod gravity_tests;
 #[cfg(test)]
-mod movement_tests;
+pub mod harness;
 #[cfg(test)]
 mod judge_tests;
 #[cfg(test)]
-mod rotation_tests;
+mod line_clear_tests;
 #[cfg(test)]
 mod lock_tests;
 #[cfg(test)]
-mod line_clear_tests;
+mod movement_tests;
 #[cfg(test)]
-mod spawn_tests;
-#[cfg(test)]
-mod gravity_tests;
+mod rotation_tests;
 #[cfg(test)]
 mod snapshot_tests;
+#[cfg(test)]
+mod spawn_tests;

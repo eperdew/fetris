@@ -1,10 +1,10 @@
-use bevy::prelude::*;
 use crate::app_state::AppState;
 use crate::components::ActivePieceBundle;
 use crate::data::{GameMode, Kind, PiecePhase};
 use crate::judge::Judge;
 use crate::randomizer::Randomizer;
 use crate::resources::*;
+use bevy::prelude::*;
 
 pub struct StartGameOptions {
     pub mode: GameMode,

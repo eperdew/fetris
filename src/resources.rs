@@ -1,22 +1,26 @@
-use bevy::prelude::*;
 use crate::data::{
     BoardGrid, GameMode, HorizDir, InputSnapshot, Kind, PieceKind, PiecePhase, RotationDirection,
     BOARD_COLS, BOARD_ROWS,
 };
 use crate::rotation_system::RotationSystem;
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct Board(pub BoardGrid);
 
 impl Default for Board {
-    fn default() -> Self { Board([[None; BOARD_COLS]; BOARD_ROWS]) }
+    fn default() -> Self {
+        Board([[None; BOARD_COLS]; BOARD_ROWS])
+    }
 }
 
 #[derive(Resource)]
 pub struct CurrentPhase(pub PiecePhase);
 
 impl Default for CurrentPhase {
-    fn default() -> Self { CurrentPhase(PiecePhase::Falling) }
+    fn default() -> Self {
+        CurrentPhase(PiecePhase::Falling)
+    }
 }
 
 #[derive(Resource)]
@@ -34,7 +38,14 @@ pub struct GameProgress {
 
 impl Default for GameProgress {
     fn default() -> Self {
-        Self { level: 0, lines: 0, ticks_elapsed: 0, game_over: false, game_won: false, score_submitted: false }
+        Self {
+            level: 0,
+            lines: 0,
+            ticks_elapsed: 0,
+            game_over: false,
+            game_won: false,
+            score_submitted: false,
+        }
     }
 }
 
@@ -62,7 +73,9 @@ pub struct DropTracking {
 pub struct InputState(pub InputSnapshot);
 
 impl Default for InputState {
-    fn default() -> Self { InputState(InputSnapshot::empty()) }
+    fn default() -> Self {
+        InputState(InputSnapshot::empty())
+    }
 }
 
 #[derive(Resource)]

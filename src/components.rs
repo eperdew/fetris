@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::data::PieceKind;
+use bevy::prelude::*;
 
 /// Marker for the single active piece entity.
 #[derive(Component, Debug)]
@@ -41,7 +41,10 @@ impl ActivePieceBundle {
 impl PiecePosition {
     pub fn to_state(self, kind: PieceKind, rotation: usize) -> crate::rotation_system::PieceState {
         crate::rotation_system::PieceState {
-            kind, rotation, col: self.col, row: self.row,
+            kind,
+            rotation,
+            col: self.col,
+            row: self.row,
         }
     }
 }

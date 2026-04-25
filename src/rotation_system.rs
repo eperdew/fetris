@@ -351,11 +351,7 @@ impl Ars {
     /// Scans the destination rotation's cells left-to-right, top-to-bottom.
     /// Returns true if the first destination cell that collides with the board
     /// is in the center column (dc == 1), meaning a kick would not escape the obstacle.
-    fn center_column_blocked_first(
-        board: &BoardGrid,
-        piece: &PieceState,
-        new_rot: usize,
-    ) -> bool {
+    fn center_column_blocked_first(board: &BoardGrid, piece: &PieceState, new_rot: usize) -> bool {
         let dest_cells = ars_cells(piece.kind, new_rot);
         for dr in 0..3i32 {
             for dc in 0..3i32 {

@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::data::{Grade, HiScoreEntry, JudgeEvent};
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct Judge {
@@ -11,18 +11,31 @@ pub struct Judge {
 
 impl Judge {
     pub fn new() -> Self {
-        Self { combo: 1, score: 0, best_grade: Grade::Nine, grade_ticks: 0 }
+        Self {
+            combo: 1,
+            score: 0,
+            best_grade: Grade::Nine,
+            grade_ticks: 0,
+        }
     }
 
     pub fn on_event(&mut self, event: &JudgeEvent) {
         match *event {
             JudgeEvent::LockedWithoutClear => self.combo = 1,
-            JudgeEvent::ClearedLines { level, cleared_playfield, num_lines,
-                frames_soft_drop_held, sonic_drop_rows, ticks_elapsed } => {
+            JudgeEvent::ClearedLines {
+                level,
+                cleared_playfield,
+                num_lines,
+                frames_soft_drop_held,
+                sonic_drop_rows,
+                ticks_elapsed,
+            } => {
                 self.combo += 2 * num_lines - 2;
                 let bravo = if cleared_playfield { 4 } else { 1 };
                 self.score += ((level + 3) / 4 + frames_soft_drop_held + 2 * sonic_drop_rows)
-                    * num_lines * self.combo * bravo;
+                    * num_lines
+                    * self.combo
+                    * bravo;
                 let new_grade = Grade::of_score(self.score);
                 if new_grade > self.best_grade {
                     self.best_grade = new_grade;
@@ -32,22 +45,28 @@ impl Judge {
         }
     }
 
-    pub fn score(&self) -> u32 { self.score }
-    pub fn grade(&self) -> Grade { Grade::of_score(self.score) }
+    pub fn score(&self) -> u32 {
+        self.score
+    }
+    pub fn grade(&self) -> Grade {
+        Grade::of_score(self.score)
+    }
     pub fn grade_entry(&self) -> HiScoreEntry {
-        HiScoreEntry { grade: self.best_grade, ticks: self.grade_ticks }
+        HiScoreEntry {
+            grade: self.best_grade,
+            ticks: self.grade_ticks,
+        }
     }
 }
 
 impl Default for Judge {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Bevy system: drains JudgeEvents and feeds them into the Judge resource.
-pub fn judge_system(
-    mut judge: ResMut<Judge>,
-    mut events: MessageReader<JudgeEvent>,
-) {
+pub fn judge_system(mut judge: ResMut<Judge>, mut events: MessageReader<JudgeEvent>) {
     for event in events.read() {
         judge.on_event(event);
     }
@@ -59,8 +78,12 @@ mod tests {
 
     fn clear_event(level: u32, num_lines: u32, ticks_elapsed: u64) -> JudgeEvent {
         JudgeEvent::ClearedLines {
-            level, cleared_playfield: false, num_lines,
-            frames_soft_drop_held: 0, sonic_drop_rows: 0, ticks_elapsed,
+            level,
+            cleared_playfield: false,
+            num_lines,
+            frames_soft_drop_held: 0,
+            sonic_drop_rows: 0,
+            ticks_elapsed,
         }
     }
 

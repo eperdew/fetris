@@ -225,11 +225,7 @@ pub fn rotation_snap(kind: PieceKind, make: fn(PieceKind) -> App) -> String {
 /// For each rotation of `kind` at a given position, places an obstacle and tries
 /// CW and CCW rotations, showing before→after in a side-by-side grid.
 #[allow(dead_code)]
-pub fn center_col_snap(
-    kind: PieceKind,
-    start_rot: usize,
-    obstacles: &[(i32, i32)],
-) -> String {
+pub fn center_col_snap(kind: PieceKind, start_rot: usize, obstacles: &[(i32, i32)]) -> String {
     let col = 3i32;
     let row = 8i32;
 

@@ -1,12 +1,12 @@
-use bevy::prelude::*;
 use crate::components::*;
 use crate::constants::{LINE_CLEAR_DELAY, SPAWN_DELAY_NORMAL};
 use crate::data::{
-    BOARD_COLS, BOARD_ROWS, GameEvent, GameKey, InputSnapshot, JudgeEvent,
-    PieceKind, PiecePhase, RotationDirection,
+    GameEvent, GameKey, InputSnapshot, JudgeEvent, PieceKind, PiecePhase, RotationDirection,
+    BOARD_COLS, BOARD_ROWS,
 };
 use crate::resources::*;
 use crate::rotation_system::RotationSystem;
+use bevy::prelude::*;
 
 /// Writes the active piece into the board, detects line clears, queues compaction,
 /// emits events, and transitions PiecePhase. Mirrors `Game::lock_piece`.
@@ -61,20 +61,26 @@ pub fn lock_piece(
 
     // 4. Phase transition: LineClearDelay or Spawning.
     phase.0 = if count > 0 {
-        PiecePhase::LineClearDelay { ticks_left: LINE_CLEAR_DELAY }
+        PiecePhase::LineClearDelay {
+            ticks_left: LINE_CLEAR_DELAY,
+        }
     } else {
-        PiecePhase::Spawning { ticks_left: SPAWN_DELAY_NORMAL }
+        PiecePhase::Spawning {
+            ticks_left: SPAWN_DELAY_NORMAL,
+        }
     };
 
     // 5. Emit JudgeEvent.
     let judge_event = if count > 0 {
         // Match original behavior: cleared_playfield is true iff every row outside
         // the cleared rows is empty (cleared rows are still Some at this point).
-        let cleared_playfield = board.0.iter().enumerate().all(|(r, row)| {
-            pending.0.contains(&r) || row.iter().all(|c| c.is_none())
-        });
+        let cleared_playfield = board
+            .0
+            .iter()
+            .enumerate()
+            .all(|(r, row)| pending.0.contains(&r) || row.iter().all(|c| c.is_none()));
         JudgeEvent::ClearedLines {
-            level: progress.level,  // post-increment level — matches original Game::lock_piece
+            level: progress.level, // post-increment level — matches original Game::lock_piece
             cleared_playfield,
             num_lines: count,
             frames_soft_drop_held: drop_tracking.soft_drop_frames,

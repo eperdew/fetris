@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use crate::app_state::AppState;
 use crate::resources::GameProgress;
+use bevy::prelude::*;
 
 pub fn game_over_check(
     progress: Res<GameProgress>,

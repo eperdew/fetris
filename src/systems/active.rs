@@ -1,12 +1,10 @@
-use bevy::prelude::*;
 use crate::components::*;
-use crate::constants::{DAS_CHARGE, DAS_REPEAT, LOCK_DELAY, gravity_g};
-use crate::data::{
-    GameEvent, GameKey, HorizDir, JudgeEvent, PiecePhase, RotationDirection,
-};
+use crate::constants::{gravity_g, DAS_CHARGE, DAS_REPEAT, LOCK_DELAY};
+use crate::data::{GameEvent, GameKey, HorizDir, JudgeEvent, PiecePhase, RotationDirection};
 use crate::resources::*;
 use crate::rotation_system::{PieceState, RotationSystem};
 use crate::systems::lock_piece::lock_piece;
+use bevy::prelude::*;
 
 #[allow(clippy::too_many_arguments)]
 pub fn active_phase_system(
@@ -24,10 +22,16 @@ pub fn active_phase_system(
     mut judge_events: MessageWriter<JudgeEvent>,
     mut game_events: MessageWriter<GameEvent>,
 ) {
-    if progress.game_over || progress.game_won { return; }
-    if !matches!(phase.0, PiecePhase::Falling | PiecePhase::Locking { .. }) { return; }
+    if progress.game_over || progress.game_won {
+        return;
+    }
+    if !matches!(phase.0, PiecePhase::Falling | PiecePhase::Locking { .. }) {
+        return;
+    }
 
-    let Ok((kind, mut pos, mut rot)) = piece.single_mut() else { return };
+    let Ok((kind, mut pos, mut rot)) = piece.single_mut() else {
+        return;
+    };
     let kind = kind.0;
     let input_snapshot = input.0.clone();
 
@@ -35,18 +39,33 @@ pub fn active_phase_system(
     // to avoid re-borrowing the Res inside closures.
     let rot_sys_ref: &dyn RotationSystem = &*rot_sys.0;
 
-    let try_move = |pos: &mut PiecePosition, rot: &PieceRotation, dcol: i32, drow: i32, board: &Board| -> bool {
+    let try_move = |pos: &mut PiecePosition,
+                    rot: &PieceRotation,
+                    dcol: i32,
+                    drow: i32,
+                    board: &Board|
+     -> bool {
         let new_col = pos.col + dcol;
         let new_row = pos.row + drow;
         if rot_sys_ref.fits(&board.0, kind, new_col, new_row, rot.0) {
             pos.col = new_col;
             pos.row = new_row;
             true
-        } else { false }
+        } else {
+            false
+        }
     };
 
-    let try_rotate = |pos: &mut PiecePosition, rot: &mut PieceRotation, dir: RotationDirection, board: &Board| {
-        let state = PieceState { kind, rotation: rot.0, col: pos.col, row: pos.row };
+    let try_rotate = |pos: &mut PiecePosition,
+                      rot: &mut PieceRotation,
+                      dir: RotationDirection,
+                      board: &Board| {
+        let state = PieceState {
+            kind,
+            rotation: rot.0,
+            col: pos.col,
+            row: pos.row,
+        };
         if let Some(new) = rot_sys_ref.try_rotate(&state, dir, &board.0) {
             pos.col = new.col;
             pos.row = new.row;
@@ -58,7 +77,12 @@ pub fn active_phase_system(
     if input_snapshot.just_pressed.contains(&GameKey::RotateCw) {
         try_rotate(&mut pos, &mut rot, RotationDirection::Clockwise, &board);
     } else if input_snapshot.just_pressed.contains(&GameKey::RotateCcw) {
-        try_rotate(&mut pos, &mut rot, RotationDirection::Counterclockwise, &board);
+        try_rotate(
+            &mut pos,
+            &mut rot,
+            RotationDirection::Counterclockwise,
+            &board,
+        );
     }
 
     // Phase 3: sonic drop
@@ -67,7 +91,9 @@ pub fn active_phase_system(
         while try_move(&mut pos, &rot, 0, 1, &board) {}
         drop_tracking.sonic_drop_rows += (pos.row - row_before) as u32;
         if matches!(phase.0, PiecePhase::Falling) {
-            phase.0 = PiecePhase::Locking { ticks_left: LOCK_DELAY };
+            phase.0 = PiecePhase::Locking {
+                ticks_left: LOCK_DELAY,
+            };
             game_events.write(GameEvent::PieceBeganLocking);
         }
         return;
@@ -79,10 +105,19 @@ pub fn active_phase_system(
         match phase.0 {
             PiecePhase::Locking { .. } => {
                 lock_piece(
-                    &mut board, &mut progress, &mut phase, &mut pending,
-                    &mut rotation_buffer, &drop_tracking, rot_sys_ref,
-                    kind, *pos, *rot, &input_snapshot,
-                    &mut judge_events, &mut game_events,
+                    &mut board,
+                    &mut progress,
+                    &mut phase,
+                    &mut pending,
+                    &mut rotation_buffer,
+                    &drop_tracking,
+                    rot_sys_ref,
+                    kind,
+                    *pos,
+                    *rot,
+                    &input_snapshot,
+                    &mut judge_events,
+                    &mut game_events,
                 );
                 return;
             }
@@ -94,12 +129,19 @@ pub fn active_phase_system(
     }
 
     // Phase 5: horizontal DAS
-    let horiz = if input_snapshot.held.contains(&GameKey::Left) { Some(HorizDir::Left) }
-        else if input_snapshot.held.contains(&GameKey::Right) { Some(HorizDir::Right) }
-        else { None };
+    let horiz = if input_snapshot.held.contains(&GameKey::Left) {
+        Some(HorizDir::Left)
+    } else if input_snapshot.held.contains(&GameKey::Right) {
+        Some(HorizDir::Right)
+    } else {
+        None
+    };
 
     match horiz {
-        None => { das.direction = None; das.counter = 0; }
+        None => {
+            das.direction = None;
+            das.counter = 0;
+        }
         Some(dir) => {
             if das.direction != Some(dir) {
                 das.direction = Some(dir);
@@ -122,7 +164,9 @@ pub fn active_phase_system(
     let drops = drop_tracking.gravity_accumulator / 256;
     drop_tracking.gravity_accumulator %= 256;
     for _ in 0..drops {
-        if !try_move(&mut pos, &rot, 0, 1, &board) { break; }
+        if !try_move(&mut pos, &rot, 0, 1, &board) {
+            break;
+        }
     }
     let moved_down = pos.row > row_before;
 
@@ -131,7 +175,9 @@ pub fn active_phase_system(
     match phase.0 {
         PiecePhase::Falling => {
             if on_floor {
-                phase.0 = PiecePhase::Locking { ticks_left: LOCK_DELAY };
+                phase.0 = PiecePhase::Locking {
+                    ticks_left: LOCK_DELAY,
+                };
                 game_events.write(GameEvent::PieceBeganLocking);
             }
         }
@@ -142,10 +188,19 @@ pub fn active_phase_system(
                 *ticks_left = LOCK_DELAY;
             } else if *ticks_left == 0 {
                 lock_piece(
-                    &mut board, &mut progress, &mut phase, &mut pending,
-                    &mut rotation_buffer, &drop_tracking, rot_sys_ref,
-                    kind, *pos, *rot, &input_snapshot,
-                    &mut judge_events, &mut game_events,
+                    &mut board,
+                    &mut progress,
+                    &mut phase,
+                    &mut pending,
+                    &mut rotation_buffer,
+                    &drop_tracking,
+                    rot_sys_ref,
+                    kind,
+                    *pos,
+                    *rot,
+                    &input_snapshot,
+                    &mut judge_events,
+                    &mut game_events,
                 );
             } else {
                 *ticks_left -= 1;

@@ -1,7 +1,7 @@
-use bevy::prelude::*;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use crate::data::PieceKind;
+use bevy::prelude::*;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 
 /// TGM-style randomizer. 4-piece history (initialized to [Z; 4]); up to 4 retries
 /// to avoid history collisions. First piece never S, Z, or O.
@@ -28,7 +28,9 @@ impl Randomizer {
     pub fn next(&mut self) -> PieceKind {
         let mut piece = self.candidate();
         for _ in 1..4 {
-            if !self.history.contains(&piece) { break; }
+            if !self.history.contains(&piece) {
+                break;
+            }
             piece = self.candidate();
         }
         self.history.rotate_left(1);
@@ -53,5 +55,7 @@ impl Randomizer {
 }
 
 impl Default for Randomizer {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
