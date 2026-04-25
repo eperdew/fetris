@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 
+mod constants;
+
 fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
