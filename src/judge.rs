@@ -1,4 +1,4 @@
-use crate::data::{Grade, HiScoreEntry, JudgeEvent};
+use crate::data::{GameEvent, Grade, HiScoreEntry, JudgeEvent};
 use bevy::prelude::*;
 
 #[derive(Resource)]
@@ -66,9 +66,18 @@ impl Default for Judge {
 }
 
 /// Bevy system: drains JudgeEvents and feeds them into the Judge resource.
-pub fn judge_system(mut judge: ResMut<Judge>, mut events: MessageReader<JudgeEvent>) {
-    for event in events.read() {
+pub fn judge_system(
+    mut judge: ResMut<Judge>,
+    mut judge_events: MessageReader<JudgeEvent>,
+    mut game_events: MessageWriter<GameEvent>,
+) {
+    for event in judge_events.read() {
+        let before = judge.grade();
         judge.on_event(event);
+        let after = judge.grade();
+        if after > before {
+            game_events.write(GameEvent::GradeAdvanced(after));
+        }
     }
 }
 
