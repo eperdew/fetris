@@ -8,6 +8,7 @@ mod judge;
 mod randomizer;
 mod resources;
 mod rotation_system;
+mod snapshot;
 mod start_game;
 mod systems;
 
