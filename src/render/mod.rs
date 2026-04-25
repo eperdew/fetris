@@ -27,6 +27,8 @@ pub struct RenderPlugin;
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         use crate::app_state::AppState;
+        use crate::systems::active::active_phase_system;
+        use crate::systems::line_clear_delay::line_clear_delay_system;
         app.add_systems(Startup, assets::load_assets);
         app.add_systems(
             Update,
@@ -43,9 +45,34 @@ impl Plugin for RenderPlugin {
         );
         app.add_systems(
             Update,
-            hud::render_hud
-                .run_if(in_state(AppState::Playing).or(in_state(AppState::GameOver))),
+            hud::render_hud.run_if(in_state(AppState::Playing).or(in_state(AppState::GameOver))),
         );
+        // Particle spawner runs in FixedUpdate, after active_phase_system (which sets
+        // PendingCompaction and emits LineClear events) and before line_clear_delay_system
+        // (which drains PendingCompaction). This ensures we see the rows to spawn from.
+        app.add_systems(
+            FixedUpdate,
+            particles::spawn_particles_on_line_clear
+                .after(active_phase_system)
+                .before(line_clear_delay_system)
+                .run_if(in_state(AppState::Playing)),
+        );
+        app.add_systems(FixedUpdate, particles::update_particles);
+        // Overlay systems: line-clear text spawns in Update (events persist from FixedUpdate),
+        // state text (Ready / Game Over) also in Update.
+        app.add_systems(
+            Update,
+            (
+                overlays::spawn_line_clear_overlay,
+                overlays::render_state_text,
+            )
+                .run_if(
+                    in_state(AppState::Playing)
+                        .or(in_state(AppState::Ready))
+                        .or(in_state(AppState::GameOver)),
+                ),
+        );
+        app.add_systems(FixedUpdate, overlays::tick_line_clear_overlay);
     }
 }
 
