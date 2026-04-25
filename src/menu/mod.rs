@@ -11,7 +11,7 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         // Chain so hi_scores/controls run first; if they change screen to Main,
         // main_menu_system sees the new state in the same frame (no flicker).
-        app.init_resource::<state::MenuState>().add_systems(
+        app.add_systems(
             EguiPrimaryContextPass,
             (
                 hi_scores::hi_scores_system,

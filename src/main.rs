@@ -23,7 +23,7 @@ pub(crate) mod systems;
 #[cfg(test)]
 mod tests;
 
-use crate::data::{GameEvent, JudgeEvent};
+use crate::data::{GameConfig, GameEvent, JudgeEvent};
 use crate::judge::{judge_system, Judge};
 use crate::systems::active::active_phase_system;
 use crate::systems::game_over::game_over_check;
@@ -71,7 +71,8 @@ fn reset_game_on_enter_menu(
 
 fn start_game_on_ready(world: &mut World) {
     let config = {
-        let cfg = world.resource::<crate::stub_storage::GameConfigRes>();
+        let pkv = world.resource::<PkvStore>();
+        let cfg: GameConfig = pkv.get("game_config").unwrap_or_default();
         (cfg.game_mode, cfg.rotation)
     };
     crate::start_game::start_game(
@@ -87,10 +88,15 @@ fn start_game_on_ready(world: &mut World) {
 fn submit_score_on_game_over(
     mut pkv: ResMut<PkvStore>,
     judge: Res<crate::judge::Judge>,
-    config: Res<crate::stub_storage::GameConfigRes>,
+    game_mode: Res<crate::resources::GameModeRes>,
+    rotation: Res<crate::resources::RotationKind>,
 ) {
     let entry = judge.grade_entry();
-    crate::hiscores::submit(&mut pkv, config.game_mode, config.rotation, entry);
+    crate::hiscores::submit(&mut pkv, game_mode.0, rotation.0, entry);
+}
+
+fn init_menu_state(mut commands: Commands, pkv: Res<PkvStore>) {
+    commands.insert_resource(crate::menu::state::MenuState::new(&pkv));
 }
 
 fn setup_camera(mut commands: Commands) {
@@ -143,7 +149,7 @@ fn main() {
         .init_resource::<stub_storage::HiScoresRes>()
         .init_resource::<stub_storage::MutedRes>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
-        .add_systems(Startup, setup_camera)
+        .add_systems(Startup, (setup_camera, init_menu_state))
         .add_systems(OnEnter(AppState::Ready), start_game_on_ready)
         .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
         .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)

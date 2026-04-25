@@ -2,6 +2,7 @@ use crate::data::{GameMode, Kind};
 use crate::menu::state::{MenuScreen, MenuState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use bevy_pkv::PkvStore;
 
 pub struct MenuInput {
     pub up: bool,
@@ -28,9 +29,7 @@ pub fn main_menu_system(
     mut menu: ResMut<MenuState>,
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<crate::app_state::AppState>>,
-    mut config: ResMut<crate::stub_storage::GameConfigRes>,
-    hi_scores: Res<crate::stub_storage::HiScoresRes>,
-    muted: Res<crate::stub_storage::MutedRes>,
+    mut pkv: ResMut<PkvStore>,
 ) {
     if menu.screen != MenuScreen::Main {
         return;
@@ -59,7 +58,12 @@ pub fn main_menu_system(
             };
         }
         2 if input.confirm => {
-            menu.hi_scores_tab = crate::stub_storage::slot_index(menu.game_mode, menu.rotation);
+            menu.hi_scores_tab = match (menu.game_mode, menu.rotation) {
+                (GameMode::Master, Kind::Ars) => 0,
+                (GameMode::Master, Kind::Srs) => 1,
+                (GameMode::TwentyG, Kind::Ars) => 2,
+                (GameMode::TwentyG, Kind::Srs) => 3,
+            };
             menu.screen = MenuScreen::HiScores;
         }
         3 if input.confirm => {
@@ -70,7 +74,6 @@ pub fn main_menu_system(
         }
         _ => {}
     }
-    let _ = hi_scores;
 
     let ctx = contexts.ctx_mut().expect("egui context");
     egui::CentralPanel::default()
@@ -133,7 +136,7 @@ pub fn main_menu_system(
                     24.0,
                 );
                 ui.add_space(60.0);
-                let (label, color) = if muted.0 {
+                let (label, color) = if pkv.get::<bool>("muted").unwrap_or(false) {
                     ("[M]  MUTED", egui::Color32::from_rgb(204, 102, 102))
                 } else {
                     ("[M]  SOUND ON", egui::Color32::GRAY)
@@ -143,8 +146,10 @@ pub fn main_menu_system(
         });
 
     if start_game {
-        config.game_mode = menu.game_mode;
-        config.rotation = menu.rotation;
+        let _ = pkv.set("game_config", &crate::data::GameConfig {
+            game_mode: menu.game_mode,
+            rotation: menu.rotation,
+        });
         next_state.set(crate::app_state::AppState::Ready);
     }
 }
