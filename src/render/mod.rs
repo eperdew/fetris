@@ -26,8 +26,17 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
+        use crate::app_state::AppState;
         app.add_systems(Startup, assets::load_assets);
-        // Tasks 4-6 add Update systems here.
+        app.add_systems(
+            Update,
+            board::render_board.run_if(
+                in_state(AppState::Playing)
+                    .or(in_state(AppState::GameOver))
+                    .or(in_state(AppState::Ready)),
+            ),
+        );
+        // Tasks 5-6 add Update systems here.
     }
 }
 
@@ -46,13 +55,7 @@ pub fn piece_color(kind: crate::data::PieceKind) -> Color {
 
 /// Returns a bundle: (Sprite with image+color+custom_size, Anchor::TOP_LEFT, Transform).
 /// In Bevy 0.18, Anchor is a separate Component (not a field on Sprite).
-pub fn cell_sprite(
-    x: f32,
-    y: f32,
-    color: Color,
-    texture: Handle<Image>,
-    z: f32,
-) -> impl Bundle {
+pub fn cell_sprite(x: f32, y: f32, color: Color, texture: Handle<Image>, z: f32) -> impl Bundle {
     (
         Sprite {
             image: texture,
