@@ -2,6 +2,7 @@ use crate::menu::main_screen::read_input;
 use crate::menu::state::{MenuScreen, MenuState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
+use bevy_pkv::PkvStore;
 
 const COL_RANK: f32 = 80.0;
 const COL_GRADE: f32 = 140.0;
@@ -12,7 +13,7 @@ pub fn hi_scores_system(
     mut contexts: EguiContexts,
     mut menu: ResMut<MenuState>,
     keys: Res<ButtonInput<KeyCode>>,
-    hi_scores: Res<crate::stub_storage::HiScoresRes>,
+    pkv: Res<PkvStore>,
 ) {
     if menu.screen != MenuScreen::HiScores {
         return;
@@ -31,7 +32,13 @@ pub fn hi_scores_system(
 
     let tab_names = ["MASTER / ARS", "MASTER / SRS", "20G / ARS", "20G / SRS"];
     let tab = menu.hi_scores_tab;
-    let entries = &hi_scores.0[tab];
+    let entries = match menu.hi_scores_tab {
+        0 => crate::hiscores::load(&pkv, crate::data::GameMode::Master, crate::data::Kind::Ars),
+        1 => crate::hiscores::load(&pkv, crate::data::GameMode::Master, crate::data::Kind::Srs),
+        2 => crate::hiscores::load(&pkv, crate::data::GameMode::TwentyG, crate::data::Kind::Ars),
+        3 => crate::hiscores::load(&pkv, crate::data::GameMode::TwentyG, crate::data::Kind::Srs),
+        _ => vec![],
+    };
 
     let ctx = contexts.ctx_mut().expect("egui context");
     egui::CentralPanel::default()
@@ -72,14 +79,26 @@ pub fn hi_scores_system(
                     };
                     ui.horizontal(|ui| {
                         col(ui, COL_RANK, |ui| {
-                            ui.label(egui::RichText::new(format!("{}", i + 1)).color(color).size(20.0));
+                            ui.label(
+                                egui::RichText::new(format!("{}", i + 1))
+                                    .color(color)
+                                    .size(20.0),
+                            );
                         });
                         if let Some(e) = entries.get(i) {
                             col(ui, COL_GRADE, |ui| {
-                                ui.label(egui::RichText::new(format!("{}", e.grade)).color(color).size(20.0));
+                                ui.label(
+                                    egui::RichText::new(format!("{}", e.grade))
+                                        .color(color)
+                                        .size(20.0),
+                                );
                             });
                             col(ui, COL_TIME, |ui| {
-                                ui.label(egui::RichText::new(crate::render::hud::format_time(e.ticks)).color(color).size(20.0));
+                                ui.label(
+                                    egui::RichText::new(crate::render::hud::format_time(e.ticks))
+                                        .color(color)
+                                        .size(20.0),
+                                );
                             });
                         } else {
                             col(ui, COL_GRADE, |ui| {

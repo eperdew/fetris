@@ -8,6 +8,7 @@ mod app_state;
 mod components;
 mod constants;
 mod data;
+mod hiscores;
 mod judge;
 mod menu;
 mod randomizer;
@@ -83,6 +84,15 @@ fn start_game_on_ready(world: &mut World) {
     );
 }
 
+fn submit_score_on_game_over(
+    mut pkv: ResMut<PkvStore>,
+    judge: Res<crate::judge::Judge>,
+    config: Res<crate::stub_storage::GameConfigRes>,
+) {
+    let entry = judge.grade_entry();
+    crate::hiscores::submit(&mut pkv, config.game_mode, config.rotation, entry);
+}
+
 fn setup_camera(mut commands: Commands) {
     let mut projection = OrthographicProjection::default_2d();
     projection.scaling_mode = ScalingMode::Fixed {
@@ -136,6 +146,7 @@ fn main() {
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(AppState::Ready), start_game_on_ready)
         .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
+        .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)
         .add_systems(Update, systems::global_input::handle_global_input)
         .add_systems(Update, systems::post_game::return_to_menu_on_space)
         .add_systems(
