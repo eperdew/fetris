@@ -29,7 +29,6 @@ cargo run --release
 Walk the manual checklist from Plan 2 Task 15. If any item fails, fix it in Plan 2 before starting Plan 3.
 
 **Out of scope:**
-- Audio (still no audio in the bevy port — `audio_player.rs` is being deleted, not ported)
 - Visual / gameplay tuning
 
 **Tooling note:** trunk and wasm-bindgen-cli are CLI tools installed via `cargo install`. The first install is several minutes. Get this kicked off early.
@@ -360,73 +359,245 @@ git commit -m "refactor: remove stub storage module"
 
 ## Task 6: Delete legacy storage.rs
 
+> **Note:** `src/storage.rs` was already deleted during Plans 1–2. Verify, then skip.
+
 **Files:**
-- Delete: `src/storage.rs`
+- Delete: `src/storage.rs` (likely already gone)
 
-- [ ] **Step 1: Verify nothing references it**
-
-Search for `crate::storage`, `storage::Storage`, `mod storage` — there should be no remaining references after Plans 1–2 ported their consumers off this module.
-
-- [ ] **Step 2: Delete**
+- [ ] **Step 1: Check if it still exists**
 
 ```bash
-git rm src/storage.rs
+ls src/storage.rs 2>/dev/null && echo "EXISTS" || echo "ALREADY GONE"
 ```
 
-Remove `mod storage;` from `src/main.rs` if still present.
+If "ALREADY GONE": no work needed. Mark done and continue.
 
-- [ ] **Step 3: Build + test**
-
-```bash
-cargo build
-cargo test
-```
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add src/main.rs
-git commit -m "refactor: delete bespoke storage module (replaced by bevy_pkv)"
-```
+If it exists: search for remaining references (`crate::storage`, `storage::Storage`, `mod storage`), remove them, then `git rm src/storage.rs`, build, test, and commit as `"refactor: delete bespoke storage module (replaced by bevy_pkv)"`.
 
 ---
 
-## Task 7: Delete audio_player.rs and stale audio paths
+## Task 7: Implement audio via bevy_audio
 
 **Files:**
-- Delete: `src/audio_player.rs`
-- Modify: `src/main.rs`, `src/systems/*.rs` (any that emit unused audio events)
+- Modify: `Cargo.toml` (add `bevy_audio`, `vorbis`, `wav` features)
+- Create: `src/audio.rs`
+- Modify: `src/judge.rs` (emit `GradeAdvanced` from `judge_system`)
+- Modify: `src/main.rs` (register module + systems)
 
-The spec deletes `audio_player.rs` and notes "tests omit the audio plugin from their headless `App`." Since we're not adding audio in this migration, just remove the trait + impls.
+The spec says: "bevy_audio (built-in) — replaces macroquad audio. The `AudioPlayer` trait is **deleted**; tests omit the audio plugin from their headless `App`." `audio_player.rs` was already deleted in the worktree. This task adds the bevy_audio-based replacement.
 
-- [ ] **Step 1: Delete the file**
+Sounds and their triggers:
 
-```bash
-git rm src/audio_player.rs
+| Sound file | Trigger |
+|---|---|
+| `piece_begin_locking.wav` | `GameEvent::PieceBeganLocking` |
+| `single.ogg` | `GameEvent::LineClear { count: 1 }` |
+| `double.ogg` | `GameEvent::LineClear { count: 2 }` |
+| `triple.ogg` | `GameEvent::LineClear { count: 3 }` |
+| `fetris.ogg` | `GameEvent::LineClear { count: 4+ }` |
+| `grade_*.ogg` | `GameEvent::GradeAdvanced(grade)` |
+| `game_over.ogg` | `GameEvent::GameEnded` |
+| `ready.ogg` | `OnEnter(AppState::Ready)` |
+
+Mute state: read from `PkvStore` key `"muted"` (Task 4 wires this up). All playback is skipped when muted.
+
+- [ ] **Step 1: Add audio features to Cargo.toml**
+
+Change:
+```toml
+bevy = { version = "0.18", default-features = false, features = ["2d", "bevy_state"] }
+```
+to:
+```toml
+bevy = { version = "0.18", default-features = false, features = ["2d", "bevy_state", "bevy_audio", "vorbis", "wav"] }
 ```
 
-- [ ] **Step 2: Remove `mod audio_player;` from main.rs**
+`bevy_audio` enables `AudioPlugin` in `DefaultPlugins`. `vorbis` decodes `.ogg` files. `wav` decodes `.wav` files.
 
-- [ ] **Step 3: Audit unused audio plumbing**
-
-```bash
-```
-<!-- Use Grep: pattern "audio" or "Audio" in src/ -->
-
-If Plan 1 carried over `JudgeEvent` or other events whose only consumer was audio, those events can stay (they're cheap, and may be useful later). But any system that exists *only* to emit audio events with no consumer should be deleted.
-
-- [ ] **Step 4: Build + test**
+- [ ] **Step 2: Verify build**
 
 ```bash
 cargo build
+```
+
+Expected: succeeds. If cargo complains about an unknown feature name, verify exact feature names against:
+
+```bash
+cat ~/.cargo/registry/src/**/bevy-0.18.*/Cargo.toml | grep -A 200 "^\[features\]" | head -50
+```
+
+- [ ] **Step 3: Emit GradeAdvanced from judge_system**
+
+`GameEvent::GradeAdvanced(Grade)` already exists in `src/data.rs` but `judge_system` never emits it. Fix that now.
+
+In `src/judge.rs`, change the import and `judge_system` function:
+
+```rust
+// Change import line:
+use crate::data::{GameEvent, Grade, HiScoreEntry, JudgeEvent};
+
+// Change judge_system:
+pub fn judge_system(
+    mut judge: ResMut<Judge>,
+    mut judge_events: MessageReader<JudgeEvent>,
+    mut game_events: MessageWriter<GameEvent>,
+) {
+    for event in judge_events.read() {
+        let before = judge.grade();
+        judge.on_event(event);
+        let after = judge.grade();
+        if after > before {
+            game_events.write(GameEvent::GradeAdvanced(after));
+        }
+    }
+}
+```
+
+`judge.grade()` returns `Grade::of_score(self.score)` which only ever increases, so this correctly fires once per grade threshold crossed.
+
+- [ ] **Step 4: Run tests**
+
+```bash
 cargo test
 ```
 
-- [ ] **Step 5: Commit**
+Expected: all green. The headless test harness registers `MinimalPlugins` and doesn't register `AudioPlugin`, so no audio-related failures.
+
+- [ ] **Step 5: Create src/audio.rs**
+
+```rust
+use bevy::audio::{AudioPlayer, PlaybackSettings};
+use bevy::prelude::*;
+use bevy_pkv::PkvStore;
+use crate::data::{GameEvent, Grade};
+
+#[derive(Resource)]
+pub struct AudioHandles {
+    pub piece_begin_locking: Handle<AudioSource>,
+    pub ready: Handle<AudioSource>,
+    pub single: Handle<AudioSource>,
+    pub double: Handle<AudioSource>,
+    pub triple: Handle<AudioSource>,
+    pub fetris: Handle<AudioSource>,
+    pub game_over: Handle<AudioSource>,
+    // Index 0 = Grade::Nine (worst), 17 = Grade::SNine (best) — matches original audio_player.rs ordering
+    pub grades: Vec<Handle<AudioSource>>,
+}
+
+pub fn setup_audio(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let grade_files = [
+        "audio/grade_9.ogg", "audio/grade_8.ogg", "audio/grade_7.ogg",
+        "audio/grade_6.ogg", "audio/grade_5.ogg", "audio/grade_4.ogg",
+        "audio/grade_3.ogg", "audio/grade_2.ogg", "audio/grade_1.ogg",
+        "audio/grade_s1.ogg", "audio/grade_s2.ogg", "audio/grade_s3.ogg",
+        "audio/grade_s4.ogg", "audio/grade_s5.ogg", "audio/grade_s6.ogg",
+        "audio/grade_s7.ogg", "audio/grade_s8.ogg", "audio/grade_s9.ogg",
+    ];
+    commands.insert_resource(AudioHandles {
+        piece_begin_locking: asset_server.load("audio/piece_begin_locking.wav"),
+        ready: asset_server.load("audio/ready.ogg"),
+        single: asset_server.load("audio/single.ogg"),
+        double: asset_server.load("audio/double.ogg"),
+        triple: asset_server.load("audio/triple.ogg"),
+        fetris: asset_server.load("audio/fetris.ogg"),
+        game_over: asset_server.load("audio/game_over.ogg"),
+        grades: grade_files.iter().map(|f| asset_server.load(*f)).collect(),
+    });
+}
+
+fn grade_handle(handles: &AudioHandles, grade: Grade) -> Handle<AudioSource> {
+    let idx = match grade {
+        Grade::Nine => 0, Grade::Eight => 1, Grade::Seven => 2, Grade::Six => 3,
+        Grade::Five => 4, Grade::Four => 5, Grade::Three => 6, Grade::Two => 7,
+        Grade::One => 8, Grade::SOne => 9, Grade::STwo => 10, Grade::SThree => 11,
+        Grade::SFour => 12, Grade::SFive => 13, Grade::SSix => 14, Grade::SSeven => 15,
+        Grade::SEight => 16, Grade::SNine => 17,
+    };
+    handles.grades[idx].clone()
+}
+
+pub fn audio_event_system(
+    mut commands: Commands,
+    mut events: MessageReader<GameEvent>,
+    handles: Res<AudioHandles>,
+    pkv: Res<PkvStore>,
+) {
+    if pkv.get::<bool>("muted").unwrap_or(false) {
+        return;
+    }
+    for event in events.read() {
+        let handle: Handle<AudioSource> = match event {
+            GameEvent::PieceBeganLocking => handles.piece_begin_locking.clone(),
+            GameEvent::LineClear { count } => match count {
+                1 => handles.single.clone(),
+                2 => handles.double.clone(),
+                3 => handles.triple.clone(),
+                _ => handles.fetris.clone(),
+            },
+            GameEvent::GradeAdvanced(grade) => grade_handle(&handles, *grade),
+            GameEvent::GameEnded => handles.game_over.clone(),
+        };
+        commands.spawn((AudioPlayer::new(handle), PlaybackSettings::DESPAWN));
+    }
+}
+
+pub fn play_ready_sound(
+    mut commands: Commands,
+    handles: Res<AudioHandles>,
+    pkv: Res<PkvStore>,
+) {
+    if !pkv.get::<bool>("muted").unwrap_or(false) {
+        commands.spawn((AudioPlayer::new(handles.ready.clone()), PlaybackSettings::DESPAWN));
+    }
+}
+```
+
+`PlaybackSettings::DESPAWN` auto-despawns the audio entity when playback finishes, preventing entity accumulation.
+
+If `bevy::audio::AudioPlayer` import doesn't compile, try `use bevy::prelude::AudioPlayer;` — bevy re-exports it in prelude.
+
+- [ ] **Step 6: Wire up in main.rs**
+
+Add `mod audio;` to the module declarations.
+
+In `main()`, add:
+
+```rust
+.add_systems(Startup, (setup_camera, audio::setup_audio))
+.add_systems(OnEnter(AppState::Ready), (start_game_on_ready, audio::play_ready_sound))
+.add_systems(
+    Update,
+    audio::audio_event_system.run_if(in_state(AppState::Playing)),
+)
+```
+
+Keep the existing `start_game_on_ready` registration; change it to a tuple to include `play_ready_sound`. The audio event system only needs to run while playing since `GameEvent`s are only emitted in `FixedUpdate` during that state.
+
+- [ ] **Step 7: Build + run + verify audio**
 
 ```bash
-git add src/ 
-git commit -m "refactor: delete audio_player module (no audio in bevy port)"
+cargo run --release
+```
+
+Manual checklist:
+- [ ] Start a game — `ready.ogg` plays during the READY countdown
+- [ ] Piece begins locking — tick sound plays
+- [ ] Clear 1 line — `single.ogg` plays
+- [ ] Clear 2 lines — `double.ogg` plays
+- [ ] Clear 3 lines — `triple.ogg` plays
+- [ ] Clear 4 lines — `fetris.ogg` plays
+- [ ] Grade advance (score crosses a threshold) — corresponding `grade_N.ogg` plays
+- [ ] Game over — `game_over.ogg` plays
+- [ ] Press M to mute — audio stops; subsequent events are silent
+- [ ] Press M again to unmute — sounds resume
+
+If sounds don't play at all: confirm `bevy_audio` feature is in `Cargo.toml` and `DefaultPlugins` is used (not `MinimalPlugins`) in `main()`.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add src/audio.rs src/judge.rs src/main.rs Cargo.toml Cargo.lock
+git commit -m "feat(audio): wire up bevy_audio with event-driven sound system"
 ```
 
 ---
@@ -686,7 +857,7 @@ This builds, then serves at `http://127.0.0.1:8080`. Open it.
 - [ ] Main menu renders correctly
 - [ ] Keyboard input works (arrow keys, hjkl, Space, Enter, Backspace, X, Z, M)
 - [ ] Click into the canvas if needed for keyboard focus
-- [ ] **Audio gate:** the spec notes "the existing menu's first input is the gate." Since we have no audio, this isn't load-bearing — but verify no console errors about AudioContext. If bevy warns about autoplay, that's expected and harmless.
+- [ ] **Audio gate:** the spec notes "the existing menu's first input is the gate." After pressing any key to navigate the menu, start a game and verify sounds play. If bevy warns about autoplay before the first input, that's expected; audio should work after the first keypress.
 - [ ] Start a game; play; clear lines; particles render; score updates; game over
 - [ ] Hi-scores persist across page reloads (open devtools → Application → Local Storage → check the `fetris/fetris/*` keys exist)
 - [ ] Mute (M) persists across reloads
@@ -814,6 +985,7 @@ Replace the existing table at [CLAUDE.md "Source layout"](../../../CLAUDE.md) wi
 | `src/randomizer.rs` | TGM history-based piece bag (Resource) |
 | `src/judge.rs` | TGM scoring; `Judge` is a Resource; consumes `JudgeEvent`s |
 | `src/hiscores.rs` | Per-(mode, rotation) hi-score persistence backed by `bevy_pkv` |
+| `src/audio.rs` | `bevy_audio` event-driven sound system; `AudioHandles` resource; mute via `PkvStore` |
 | `src/systems/` | Game-logic systems running in `FixedUpdate` at 60 Hz: `input`, `gravity`, `lock`, `line_clear`, `spawn`, `judge`, `game_over_check`, `global_input`, `post_game` |
 | `src/render/` | Rendering systems running in `Update`: `board`, `piece`, `particles`, `overlays`, `hud`, `assets` |
 | `src/menu/` | bevy_egui menu screens: `main_screen`, `hi_scores`, `controls`, `state` |
@@ -850,7 +1022,7 @@ Replace with bevy-specific text:
 
 **Hi-scores & config**: stored via `bevy_pkv::PkvStore` (sled native, localStorage on WASM). Per-(GameMode, Kind) slot, top 5 by grade. Storage keys preserved from the macroquad version for backward compatibility with existing user data.
 
-**No audio** in the bevy port. `JudgeEvent`s exist but no audio system consumes them; future audio work would add a system to do so.
+**Audio**: `bevy_audio` (built-in) plays sounds in response to `GameEvent`s (`PieceBeganLocking`, `LineClear`, `GradeAdvanced`, `GameEnded`) and on `OnEnter(AppState::Ready)`. Mute state persists via `PkvStore`. No `AudioPlayer` trait — direct bevy_audio calls in `src/audio.rs`.
 ```
 
 - [ ] **Step 3: Rewrite the WASM section**
@@ -933,7 +1105,7 @@ cargo test
 cargo run --release
 ```
 
-Walk Plan 2 Task 15's checklist again. All items still pass. Plus: hi-scores persist across launches.
+Walk Plan 2 Task 15's checklist again. All items still pass. Plus: hi-scores persist across launches, and all audio cues play correctly (ready sound, lock tick, line clears, grade advances, game over, mute toggle).
 
 - [ ] **Step 2: WASM check**
 
@@ -1018,4 +1190,4 @@ If something failed in production: leave the worktree, fix the issue, push a fol
 
 - [ ] **Step 6: Done.**
 
-The macroquad → bevy migration is complete. Audio remains a known gap; revisit as a future task.
+The macroquad → bevy migration is complete.
