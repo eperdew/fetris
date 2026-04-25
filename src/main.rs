@@ -10,7 +10,7 @@ mod resources;
 mod rotation_system;
 mod snapshot;
 mod start_game;
-mod systems;
+pub(crate) mod systems;
 
 #[cfg(test)]
 mod tests;

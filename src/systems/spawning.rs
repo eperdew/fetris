@@ -1,14 +1,17 @@
-use bevy::prelude::*;
 use crate::components::*;
-use crate::constants::{ARE_DAS_FROZEN_FRAMES, SPAWN_DELAY_NORMAL, gravity_g};
+use crate::constants::{gravity_g, ARE_DAS_FROZEN_FRAMES, SPAWN_DELAY_NORMAL};
 use crate::data::{GameEvent, GameKey, HorizDir, PiecePhase, RotationDirection};
 use crate::randomizer::Randomizer;
 use crate::resources::*;
 use crate::rotation_system::{PieceState, RotationSystem};
+use bevy::prelude::*;
 
 #[allow(clippy::too_many_arguments)]
 pub fn spawning_system(
-    mut piece: Query<(&mut PieceKindComp, &mut PiecePosition, &mut PieceRotation), With<ActivePiece>>,
+    mut piece: Query<
+        (&mut PieceKindComp, &mut PiecePosition, &mut PieceRotation),
+        With<ActivePiece>,
+    >,
     mut phase: ResMut<CurrentPhase>,
     mut next: ResMut<NextPiece>,
     mut progress: ResMut<GameProgress>,
@@ -22,8 +25,12 @@ pub fn spawning_system(
     input: Res<InputState>,
     mut game_events: MessageWriter<GameEvent>,
 ) {
-    if progress.game_over || progress.game_won { return; }
-    let PiecePhase::Spawning { ticks_left } = &mut phase.0 else { return };
+    if progress.game_over || progress.game_won {
+        return;
+    }
+    let PiecePhase::Spawning { ticks_left } = &mut phase.0 else {
+        return;
+    };
 
     if input.0.held.contains(&GameKey::RotateCw) {
         rotation_buffer.0 = Some(RotationDirection::Clockwise);
@@ -35,7 +42,9 @@ pub fn spawning_system(
 
     let tl = *ticks_left;
     if tl == 0 {
-        let Ok((mut k, mut pos, mut rot)) = piece.single_mut() else { return };
+        let Ok((mut k, mut pos, mut rot)) = piece.single_mut() else {
+            return;
+        };
         if can_piece_increment(progress.level) {
             progress.level += 1;
         }
@@ -51,7 +60,12 @@ pub fn spawning_system(
         phase.0 = PiecePhase::Falling;
 
         if let Some(dir) = rotation_buffer.0.take() {
-            let state = PieceState { kind: k.0, rotation: rot.0, col: pos.col, row: pos.row };
+            let state = PieceState {
+                kind: k.0,
+                rotation: rot.0,
+                col: pos.col,
+                row: pos.row,
+            };
             if let Some(new) = rot_sys.0.try_rotate(&state, dir, &board.0) {
                 pos.col = new.col;
                 pos.row = new.row;
@@ -71,16 +85,25 @@ pub fn spawning_system(
             let new_row = pos.row + 1;
             if rot_sys.0.fits(&board.0, k.0, pos.col, new_row, rot.0) {
                 pos.row = new_row;
-            } else { break; }
+            } else {
+                break;
+            }
         }
     } else {
         *ticks_left -= 1;
         if tl <= SPAWN_DELAY_NORMAL - ARE_DAS_FROZEN_FRAMES {
-            let horiz = if input.0.held.contains(&GameKey::Left) { Some(HorizDir::Left) }
-                else if input.0.held.contains(&GameKey::Right) { Some(HorizDir::Right) }
-                else { None };
+            let horiz = if input.0.held.contains(&GameKey::Left) {
+                Some(HorizDir::Left)
+            } else if input.0.held.contains(&GameKey::Right) {
+                Some(HorizDir::Right)
+            } else {
+                None
+            };
             match horiz {
-                None => { das.direction = None; das.counter = 0; }
+                None => {
+                    das.direction = None;
+                    das.counter = 0;
+                }
                 Some(dir) => {
                     if das.direction != Some(dir) {
                         das.direction = Some(dir);
@@ -94,6 +117,6 @@ pub fn spawning_system(
     }
 }
 
-fn can_piece_increment(level: u32) -> bool {
+pub(crate) fn can_piece_increment(level: u32) -> bool {
     level % 100 != 99 && level != 998
 }

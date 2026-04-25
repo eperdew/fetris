@@ -1,13 +1,14 @@
 use crate::app_state::AppState;
 use crate::components::*;
 use crate::data::{
-    BoardGrid, GameKey, GameMode, InputSnapshot, Kind, PieceKind, PiecePhase, BOARD_COLS,
-    BOARD_ROWS,
+    BoardGrid, GameEvent, GameKey, GameMode, InputSnapshot, Kind, PieceKind, PiecePhase,
+    BOARD_COLS, BOARD_ROWS,
 };
 use crate::judge::Judge;
 use crate::resources::*;
 use crate::snapshot::GameSnapshot;
 use crate::start_game::{start_game, StartGameOptions};
+use bevy::ecs::message::Messages;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use std::collections::HashSet;
@@ -198,9 +199,9 @@ pub fn active_abs(app: &mut App) -> Vec<(i32, i32)> {
 
 #[allow(dead_code)]
 pub fn set_active_rot_col(app: &mut App, rot: usize, col: i32) {
-    let mut q = app.world_mut().query_filtered::<
-        (&mut PieceRotation, &mut PiecePosition), With<ActivePiece>,
-    >();
+    let mut q = app
+        .world_mut()
+        .query_filtered::<(&mut PieceRotation, &mut PiecePosition), With<ActivePiece>>();
     let (mut r, mut p) = q.single_mut(app.world_mut()).unwrap();
     r.0 = rot;
     p.col = col;
@@ -217,6 +218,68 @@ pub fn rotation_snap(kind: PieceKind, make: fn(PieceKind) -> App) -> String {
             format!("{}→{}", rot, (rot + 1) % 4),
             board_lines(&mut app, &prev),
         ));
+    }
+    side_by_side(&boards)
+}
+
+/// For each rotation of `kind` at a given position, places an obstacle and tries
+/// CW and CCW rotations, showing before→after in a side-by-side grid.
+#[allow(dead_code)]
+pub fn center_col_snap(
+    kind: PieceKind,
+    start_rot: usize,
+    obstacles: &[(i32, i32)],
+) -> String {
+    let col = 3i32;
+    let row = 8i32;
+
+    let make_setup = || {
+        let mut app = make_app(kind);
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&mut PieceRotation, &mut PiecePosition), With<ActivePiece>>();
+        let (mut r, mut p) = q.single_mut(app.world_mut()).unwrap();
+        r.0 = start_rot;
+        p.col = col;
+        p.row = row;
+        let mut b = board(&mut app);
+        for &(obs_dc, obs_dr) in obstacles {
+            b[(row + obs_dr) as usize][(col + obs_dc) as usize] = Some(PieceKind::O);
+        }
+        set_board(&mut app, b);
+        app
+    };
+
+    let init_cells = active_abs(&mut make_setup());
+
+    let mut cw = make_setup();
+    press(&mut cw, GameKey::RotateCw);
+
+    let mut ccw = make_setup();
+    press(&mut ccw, GameKey::RotateCcw);
+
+    side_by_side(&[
+        ("↻".to_string(), board_lines(&mut cw, &init_cells)),
+        ("↺".to_string(), board_lines(&mut ccw, &init_cells)),
+    ])
+}
+
+/// Shows each step of moving a piece left/right until it can't move further.
+#[allow(dead_code)]
+pub fn movement_snap(kind: PieceKind, key: GameKey) -> String {
+    let mut app = make_app(kind);
+    let mut boards = Vec::new();
+    let mut step = 1;
+    loop {
+        let prev = active_abs(&mut app);
+        reset_das(&mut app);
+        press(&mut app, key);
+        let curr = active_abs(&mut app);
+        if curr == prev {
+            break;
+        }
+        boards.push((format!("{step}"), board_lines(&mut app, &prev)));
+        step += 1;
     }
     side_by_side(&boards)
 }
@@ -294,6 +357,82 @@ pub fn side_by_side(boards: &[(String, Vec<String>)]) -> String {
         .chain(rows)
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Positions a vertical I-piece on the floor with `n` bottom rows pre-filled
+/// (except column 2). Setting phase to Locking{0} means next tick fires lock
+/// and clears n lines.
+pub fn setup_line_clear(app: &mut App, n: usize) {
+    let mut b = board(app);
+    for r in (BOARD_ROWS - n)..BOARD_ROWS {
+        for c in 0..BOARD_COLS {
+            if c != 2 {
+                b[r][c] = Some(PieceKind::O);
+            }
+        }
+    }
+    set_board(app, b);
+    // Set piece kind to I, rotation=1 (vertical), col=0
+    // Vertical I rotation 1 has cells at (col+2, row..row+3)
+    {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<(&mut PieceKindComp, &mut PieceRotation, &mut PiecePosition), With<ActivePiece>>();
+        let (mut k, mut r, mut p) = q.single_mut(app.world_mut()).unwrap();
+        k.0 = PieceKind::I;
+        r.0 = 1; // vertical
+        p.col = 0;
+        p.row = (BOARD_ROWS - 4) as i32;
+    }
+    // Set phase to Locking with 0 ticks_left so next idle(1) fires the lock
+    app.world_mut().resource_mut::<CurrentPhase>().0 = PiecePhase::Locking { ticks_left: 0 };
+}
+
+pub fn set_active_position(app: &mut App, col: i32, row: i32) {
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&mut PiecePosition, With<ActivePiece>>();
+    let mut p = q.single_mut(app.world_mut()).unwrap();
+    p.col = col;
+    p.row = row;
+}
+
+/// Reset DAS state (used in movement_snap to simulate fresh key press each time).
+pub fn reset_das(app: &mut App) {
+    let mut das = app.world_mut().resource_mut::<DasState>();
+    das.direction = None;
+    das.counter = 0;
+}
+
+/// Drop the active piece to the floor by repeatedly trying to move down.
+/// Returns true if at least one drop happened.
+pub fn drop_to_floor(app: &mut App) {
+    loop {
+        let kind = active_kind(app);
+        let pos = active_position(app);
+        let rot = active_rotation(app);
+        let b = board(app);
+        let rs = app.world().resource::<RotationSystemRes>();
+        let fits_below = rs.0.fits(&b, kind, pos.col, pos.row + 1, rot);
+        drop(rs);
+        if fits_below {
+            set_active_position(app, pos.col, pos.row + 1);
+        } else {
+            break;
+        }
+    }
+}
+
+/// Collect all GameEvent::LineClear events from the current update.
+pub fn collect_line_clear_events(app: &App) -> Vec<u32> {
+    app.world()
+        .resource::<Messages<GameEvent>>()
+        .iter_current_update_messages()
+        .filter_map(|e| match e {
+            GameEvent::LineClear { count } => Some(*count),
+            _ => None,
+        })
+        .collect()
 }
 
 /// For each rotation of `kind`, positions the piece flush against the left then
