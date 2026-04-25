@@ -41,8 +41,10 @@ pub fn render_hud(
                     ..default()
                 },
                 TextColor($color),
-                bevy::sprite::Anchor::BOTTOM_LEFT,
-                Transform::from_xyz(x, y, 10.0),
+                // Anchor::TOP_LEFT + Y-scale=-1: camera Y-flip and entity Y-flip cancel
+                // (glyphs render right-side up), and the visual top-left is at (x, y).
+                bevy::sprite::Anchor::TOP_LEFT,
+                Transform::from_xyz(x, y, 10.0).with_scale(Vec3::new(1.0, -1.0, 1.0)),
             ));
         };
     }

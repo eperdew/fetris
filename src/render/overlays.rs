@@ -56,7 +56,7 @@ pub fn spawn_line_clear_overlay(
             },
             TextColor(Color::WHITE),
             bevy::sprite::Anchor::CENTER,
-            Transform::from_xyz(cx, cy, 200.0),
+            Transform::from_xyz(cx, cy, 200.0).with_scale(Vec3::new(1.0, -1.0, 1.0)),
         ));
     }
 }
@@ -101,7 +101,7 @@ pub fn render_state_text(
             },
             TextColor(color),
             bevy::sprite::Anchor::CENTER,
-            Transform::from_xyz(cx, cy + dy, 150.0),
+            Transform::from_xyz(cx, cy + dy, 150.0).with_scale(Vec3::new(1.0, -1.0, 1.0)),
         ));
     };
 
