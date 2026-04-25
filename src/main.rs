@@ -7,6 +7,7 @@ mod components;
 mod constants;
 mod data;
 mod judge;
+mod menu;
 mod randomizer;
 mod render;
 mod resources;
@@ -55,6 +56,7 @@ fn main() {
         }))
         .add_plugins(bevy_egui::EguiPlugin::default())
         .add_plugins(render::RenderPlugin)
+        .add_plugins(menu::MenuPlugin)
         .insert_resource(ClearColor(Color::srgba(0.04, 0.04, 0.07, 1.0)))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .init_state::<AppState>()
