@@ -240,7 +240,7 @@ impl std::fmt::Display for Grade {
 // Events
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, bevy::prelude::Event)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, bevy::prelude::Event, bevy::prelude::Message)]
 pub enum JudgeEvent {
     LockedWithoutClear,
     ClearedLines {
@@ -253,7 +253,7 @@ pub enum JudgeEvent {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, bevy::prelude::Event)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, bevy::prelude::Event, bevy::prelude::Message)]
 pub enum GameEvent {
     LineClear { count: u32 },
     PieceBeganLocking,
