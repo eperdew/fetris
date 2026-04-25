@@ -43,17 +43,15 @@ fn setup_camera(mut commands: Commands) {
 
 fn main() {
     App::new()
-        .add_plugins(
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "fetris".into(),
-                    resolution: WindowResolution::new(560, 780),
-                    resizable: false,
-                    ..default()
-                }),
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "fetris".into(),
+                resolution: WindowResolution::new(560, 780),
+                resizable: false,
                 ..default()
             }),
-        )
+            ..default()
+        }))
         .add_plugins(bevy_egui::EguiPlugin::default())
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .init_state::<AppState>()

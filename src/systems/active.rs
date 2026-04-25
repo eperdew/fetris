@@ -31,7 +31,10 @@ pub fn active_phase_system(
     let Some(start_phase) = start.0 else {
         return;
     };
-    if !matches!(start_phase, PiecePhase::Falling | PiecePhase::Locking { .. }) {
+    if !matches!(
+        start_phase,
+        PiecePhase::Falling | PiecePhase::Locking { .. }
+    ) {
         return;
     }
     if !matches!(phase.0, PiecePhase::Falling | PiecePhase::Locking { .. }) {
