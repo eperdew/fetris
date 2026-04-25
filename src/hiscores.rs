@@ -1,5 +1,5 @@
-use bevy_pkv::PkvStore;
 use crate::data::{GameMode, HiScoreEntry, Kind};
+use bevy_pkv::PkvStore;
 
 const MAX_ENTRIES: usize = 5;
 
@@ -13,7 +13,8 @@ fn storage_key(mode: GameMode, rotation: Kind) -> &'static str {
 }
 
 pub fn load(pkv: &PkvStore, mode: GameMode, rotation: Kind) -> Vec<HiScoreEntry> {
-    pkv.get::<Vec<HiScoreEntry>>(storage_key(mode, rotation)).unwrap_or_default()
+    pkv.get::<Vec<HiScoreEntry>>(storage_key(mode, rotation))
+        .unwrap_or_default()
 }
 
 pub fn save(pkv: &mut PkvStore, mode: GameMode, rotation: Kind, entries: &Vec<HiScoreEntry>) {
