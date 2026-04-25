@@ -1,62 +1,72 @@
 # CLAUDE.md — fetris
 
-Reimplementation of [TGM1](https://tetris.wiki/Tetris_The_Grand_Master) in Rust using [macroquad](https://macroquad.rs/). Builds for native and `wasm32-unknown-unknown` (deployed to GitHub Pages on push to `master`).
+Reimplementation of [TGM1](https://tetris.wiki/Tetris_The_Grand_Master) in Rust using [Bevy](https://bevyengine.org/). Builds for native and WASM (deployed to GitHub Pages on push to `master`).
 
 ## Source layout
 
 | File | Purpose |
 |---|---|
-| `src/main.rs` | Entry point, `AppState` machine, input mapping, frame loop |
-| `src/types.rs` | Shared data types: `Board`, `Piece`, `PiecePhase`, `GameKey`, `InputState`, `Kind`, `GameMode`, `Grade`, `GameSnapshot`, `GameEvent`, `JudgeEvent`, `Menu*` types |
-| `src/game.rs` | Core game logic: piece phases, gravity, locking, line clearing, randomizer, IRS |
-| `src/rotation_system.rs` | `RotationSystem` trait + `Ars` and `Srs` impls (selectable from menu) |
-| `src/judge.rs` | TGM scoring + best-grade tracking; consumes `JudgeEvent`s from `Game` |
-| `src/menu.rs` | Menu state machine: main / hi-scores / controls screens |
-| `src/hiscores.rs` | Per-(mode, rotation) hi-score persistence via `Storage` |
-| `src/storage.rs` | Key-value storage abstraction; native (file-backed) and WASM (`localStorage` via JS bindings) |
-| `src/audio_player.rs` | `AudioPlayer` trait + `macroquad::Macroquad` and (test-only) `null::Null` impls |
-| `src/renderer.rs` | All rendering: menu, board, particles, line-clear overlays, shaders |
+| `src/main.rs` | App setup, plugin registration, `States` declaration, top-level systems |
+| `src/data.rs` | Pure data types: `PieceKind`, `BoardGrid`, `PiecePhase`, `GameKey`, `Kind`, `GameMode`, `Grade`, `GameEvent`, `JudgeEvent`, `HiScoreEntry`, `GameConfig`, `MenuScreen` |
+| `src/components.rs` | ECS components on the active-piece entity: `ActivePiece`, `PieceKindComp`, `PiecePosition`, `PieceRotation` |
+| `src/resources.rs` | Resources holding game state: `Board`, `CurrentPhase`, `NextPiece`, `GameProgress`, `DasState`, `RotationBuffer`, `PendingCompaction`, `DropTracking`, `InputState`, `RotationSystemRes`, `GameModeRes`, `RotationKind` |
 | `src/constants.rs` | Tuning constants: gravity table, delays, particle/animation timings |
-| `src/tests.rs` | All tests (insta inline snapshots only) |
+| `src/rotation_system.rs` | `RotationSystem` trait + `Ars` and `Srs` impls; stored as `RotationSystemRes(Box<dyn RotationSystem>)` |
+| `src/randomizer.rs` | TGM history-based piece bag (Resource) |
+| `src/judge.rs` | TGM scoring; `Judge` is a Resource; consumes `JudgeEvent`s, emits `GameEvent::GradeAdvanced` |
+| `src/hiscores.rs` | Per-(mode, rotation) hi-score persistence backed by `bevy_pkv` |
+| `src/audio.rs` | `bevy_audio` event-driven sound system; `AudioHandles` resource; mute via `PkvStore` |
+| `src/systems/` | Game-logic systems running in `FixedUpdate` at 60 Hz: `input`, `gravity`, `lock`, `line_clear`, `spawn`, `judge`, `game_over_check`, `global_input`, `post_game` |
+| `src/render/` | Rendering systems running in `Update`: `board`, `piece`, `particles`, `overlays`, `hud`, `assets` |
+| `src/menu/` | bevy_egui menu screens: `main_screen`, `hi_scores`, `controls`, `state` |
+| `src/tests/` | Headless tests using `MinimalPlugins` + `GameSnapshot::from_world`; `insta` inline snapshots only |
 
 ## Architecture
 
-**AppState machine** (in `main.rs`): `Menu(Menu)` → `Ready { game, ticks_left }` → `Playing(Game)`. Escape exits from any state. From the post-game-over screen, Space returns to the menu.
+**Bevy `App`** with `DefaultPlugins`, `bevy_egui::EguiPlugin`, and game-logic plugins. Game state lives in resources (`Board`, `Judge`, `Randomizer`, `InputState`, `GameProgress`, `Box<dyn RotationSystem>`) plus an active-piece *entity* with `PieceKindComp` / `PiecePosition` / `PieceRotation` / `PiecePhase` components.
 
-**Tick model**: game logic runs at a fixed 60 ticks/second, decoupled from render rate. The main loop accumulates frame time and calls `game.tick(...)` zero or more times per frame. All game-state delays (gravity, lock, line clear, ARE) are measured in ticks. `Renderer` animation timings are also tick-driven.
+**`AppState` machine** uses bevy `States`: `Menu` → `Ready` → `Playing` → `GameOver` → `Menu`. Systems are gated with `run_if(in_state(...))`.
 
-**Piece phases** (`PiecePhase` in `types.rs`): the active piece is always in one of `Falling`, `Locking { ticks_left }`, `LineClearDelay { ticks_left }`, or `Spawning { ticks_left }`. Phase transitions drive all timing logic.
+**Schedules:**
+- `FixedUpdate` at 60 Hz — all game logic.
+- `Update` — rendering, input sampling, particle motion, menu UI, audio.
 
-**IRS (Initial Rotation System)**: holding a rotation key during the previous piece's spawn delay (or the pre-game Ready countdown) causes the next piece to spawn pre-rotated. Applied in `Game::apply_irs()`.
+**Tick model:** `Time::<Fixed>::from_hz(60.0)` keeps game logic decoupled from frame rate; bevy runs `FixedUpdate` zero or more times per frame to catch up.
 
-**Gravity**: fractional G/256 system — gravity accumulates per tick from `GRAVITY_TABLE` in `constants.rs` (TGM1 values).
+**Piece phases** (`PiecePhase` component): `Falling`, `Locking { ticks_left }`, `LineClearDelay { ticks_left }`, `Spawning { ticks_left }`. Phase transitions drive timing logic.
 
-**Game / Renderer separation**: `Game` produces a `GameSnapshot` (immutable view) plus a drained event stream each tick. `Renderer` owns visual-only animation state (particles, line-clear overlays) driven by those events. Visual state never feeds back into game logic.
+**IRS (Initial Rotation System)**: holding rotation keys during the previous piece's spawn delay (or pre-game Ready countdown) causes the next piece to spawn pre-rotated. Folded into the `spawn` system.
 
-**Rotation systems**: `RotationSystem` trait with `Ars` and `Srs` impls. `Kind::create() -> Box<dyn RotationSystem>` is called when a game starts. Hi-scores are tracked separately per rotation system.
+**Gravity**: fractional G/256 system — gravity accumulates per tick from `MASTER_GRAVITY_TABLE` in `constants.rs` (TGM1 values).
 
-**Scoring**: `Judge` consumes `JudgeEvent`s from `Game` and tracks score, combo, and best `Grade` reached. The TGM scoring formula lives in `judge.rs::on_event`.
+**Game / Renderer separation**: render systems read snapshot data from the `Board` resource and active-piece entity. They never write back. Particles are entities with `Particle` + `Sprite` + `Transform`; spawned by an `EventReader<GameEvent>` system handling `GameEvent::LineClear`, ticked in `FixedUpdate`.
 
-**Hi-scores**: stored per `(GameMode, Kind)` combination via `Storage`, top 5 by grade (ties broken by lower tick count).
+**Rotation systems**: `RotationSystem` trait (`Send + Sync`) with `Ars` and `Srs` impls, stored as `Resource<Box<dyn RotationSystem>>`. Hi-scores tracked separately per rotation system.
 
-**Storage**: key-value abstraction with two cfg-split implementations — native uses a JSON file (`local.data`), WASM calls extern `storage_get` / `storage_set` backed by `localStorage` (see `web/fetris-storage.js`).
+**Scoring**: `Judge` resource consumes `JudgeEvent`s emitted by game-logic systems and tracks score, combo, and best `Grade` reached.
 
-**Audio**: `AudioPlayer` trait wraps macroquad's audio. `Game` holds `Arc<dyn AudioPlayer>` and triggers sounds on state transitions. Tests use `audio_player::null::Null`.
+**Hi-scores & config**: stored via `bevy_pkv::PkvStore` (sled native, localStorage on WASM). Per-(GameMode, Kind) slot, top 5 by grade. Storage keys preserved from the macroquad version for backward compatibility with existing user data.
+
+**Audio**: `bevy_audio` (built-in) plays sounds in response to `GameEvent`s (`PieceBeganLocking`, `LineClear`, `GradeAdvanced`, `GameEnded`) and on `OnEnter(AppState::Ready)`. Mute state persists via `PkvStore`. Direct bevy_audio calls in `src/audio.rs`; no `AudioPlayer` trait.
 
 ## WASM target
 
-Build:
+Build via trunk:
+
 ```sh
-cargo build --target wasm32-unknown-unknown --release
+trunk build --release
 ```
 
-Output is `target/wasm32-unknown-unknown/release/fetris.wasm`. The web shell lives in `web/`: `index.html` loads `mq_js_bundle.js` (macroquad's runtime), then `fetris-storage.js` (registers the `storage_get` / `storage_set` extern functions backed by `localStorage`), then loads `fetris.wasm`.
+Output is in `dist/` — `index.html`, `fetris-<hash>.js`, `fetris-<hash>.wasm`, `assets/`. The `wasm-release` cargo profile (in `Cargo.toml`) compiles with `opt-level = "z"`, `lto = true`, `codegen-units = 1`. Trunk runs `wasm-opt -Oz` post-build via the `data-wasm-opt` attribute in `web/index.html`.
 
-`.github/workflows/deploy.yml` builds and deploys to GitHub Pages on every push to `master`.
+For local iteration: `trunk serve --release` builds and serves at `http://127.0.0.1:8080`.
+
+`.github/workflows/deploy.yml` installs trunk + wasm-bindgen-cli + binaryen, runs `trunk build --release`, deploys `dist/` to GitHub Pages on every push to `master`.
 
 **Gotchas**:
-- Don't add `getrandom` or `wasm-bindgen` — macroquad's built-in `rand` works on all targets. See `.cargo/config.toml`.
-- Don't add `console_error_panic_hook` — incompatible with macroquad.
+- `wasm-bindgen-cli` must match the `wasm-bindgen` crate version in `Cargo.lock` exactly. Mismatches cause runtime errors. The CI workflow auto-detects and installs the right version.
+- `bevy_pkv` on WASM uses `localStorage`; data is per-origin and survives page reloads but not domain changes.
+- Bevy + wasm-opt-z produces a ~10MB binary. Acceptable trade-off for small fetris.
 
 ## Build & test
 
@@ -64,7 +74,8 @@ Output is `target/wasm32-unknown-unknown/release/fetris.wasm`. The web shell liv
 cargo build
 cargo test
 cargo run --release
-cargo build --target wasm32-unknown-unknown --release
+trunk build --release       # WASM build
+trunk serve --release       # WASM dev server at localhost:8080
 ```
 
 ## Conventions
@@ -73,6 +84,7 @@ cargo build --target wasm32-unknown-unknown --release
 - Tests use `insta` for snapshot assertions — always inline (`@"..."`), never external `.snap` files. To accept new snapshots: `cargo insta accept` (never edit them by hand).
 - New feature work goes on a branch under `.worktrees/` (git-ignored)
 - Specs live in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`
+- Bevy and bevy_egui versions are pinned in `Cargo.toml`. Don't bump them as part of unrelated changes — bevy ecosystem versioning churns and a casual upgrade can break a lot of code.
 
 ## Maintaining this file
 
@@ -81,7 +93,9 @@ This file holds *non-obvious-from-code* facts and *cross-file invariants*. Updat
 **Update when changing**:
 - The source-layout file map (adding/removing/renaming files)
 - The `AppState` machine, piece phases, or tick model
-- A trait shape (`RotationSystem`, `AudioPlayer`, `Storage`)
+- A trait shape (`RotationSystem`)
+- Bevy plugin set, new resources/components added at the app-wide level
+- Storage backend (e.g., switching away from bevy_pkv)
 - Build, test, or deploy commands, or adding a new target
 - Project-wide conventions
 
