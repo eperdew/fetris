@@ -2,8 +2,8 @@ use crate::app_state::AppState;
 use crate::data::{GameEvent, BOARD_COLS, BOARD_ROWS};
 use crate::render::assets::GameAssets;
 use crate::render::{BOARD_X, BOARD_Y, CELL, OVERLAY_RENDER_LAYER};
-use bevy::prelude::*;
 use bevy::camera::visibility::RenderLayers;
+use bevy::prelude::*;
 
 const OVERLAY_LIFETIME: u32 = 45;
 

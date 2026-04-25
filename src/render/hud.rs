@@ -52,7 +52,7 @@ pub fn render_hud(
     push!("LEVEL".to_string(), FONT_SM, dim);
     y += LH;
     push!(format!("{:03}", progress.level), FONT_LG, Color::WHITE);
-    y += 6.0;
+    y += FONT_LG;  // advance past level number text
     commands.spawn((
         HudNode,
         Sprite {
@@ -63,7 +63,7 @@ pub fn render_hud(
         bevy::sprite::Anchor::BOTTOM_LEFT,
         Transform::from_xyz(x, y, 10.0),
     ));
-    y += 24.0;
+    y += 4.0;
     push!(
         format!("{}", next_level_barrier(progress.level)),
         FONT_LG,

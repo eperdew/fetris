@@ -3,6 +3,11 @@ use crate::menu::state::{MenuScreen, MenuState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 
+const COL_RANK: f32 = 80.0;
+const COL_GRADE: f32 = 140.0;
+const COL_TIME: f32 = 160.0;
+const ROW_H: f32 = 36.0;
+
 pub fn hi_scores_system(
     mut contexts: EguiContexts,
     mut menu: ResMut<MenuState>,
@@ -39,70 +44,69 @@ pub fn hi_scores_system(
                         .color(egui::Color32::WHITE)
                         .size(26.0),
                 );
-                ui.add_space(40.0);
-                egui::Grid::new("hi_scores_grid")
-                    .num_columns(3)
-                    .spacing([60.0, 12.0])
-                    .show(ui, |ui| {
-                        ui.label(
-                            egui::RichText::new("#")
-                                .color(egui::Color32::GRAY)
-                                .size(15.0),
-                        );
-                        ui.label(
-                            egui::RichText::new("GRADE")
-                                .color(egui::Color32::GRAY)
-                                .size(15.0),
-                        );
-                        ui.label(
-                            egui::RichText::new("TIME")
-                                .color(egui::Color32::GRAY)
-                                .size(15.0),
-                        );
-                        ui.end_row();
-                        for i in 0..5 {
-                            let color = if i == 0 {
-                                egui::Color32::WHITE
-                            } else {
-                                egui::Color32::LIGHT_GRAY
-                            };
-                            ui.label(
-                                egui::RichText::new(format!("{}", i + 1))
-                                    .color(color)
-                                    .size(20.0),
-                            );
-                            if let Some(e) = entries.get(i) {
-                                ui.label(
-                                    egui::RichText::new(format!("{}", e.grade))
-                                        .color(color)
-                                        .size(20.0),
-                                );
-                                ui.label(
-                                    egui::RichText::new(crate::render::hud::format_time(e.ticks))
-                                        .color(color)
-                                        .size(20.0),
-                                );
-                            } else {
-                                ui.label(
-                                    egui::RichText::new("---")
-                                        .color(egui::Color32::DARK_GRAY)
-                                        .size(20.0),
-                                );
-                                ui.label(
-                                    egui::RichText::new("---")
-                                        .color(egui::Color32::DARK_GRAY)
-                                        .size(20.0),
-                                );
-                            }
-                            ui.end_row();
+                ui.add_space(20.0);
+
+                let gray = egui::Color32::GRAY;
+                let dark = egui::Color32::DARK_GRAY;
+
+                // Header row
+                ui.horizontal(|ui| {
+                    col(ui, COL_RANK, |ui| {
+                        ui.label(egui::RichText::new("#").color(gray).size(15.0));
+                    });
+                    col(ui, COL_GRADE, |ui| {
+                        ui.label(egui::RichText::new("GRADE").color(gray).size(15.0));
+                    });
+                    col(ui, COL_TIME, |ui| {
+                        ui.label(egui::RichText::new("TIME").color(gray).size(15.0));
+                    });
+                });
+                ui.add(egui::Separator::default().horizontal().spacing(8.0));
+                ui.add_space(4.0);
+
+                for i in 0..5 {
+                    let color = if i == 0 {
+                        egui::Color32::WHITE
+                    } else {
+                        egui::Color32::LIGHT_GRAY
+                    };
+                    ui.horizontal(|ui| {
+                        col(ui, COL_RANK, |ui| {
+                            ui.label(egui::RichText::new(format!("{}", i + 1)).color(color).size(20.0));
+                        });
+                        if let Some(e) = entries.get(i) {
+                            col(ui, COL_GRADE, |ui| {
+                                ui.label(egui::RichText::new(format!("{}", e.grade)).color(color).size(20.0));
+                            });
+                            col(ui, COL_TIME, |ui| {
+                                ui.label(egui::RichText::new(crate::render::hud::format_time(e.ticks)).color(color).size(20.0));
+                            });
+                        } else {
+                            col(ui, COL_GRADE, |ui| {
+                                ui.label(egui::RichText::new("---").color(dark).size(20.0));
+                            });
+                            col(ui, COL_TIME, |ui| {
+                                ui.label(egui::RichText::new("---").color(dark).size(20.0));
+                            });
                         }
                     });
-                ui.add_space(40.0);
+                    ui.add_space(ROW_H - 28.0);
+                }
+
+                ui.add_space(20.0);
                 ui.label(
-                    egui::RichText::new("BKSP to go back")
-                        .color(egui::Color32::GRAY)
+                    egui::RichText::new("← → to switch tab  •  BKSP to go back")
+                        .color(dark)
                         .size(14.0),
                 );
             });
         });
+}
+
+fn col(ui: &mut egui::Ui, width: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::Vec2::new(width, 28.0),
+        egui::Layout::top_down(egui::Align::Center),
+        add_contents,
+    );
 }
