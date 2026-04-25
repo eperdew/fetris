@@ -29,6 +29,50 @@ use crate::systems::spawning::spawning_system;
 use crate::systems::tick::tick_counter;
 use app_state::AppState;
 
+fn reset_game_on_enter_menu(
+    mut commands: Commands,
+    mut board: ResMut<crate::resources::Board>,
+    mut judge: ResMut<crate::judge::Judge>,
+    mut progress: ResMut<crate::resources::GameProgress>,
+    mut das: ResMut<crate::resources::DasState>,
+    mut rot_buf: ResMut<crate::resources::RotationBuffer>,
+    mut pending: ResMut<crate::resources::PendingCompaction>,
+    mut drop_tracking: ResMut<crate::resources::DropTracking>,
+    mut tick_start: ResMut<crate::resources::TickStartPhase>,
+    active: Query<Entity, With<crate::components::ActivePiece>>,
+    particles: Query<Entity, With<crate::render::particles::Particle>>,
+) {
+    *board = Default::default();
+    *judge = Default::default();
+    *progress = Default::default();
+    *das = Default::default();
+    *rot_buf = Default::default();
+    *pending = Default::default();
+    *drop_tracking = Default::default();
+    *tick_start = Default::default();
+    for e in &active {
+        commands.entity(e).despawn();
+    }
+    for e in &particles {
+        commands.entity(e).despawn();
+    }
+}
+
+fn start_game_on_ready(world: &mut World) {
+    let config = {
+        let cfg = world.resource::<crate::stub_storage::GameConfigRes>();
+        (cfg.game_mode, cfg.rotation)
+    };
+    crate::start_game::start_game(
+        world,
+        crate::start_game::StartGameOptions {
+            mode: config.0,
+            rotation: config.1,
+            seed: None,
+        },
+    );
+}
+
 fn setup_camera(mut commands: Commands) {
     let mut projection = OrthographicProjection::default_2d();
     projection.scaling_mode = ScalingMode::Fixed {
@@ -78,7 +122,10 @@ fn main() {
         .init_resource::<stub_storage::MutedRes>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
         .add_systems(Startup, setup_camera)
+        .add_systems(OnEnter(AppState::Ready), start_game_on_ready)
+        .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
         .add_systems(Update, systems::global_input::handle_global_input)
+        .add_systems(Update, systems::post_game::return_to_menu_on_space)
         .add_systems(
             FixedUpdate,
             (
