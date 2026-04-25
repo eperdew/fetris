@@ -23,7 +23,11 @@ fn main() {
             (
                 tick_counter,
                 crate::systems::active::active_phase_system,
-            ).chain().run_if(in_state(AppState::Playing)),
+                crate::systems::line_clear_delay::line_clear_delay_system,
+                crate::systems::spawning::spawning_system,
+            )
+                .chain()
+                .run_if(in_state(AppState::Playing)),
         )
         .run();
 }
