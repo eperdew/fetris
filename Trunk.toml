@@ -1,5 +1,5 @@
 [build]
-target = "web/index.html"
+target = "index.html"
 dist = "dist"
 release = true
 cargo_profile = "wasm-release"

@@ -52,7 +52,7 @@ pub fn render_hud(
     push!("LEVEL".to_string(), FONT_SM, dim);
     y += LH;
     push!(format!("{:03}", progress.level), FONT_LG, Color::WHITE);
-    y += FONT_LG;  // advance past level number text
+    y += FONT_LG; // advance past level number text
     commands.spawn((
         HudNode,
         Sprite {

@@ -148,7 +148,10 @@ fn main() {
         .init_resource::<Judge>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
         .add_systems(Startup, (setup_camera, init_menu_state, audio::setup_audio))
-        .add_systems(OnEnter(AppState::Ready), (start_game_on_ready, audio::play_ready_sound))
+        .add_systems(
+            OnEnter(AppState::Ready),
+            (start_game_on_ready, audio::play_ready_sound),
+        )
         .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
         .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)
         .add_systems(Update, systems::global_input::handle_global_input)

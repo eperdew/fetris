@@ -46,10 +46,7 @@ pub fn setup_audio(mut commands: Commands, asset_server: Res<AssetServer>) {
         triple: asset_server.load("audio/triple.ogg"),
         fetris: asset_server.load("audio/fetris.ogg"),
         game_over: asset_server.load("audio/game_over.ogg"),
-        grades: grade_files
-            .iter()
-            .map(|f| asset_server.load(*f))
-            .collect(),
+        grades: grade_files.iter().map(|f| asset_server.load(*f)).collect(),
     });
 }
 
@@ -102,12 +99,11 @@ pub fn audio_event_system(
     }
 }
 
-pub fn play_ready_sound(
-    mut commands: Commands,
-    handles: Res<AudioHandles>,
-    pkv: Res<PkvStore>,
-) {
+pub fn play_ready_sound(mut commands: Commands, handles: Res<AudioHandles>, pkv: Res<PkvStore>) {
     if !pkv.get::<bool>("muted").unwrap_or(false) {
-        commands.spawn((AudioPlayer::new(handles.ready.clone()), PlaybackSettings::DESPAWN));
+        commands.spawn((
+            AudioPlayer::new(handles.ready.clone()),
+            PlaybackSettings::DESPAWN,
+        ));
     }
 }

@@ -146,10 +146,13 @@ pub fn main_menu_system(
         });
 
     if start_game {
-        let _ = pkv.set("game_config", &crate::data::GameConfig {
-            game_mode: menu.game_mode,
-            rotation: menu.rotation,
-        });
+        let _ = pkv.set(
+            "game_config",
+            &crate::data::GameConfig {
+                game_mode: menu.game_mode,
+                rotation: menu.rotation,
+            },
+        );
         next_state.set(crate::app_state::AppState::Ready);
     }
 }
