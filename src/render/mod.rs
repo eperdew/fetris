@@ -36,7 +36,12 @@ impl Plugin for RenderPlugin {
                     .or(in_state(AppState::Ready)),
             ),
         );
-        // Tasks 5-6 add Update systems here.
+        app.add_systems(
+            Update,
+            (piece::render_active_piece, piece::render_next_preview)
+                .run_if(in_state(AppState::Playing).or(in_state(AppState::GameOver))),
+        );
+        // Task 6 adds HUD system here.
     }
 }
 
