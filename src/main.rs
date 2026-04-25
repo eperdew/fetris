@@ -1,4 +1,6 @@
+use bevy::camera::ScalingMode;
 use bevy::prelude::*;
+use bevy::window::{WindowPlugin, WindowResolution};
 
 mod app_state;
 mod components;
@@ -10,6 +12,7 @@ mod resources;
 mod rotation_system;
 mod snapshot;
 mod start_game;
+mod stub_storage;
 pub(crate) mod systems;
 
 #[cfg(test)]
@@ -24,9 +27,34 @@ use crate::systems::spawning::spawning_system;
 use crate::systems::tick::tick_counter;
 use app_state::AppState;
 
+fn setup_camera(mut commands: Commands) {
+    let mut projection = OrthographicProjection::default_2d();
+    projection.scaling_mode = ScalingMode::Fixed {
+        width: 560.0,
+        height: 780.0,
+    };
+    projection.viewport_origin = Vec2::new(0.0, 1.0); // top-left origin
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(projection),
+        Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)),
+    ));
+}
+
 fn main() {
     App::new()
-        .add_plugins(MinimalPlugins)
+        .add_plugins(
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "fetris".into(),
+                    resolution: WindowResolution::new(560, 780),
+                    resizable: false,
+                    ..default()
+                }),
+                ..default()
+            }),
+        )
+        .add_plugins(bevy_egui::EguiPlugin::default())
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .init_state::<AppState>()
         .add_message::<JudgeEvent>()
@@ -42,7 +70,11 @@ fn main() {
         .init_resource::<crate::resources::TickStartPhase>()
         .init_resource::<crate::randomizer::Randomizer>()
         .init_resource::<Judge>()
+        .init_resource::<stub_storage::GameConfigRes>()
+        .init_resource::<stub_storage::HiScoresRes>()
+        .init_resource::<stub_storage::MutedRes>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
+        .add_systems(Startup, setup_camera)
         .add_systems(
             FixedUpdate,
             (

@@ -11,6 +11,7 @@ use crate::start_game::{start_game, StartGameOptions};
 use bevy::ecs::message::Messages;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
+use bevy::time::TimeUpdateStrategy;
 use std::collections::HashSet;
 
 pub fn headless_app() -> App {
@@ -21,6 +22,12 @@ pub fn headless_app() -> App {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, StatesPlugin))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
+        // Prevent time_system from adding real wall-clock delta to Time<Fixed>
+        // on top of the manually-accumulated overstep in tick_with.  Without
+        // this, heavy parallel test execution causes double FixedUpdate steps.
+        .insert_resource(TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::ZERO,
+        ))
         .init_state::<AppState>()
         .add_message::<JudgeEvent>() // 0.18 API
         .add_message::<GameEvent>() // 0.18 API
