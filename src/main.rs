@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+mod app_state;
 mod components;
 mod constants;
 mod data;
@@ -8,13 +9,11 @@ mod randomizer;
 mod resources;
 mod rotation_system;
 
+use app_state::AppState;
+
 fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
-        .add_systems(Startup, hello_world)
+        .init_state::<AppState>()
         .run();
-}
-
-fn hello_world() {
-    println!("fetris bevy scaffold");
 }
