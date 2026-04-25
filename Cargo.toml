@@ -14,3 +14,9 @@ serde_json = "1"
 
 [dev-dependencies]
 insta = "1"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1

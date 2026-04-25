@@ -1,18 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>fetris</title>
+  <link data-trunk rel="rust" data-bin="fetris" data-wasm-opt="z" />
+  <link data-trunk rel="copy-dir" href="../assets" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    html, body { margin: 0; padding: 0; background: #0a0a12; height: 100%; overflow: hidden; }
+    body { display: flex; align-items: center; justify-content: center; }
     canvas { display: block; }
   </style>
 </head>
 <body>
-  <canvas id="glcanvas" tabindex="1" width="560" height="780"></canvas>
-  <script src="mq_js_bundle.js"></script>
-  <script src="fetris-storage.js"></script>
-  <script>load("fetris.wasm");</script>
 </body>
 </html>

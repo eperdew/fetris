@@ -3,3 +3,4 @@
 /local.data
 **/.DS_Store
 /web/fetris.wasm
+/dist
