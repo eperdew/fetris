@@ -1,7 +1,7 @@
+use crate::menu::main_screen::read_input;
+use crate::menu::state::{MenuScreen, MenuState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
-use crate::menu::state::{MenuScreen, MenuState};
-use crate::menu::main_screen::read_input;
 
 pub fn hi_scores_system(
     mut contexts: EguiContexts,
@@ -78,11 +78,9 @@ pub fn hi_scores_system(
                                         .size(20.0),
                                 );
                                 ui.label(
-                                    egui::RichText::new(
-                                        crate::render::hud::format_time(e.ticks),
-                                    )
-                                    .color(color)
-                                    .size(20.0),
+                                    egui::RichText::new(crate::render::hud::format_time(e.ticks))
+                                        .color(color)
+                                        .size(20.0),
                                 );
                             } else {
                                 ui.label(

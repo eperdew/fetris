@@ -1,5 +1,6 @@
 use bevy::camera::ScalingMode;
 use bevy::prelude::*;
+use bevy::camera::visibility::RenderLayers;
 use bevy::window::{WindowPlugin, WindowResolution};
 use bevy_pkv::PkvStore;
 
@@ -40,8 +41,16 @@ fn reset_game_on_enter_menu(
     mut pending: ResMut<crate::resources::PendingCompaction>,
     mut drop_tracking: ResMut<crate::resources::DropTracking>,
     mut tick_start: ResMut<crate::resources::TickStartPhase>,
-    active: Query<Entity, With<crate::components::ActivePiece>>,
-    particles: Query<Entity, With<crate::render::particles::Particle>>,
+    render_entities: Query<Entity, Or<(
+        With<crate::components::ActivePiece>,
+        With<crate::render::particles::Particle>,
+        With<crate::render::board::BoardSprite>,
+        With<crate::render::piece::PieceSprite>,
+        With<crate::render::piece::NextPreviewSprite>,
+        With<crate::render::hud::HudNode>,
+        With<crate::render::overlays::StateText>,
+        With<crate::render::overlays::LineClearOverlay>,
+    )>>,
 ) {
     *board = Default::default();
     *judge = Default::default();
@@ -51,10 +60,7 @@ fn reset_game_on_enter_menu(
     *pending = Default::default();
     *drop_tracking = Default::default();
     *tick_start = Default::default();
-    for e in &active {
-        commands.entity(e).despawn();
-    }
-    for e in &particles {
+    for e in &render_entities {
         commands.entity(e).despawn();
     }
 }
@@ -85,6 +91,7 @@ fn setup_camera(mut commands: Commands) {
         Camera2d,
         Projection::Orthographic(projection),
         Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)),
+        RenderLayers::layer(0),
     ));
 }
 

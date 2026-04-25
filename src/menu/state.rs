@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::data::{GameMode, Kind};
+use bevy::prelude::*;
 
 #[derive(Resource)]
 pub struct MenuState {

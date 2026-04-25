@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use crate::app_state::AppState;
 use crate::menu::state::{MenuScreen, MenuState};
+use bevy::prelude::*;
 
 pub fn handle_global_input(
     keys: Res<ButtonInput<KeyCode>>,

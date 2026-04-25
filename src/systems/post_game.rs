@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::app_state::AppState;
+use bevy::prelude::*;
 
 pub fn return_to_menu_on_space(
     keys: Res<ButtonInput<KeyCode>>,

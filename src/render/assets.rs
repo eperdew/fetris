@@ -23,8 +23,15 @@ fn make_cell_image() -> Image {
     let mut pixels = vec![255u8; (SIZE * SIZE * 4) as usize];
     for y in 0..SIZE {
         for x in 0..SIZE {
-            let fy = y as f32 / (SIZE - 1) as f32;
-            let raw = if x == 0 || y == 0 { 1.0 } else { 1.0 - 0.4 * fy };
+            // Camera Y-flip: y=0 in image appears at visual bottom; y=SIZE-1 at visual top.
+            // Bright highlight should be at visual top-left, so use the flipped coordinate.
+            let y_flipped = SIZE - 1 - y;
+            let fy = y_flipped as f32 / (SIZE - 1) as f32;
+            let raw = if x == 0 || y_flipped == SIZE - 1 {
+                1.0
+            } else {
+                1.0 - 0.4 * fy
+            };
             let quantized = (raw * 16.0).floor() / 16.0;
             let v = (quantized * 255.0) as u8;
             let i = ((y * SIZE + x) * 4) as usize;
@@ -34,7 +41,11 @@ fn make_cell_image() -> Image {
         }
     }
     Image::new(
-        Extent3d { width: SIZE, height: SIZE, depth_or_array_layers: 1 },
+        Extent3d {
+            width: SIZE,
+            height: SIZE,
+            depth_or_array_layers: 1,
+        },
         TextureDimension::D2,
         pixels,
         TextureFormat::Rgba8UnormSrgb,

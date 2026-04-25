@@ -1,10 +1,10 @@
+use crate::constants::{PARTICLE_BASE_LIFETIME, PARTICLE_BASE_SPEED, PARTICLE_GRAVITY};
+use crate::data::{GameEvent, BOARD_COLS};
+use crate::render::assets::GameAssets;
+use crate::render::{piece_color, BOARD_X, BOARD_Y, CELL, INSET};
+use crate::resources::{Board, PendingCompaction};
 use bevy::prelude::*;
 use rand::Rng;
-use crate::constants::{PARTICLE_BASE_LIFETIME, PARTICLE_BASE_SPEED, PARTICLE_GRAVITY};
-use crate::render::{BOARD_X, BOARD_Y, CELL, INSET, piece_color};
-use crate::render::assets::GameAssets;
-use crate::data::{BOARD_COLS, GameEvent};
-use crate::resources::{Board, PendingCompaction};
 
 #[derive(Component)]
 pub struct Particle {
@@ -24,7 +24,9 @@ pub fn spawn_particles_on_line_clear(
 ) {
     let mut rng = rand::thread_rng();
     for ev in events.read() {
-        let GameEvent::LineClear { count } = *ev else { continue; };
+        let GameEvent::LineClear { count } = *ev else {
+            continue;
+        };
         let rows: Vec<usize> = pending.0.clone();
         let particles_per_cell: u32 = if count >= 4 { 3 } else { 1 };
         let speed_scale = match count {
@@ -36,7 +38,9 @@ pub fn spawn_particles_on_line_clear(
 
         for &r in &rows {
             for c in 0..BOARD_COLS {
-                let Some(kind) = board.0[r][c] else { continue; };
+                let Some(kind) = board.0[r][c] else {
+                    continue;
+                };
                 for _ in 0..particles_per_cell {
                     let dist = c as f32 - (BOARD_COLS as f32 - 1.0) / 2.0;
                     let base_angle = dist.atan2(-1.5_f32);

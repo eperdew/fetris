@@ -1,7 +1,7 @@
+use crate::data::{GameMode, Kind};
+use crate::menu::state::{MenuScreen, MenuState};
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
-use crate::menu::state::{MenuScreen, MenuState};
-use crate::data::{GameMode, Kind};
 
 pub struct MenuInput {
     pub up: bool,
@@ -59,8 +59,7 @@ pub fn main_menu_system(
             };
         }
         2 if input.confirm => {
-            menu.hi_scores_tab =
-                crate::stub_storage::slot_index(menu.game_mode, menu.rotation);
+            menu.hi_scores_tab = crate::stub_storage::slot_index(menu.game_mode, menu.rotation);
             menu.screen = MenuScreen::HiScores;
         }
         3 if input.confirm => {

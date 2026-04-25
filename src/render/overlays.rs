@@ -1,8 +1,9 @@
 use crate::app_state::AppState;
 use crate::data::{GameEvent, BOARD_COLS, BOARD_ROWS};
 use crate::render::assets::GameAssets;
-use crate::render::{BOARD_X, BOARD_Y, CELL};
+use crate::render::{BOARD_X, BOARD_Y, CELL, OVERLAY_RENDER_LAYER};
 use bevy::prelude::*;
+use bevy::camera::visibility::RenderLayers;
 
 const OVERLAY_LIFETIME: u32 = 45;
 
@@ -17,6 +18,21 @@ pub enum OverlayKind {
     Double,
     Triple,
     Fetris,
+}
+
+pub fn overlay_opacity(kind: OverlayKind) -> f32 {
+    match kind {
+        OverlayKind::Double => 0.45,
+        OverlayKind::Triple => 0.75,
+        OverlayKind::Fetris => 1.0,
+    }
+}
+
+pub fn overlay_hue_shift(kind: OverlayKind, ticks_elapsed: u64) -> f32 {
+    match kind {
+        OverlayKind::Fetris => (ticks_elapsed as f32 * 0.03) % 1.0,
+        _ => 0.0,
+    }
 }
 
 pub fn spawn_line_clear_overlay(
@@ -57,6 +73,7 @@ pub fn spawn_line_clear_overlay(
             TextColor(Color::WHITE),
             bevy::sprite::Anchor::CENTER,
             Transform::from_xyz(cx, cy, 200.0).with_scale(Vec3::new(1.0, -1.0, 1.0)),
+            RenderLayers::layer(OVERLAY_RENDER_LAYER),
         ));
     }
 }
