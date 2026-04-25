@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_egui::EguiPrimaryContextPass;
 pub mod controls;
 pub mod hi_scores;
 pub mod main_screen;
@@ -9,7 +10,7 @@ pub struct MenuPlugin;
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<state::MenuState>().add_systems(
-            Update,
+            EguiPrimaryContextPass,
             (
                 main_screen::main_menu_system,
                 hi_scores::hi_scores_system,
