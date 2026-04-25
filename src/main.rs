@@ -12,6 +12,9 @@ mod snapshot;
 mod start_game;
 mod systems;
 
+#[cfg(test)]
+mod tests;
+
 use crate::data::{GameEvent, JudgeEvent};
 use crate::judge::{judge_system, Judge};
 use crate::systems::active::active_phase_system;
