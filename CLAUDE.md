@@ -57,7 +57,7 @@ Build via trunk:
 trunk build --release
 ```
 
-Output is in `dist/` — `index.html`, `fetris-<hash>.js`, `fetris-<hash>.wasm`, `assets/`. The `wasm-release` cargo profile (in `Cargo.toml`) compiles with `opt-level = "z"`, `lto = true`, `codegen-units = 1`. Trunk runs `wasm-opt -Oz` post-build via the `data-wasm-opt` attribute in `web/index.html`.
+Output is in `dist/` — `index.html`, `fetris-<hash>.js`, `fetris-<hash>.wasm`, `assets/`. The `wasm-release` cargo profile (in `Cargo.toml`) compiles with `opt-level = "z"`, `lto = true`, `codegen-units = 1`. Trunk runs `wasm-opt -Oz` post-build via the `data-wasm-opt` attribute in `index.html`.
 
 For local iteration: `trunk serve --release` builds and serves at `http://127.0.0.1:8080`.
 
