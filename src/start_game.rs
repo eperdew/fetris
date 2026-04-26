@@ -17,16 +17,18 @@ pub fn start_game(world: &mut World, opts: StartGameOptions) {
         Some(s) => Randomizer::with_seed(s),
         None => Randomizer::new(),
     };
-    let active_kind = randomizer.next();
-    let next_kind = randomizer.next();
+    // Draw only the first piece upfront; spawning_system draws subsequent pieces.
+    // Starting in Spawning{0} means spawning_system fires on the first live tick,
+    // which applies IRS and initial gravity exactly like every later spawn.
+    let first_kind = randomizer.next();
 
     world.insert_resource(RotationSystemRes(opts.rotation.create()));
     world.insert_resource(GameModeRes(opts.mode));
     world.insert_resource(RotationKind(opts.rotation));
-    world.insert_resource(NextPiece(next_kind));
+    world.insert_resource(NextPiece(first_kind));
     world.insert_resource(randomizer);
     world.insert_resource(Board::default());
-    world.insert_resource(CurrentPhase(PiecePhase::Falling));
+    world.insert_resource(CurrentPhase(PiecePhase::Spawning { ticks_left: 0 }));
     world.insert_resource(GameProgress::default());
     world.insert_resource(DasState::default());
     world.insert_resource(RotationBuffer::default());
@@ -45,7 +47,8 @@ pub fn start_game(world: &mut World, opts: StartGameOptions) {
         world.despawn(e);
     }
 
-    world.spawn(ActivePieceBundle::new(active_kind));
+    // Entity kind is a placeholder; spawning_system overwrites it on the first live tick.
+    world.spawn(ActivePieceBundle::new(first_kind));
 
     // Transition into Playing.
     world

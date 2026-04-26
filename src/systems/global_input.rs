@@ -8,6 +8,7 @@ pub fn handle_global_input(
     mut pkv: ResMut<PkvStore>,
     mut menu: ResMut<MenuState>,
     state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     if keys.just_pressed(KeyCode::KeyM) {
@@ -24,7 +25,7 @@ pub fn handle_global_input(
                 }
             }
             _ => {
-                exit.write(AppExit::Success);
+                next_state.set(AppState::Menu);
             }
         }
     }
