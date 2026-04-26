@@ -1,13 +1,7 @@
-use crate::types::{GameMode, HiScoreEntry, Kind};
+use crate::data::{GameMode, HiScoreEntry, Kind};
+use bevy_pkv::PkvStore;
 
-/// Insert `entry` into `entries` in sorted order (best first) and truncate to `max`.
-/// Best = higher grade; ties broken by lower ticks.
-pub fn insert_entry(entries: &mut Vec<HiScoreEntry>, entry: HiScoreEntry, max: usize) {
-    entries.push(entry);
-    // Sort best-first: higher grade wins; ties by lower ticks
-    entries.sort_by(|a, b| b.grade.cmp(&a.grade).then(a.ticks.cmp(&b.ticks)));
-    entries.truncate(max);
-}
+const MAX_ENTRIES: usize = 5;
 
 fn storage_key(mode: GameMode, rotation: Kind) -> &'static str {
     match (mode, rotation) {
@@ -18,43 +12,33 @@ fn storage_key(mode: GameMode, rotation: Kind) -> &'static str {
     }
 }
 
-pub fn load(
-    storage: &crate::storage::Storage,
-    mode: GameMode,
-    rotation: Kind,
-) -> Vec<HiScoreEntry> {
-    storage
-        .get(storage_key(mode, rotation))
-        .and_then(|s| serde_json::from_str(&s).ok())
+pub fn load(pkv: &PkvStore, mode: GameMode, rotation: Kind) -> Vec<HiScoreEntry> {
+    pkv.get::<Vec<HiScoreEntry>>(storage_key(mode, rotation))
         .unwrap_or_default()
 }
 
-pub fn save(
-    storage: &mut crate::storage::Storage,
-    mode: GameMode,
-    rotation: Kind,
-    entries: Vec<HiScoreEntry>,
-) {
-    if let Ok(json) = serde_json::to_string(&entries) {
-        storage.set(storage_key(mode, rotation), &json);
-    }
+pub fn save(pkv: &mut PkvStore, mode: GameMode, rotation: Kind, entries: &Vec<HiScoreEntry>) {
+    let _ = pkv.set(storage_key(mode, rotation), entries);
 }
 
-pub fn submit(
-    storage: &mut crate::storage::Storage,
-    mode: GameMode,
-    rotation: Kind,
-    entry: HiScoreEntry,
-) {
-    let mut entries = load(storage, mode, rotation);
-    insert_entry(&mut entries, entry, 5);
-    save(storage, mode, rotation, entries);
+pub fn submit(pkv: &mut PkvStore, mode: GameMode, rotation: Kind, entry: HiScoreEntry) {
+    let mut entries = load(pkv, mode, rotation);
+    insert_entry(&mut entries, entry, MAX_ENTRIES);
+    save(pkv, mode, rotation, &entries);
+}
+
+/// Insert `entry` into `entries` in sorted order (best first) and truncate to `max`.
+/// Best = higher grade; ties broken by lower ticks.
+pub fn insert_entry(entries: &mut Vec<HiScoreEntry>, entry: HiScoreEntry, max: usize) {
+    entries.push(entry);
+    entries.sort_by(|a, b| b.grade.cmp(&a.grade).then(a.ticks.cmp(&b.ticks)));
+    entries.truncate(max);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Grade;
+    use crate::data::Grade;
 
     fn entry(grade: Grade, ticks: u64) -> HiScoreEntry {
         HiScoreEntry { grade, ticks }
@@ -80,7 +64,6 @@ mod tests {
     fn truncates_to_max() {
         let mut entries: Vec<HiScoreEntry> =
             (0..5).map(|i| entry(Grade::One, 1000 + i * 100)).collect();
-        // Worse than all existing: should not appear
         insert_entry(&mut entries, entry(Grade::Nine, 500), 5);
         assert_eq!(entries.len(), 5);
         assert!(entries.iter().all(|e| matches!(e.grade, Grade::One)));

@@ -1,4 +1,14 @@
-use crate::types::{Board, Piece, PieceKind, RotationDirection};
+use crate::data::{BoardGrid, PieceKind, RotationDirection};
+
+/// Lightweight value used by RotationSystem::try_rotate. Mirrors the active
+/// piece's spatial state. Created from ECS components by callers.
+#[derive(Debug, Clone, Copy)]
+pub struct PieceState {
+    pub kind: PieceKind,
+    pub rotation: usize,
+    pub col: i32,
+    pub row: i32,
+}
 
 /// Parses a diagram of 4 rotations laid out side by side with `|` column separators,
 /// at compile time. Each rotation must have exactly 4 filled cells (`O`).
@@ -296,14 +306,21 @@ const I_KICKS: [[(i32, i32); 5]; 8] = [
     [(0, 0), (-1, 0), (2, 0), (-1, -2), (2, 1)],
 ];
 
-pub trait RotationSystem {
+pub trait RotationSystem: Send + Sync + 'static {
     fn cells(&self, kind: PieceKind, rotation: usize) -> [(i32, i32); 4];
 
     fn preview_y_offset(&self, kind: PieceKind) -> i32;
 
     /// Returns true if the piece at (col, row) with the given rotation fits on the board
     /// (all cells in bounds and unoccupied).
-    fn fits(&self, board: &Board, kind: PieceKind, col: i32, row: i32, rotation: usize) -> bool {
+    fn fits(
+        &self,
+        board: &BoardGrid,
+        kind: PieceKind,
+        col: i32,
+        row: i32,
+        rotation: usize,
+    ) -> bool {
         self.cells(kind, rotation).iter().all(|(dc, dr)| {
             board
                 .get((row + dr) as usize)
@@ -318,10 +335,10 @@ pub trait RotationSystem {
     /// kick position fits.
     fn try_rotate(
         &self,
-        piece: &Piece,
+        piece: &PieceState,
         direction: RotationDirection,
-        board: &Board,
-    ) -> Option<Piece>;
+        board: &BoardGrid,
+    ) -> Option<PieceState>;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +351,7 @@ impl Ars {
     /// Scans the destination rotation's cells left-to-right, top-to-bottom.
     /// Returns true if the first destination cell that collides with the board
     /// is in the center column (dc == 1), meaning a kick would not escape the obstacle.
-    fn center_column_blocked_first(board: &Board, piece: &Piece, new_rot: usize) -> bool {
+    fn center_column_blocked_first(board: &BoardGrid, piece: &PieceState, new_rot: usize) -> bool {
         let dest_cells = ars_cells(piece.kind, new_rot);
         for dr in 0..3i32 {
             for dc in 0..3i32 {
@@ -367,10 +384,10 @@ impl RotationSystem for Ars {
 
     fn try_rotate(
         &self,
-        piece: &Piece,
+        piece: &PieceState,
         direction: RotationDirection,
-        board: &Board,
-    ) -> Option<Piece> {
+        board: &BoardGrid,
+    ) -> Option<PieceState> {
         let offset = match direction {
             RotationDirection::Clockwise => 1,
             RotationDirection::Counterclockwise => 3,
@@ -379,7 +396,7 @@ impl RotationSystem for Ars {
 
         // 1. Basic rotation.
         if self.fits(board, piece.kind, piece.col, piece.row, new_rot) {
-            return Some(Piece {
+            return Some(PieceState {
                 rotation: new_rot,
                 ..*piece
             });
@@ -404,7 +421,7 @@ impl RotationSystem for Ars {
         // 2. Kick right, then left.
         for dcol in [1i32, -1] {
             if self.fits(board, piece.kind, piece.col + dcol, piece.row, new_rot) {
-                return Some(Piece {
+                return Some(PieceState {
                     col: piece.col + dcol,
                     rotation: new_rot,
                     ..*piece
@@ -436,10 +453,10 @@ impl RotationSystem for Srs {
 
     fn try_rotate(
         &self,
-        piece: &Piece,
+        piece: &PieceState,
         direction: RotationDirection,
-        board: &Board,
-    ) -> Option<Piece> {
+        board: &BoardGrid,
+    ) -> Option<PieceState> {
         let cw = matches!(direction, RotationDirection::Clockwise);
         let offset = if cw { 1 } else { 3 };
         let new_rot = (piece.rotation + offset) % 4;
@@ -447,7 +464,7 @@ impl RotationSystem for Srs {
         // O-piece: basic rotation only (symmetric — always fits or always doesn't).
         if piece.kind == PieceKind::O {
             return if self.fits(board, piece.kind, piece.col, piece.row, new_rot) {
-                Some(Piece {
+                Some(PieceState {
                     rotation: new_rot,
                     ..*piece
                 })
@@ -467,7 +484,7 @@ impl RotationSystem for Srs {
             let new_col = piece.col + dcol;
             let new_row = piece.row + drow;
             if self.fits(board, piece.kind, new_col, new_row, new_rot) {
-                return Some(Piece {
+                return Some(PieceState {
                     col: new_col,
                     row: new_row,
                     rotation: new_rot,
@@ -482,6 +499,7 @@ impl RotationSystem for Srs {
 #[cfg(test)]
 mod parse_tests {
     use super::*;
+    use crate::data::{BOARD_COLS, BOARD_ROWS};
 
     #[test]
     fn parse_rotations_i_piece_ars() {
@@ -532,16 +550,15 @@ mod parse_tests {
 
     #[test]
     fn srs_t_basic_rotation_empty_board() {
-        use crate::types::{BOARD_COLS, BOARD_ROWS};
         let board = [[None; BOARD_COLS]; BOARD_ROWS];
-        let piece = crate::types::Piece {
+        let piece = PieceState {
             kind: PieceKind::T,
             rotation: 0,
             col: 3,
             row: 8,
         };
         let srs = Srs;
-        let result = srs.try_rotate(&piece, crate::types::RotationDirection::Clockwise, &board);
+        let result = srs.try_rotate(&piece, RotationDirection::Clockwise, &board);
         assert!(
             result.is_some(),
             "basic rotation on empty board must succeed"

@@ -1,0 +1,131 @@
+use crate::menu::main_screen::read_input;
+use crate::menu::state::{MenuScreen, MenuState};
+use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts};
+use bevy_pkv::PkvStore;
+
+const COL_RANK: f32 = 80.0;
+const COL_GRADE: f32 = 140.0;
+const COL_TIME: f32 = 160.0;
+const ROW_H: f32 = 36.0;
+
+pub fn hi_scores_system(
+    mut contexts: EguiContexts,
+    mut menu: ResMut<MenuState>,
+    keys: Res<ButtonInput<KeyCode>>,
+    pkv: Res<PkvStore>,
+) {
+    if menu.screen != MenuScreen::HiScores {
+        return;
+    }
+    let input = read_input(&keys);
+    if input.back {
+        menu.screen = MenuScreen::Main;
+        return;
+    }
+    if input.left {
+        menu.hi_scores_tab = menu.hi_scores_tab.saturating_sub(1);
+    }
+    if input.right {
+        menu.hi_scores_tab = (menu.hi_scores_tab + 1).min(3);
+    }
+
+    let tab_names = ["MASTER / ARS", "MASTER / SRS", "20G / ARS", "20G / SRS"];
+    let tab = menu.hi_scores_tab;
+    let entries = match menu.hi_scores_tab {
+        0 => crate::hiscores::load(&pkv, crate::data::GameMode::Master, crate::data::Kind::Ars),
+        1 => crate::hiscores::load(&pkv, crate::data::GameMode::Master, crate::data::Kind::Srs),
+        2 => crate::hiscores::load(&pkv, crate::data::GameMode::TwentyG, crate::data::Kind::Ars),
+        3 => crate::hiscores::load(&pkv, crate::data::GameMode::TwentyG, crate::data::Kind::Srs),
+        _ => vec![],
+    };
+
+    let ctx = contexts.ctx_mut().expect("egui context");
+    egui::CentralPanel::default()
+        .frame(egui::Frame::default().fill(egui::Color32::from_rgb(10, 10, 18)))
+        .show(ctx, |ui| {
+            ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                ui.add_space(120.0);
+                ui.label(
+                    egui::RichText::new(format!("< {} >", tab_names[tab]))
+                        .color(egui::Color32::WHITE)
+                        .size(26.0),
+                );
+                ui.add_space(20.0);
+
+                let gray = egui::Color32::GRAY;
+                let dark = egui::Color32::DARK_GRAY;
+
+                // Header row
+                ui.horizontal(|ui| {
+                    col(ui, COL_RANK, |ui| {
+                        ui.label(egui::RichText::new("#").color(gray).size(15.0));
+                    });
+                    col(ui, COL_GRADE, |ui| {
+                        ui.label(egui::RichText::new("GRADE").color(gray).size(15.0));
+                    });
+                    col(ui, COL_TIME, |ui| {
+                        ui.label(egui::RichText::new("TIME").color(gray).size(15.0));
+                    });
+                });
+                ui.add(egui::Separator::default().horizontal().spacing(8.0));
+                ui.add_space(4.0);
+
+                for i in 0..5 {
+                    let color = if i == 0 {
+                        egui::Color32::WHITE
+                    } else {
+                        egui::Color32::LIGHT_GRAY
+                    };
+                    ui.horizontal(|ui| {
+                        col(ui, COL_RANK, |ui| {
+                            ui.label(
+                                egui::RichText::new(format!("{}", i + 1))
+                                    .color(color)
+                                    .size(20.0),
+                            );
+                        });
+                        if let Some(e) = entries.get(i) {
+                            col(ui, COL_GRADE, |ui| {
+                                ui.label(
+                                    egui::RichText::new(format!("{}", e.grade))
+                                        .color(color)
+                                        .size(20.0),
+                                );
+                            });
+                            col(ui, COL_TIME, |ui| {
+                                ui.label(
+                                    egui::RichText::new(crate::render::hud::format_time(e.ticks))
+                                        .color(color)
+                                        .size(20.0),
+                                );
+                            });
+                        } else {
+                            col(ui, COL_GRADE, |ui| {
+                                ui.label(egui::RichText::new("---").color(dark).size(20.0));
+                            });
+                            col(ui, COL_TIME, |ui| {
+                                ui.label(egui::RichText::new("---").color(dark).size(20.0));
+                            });
+                        }
+                    });
+                    ui.add_space(ROW_H - 28.0);
+                }
+
+                ui.add_space(20.0);
+                ui.label(
+                    egui::RichText::new("← → to switch tab  •  BKSP to go back")
+                        .color(dark)
+                        .size(14.0),
+                );
+            });
+        });
+}
+
+fn col(ui: &mut egui::Ui, width: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::Vec2::new(width, 28.0),
+        egui::Layout::top_down(egui::Align::Center),
+        add_contents,
+    );
+}

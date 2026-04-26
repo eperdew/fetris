@@ -24,20 +24,32 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-bevy-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-bevy-
 
-      - name: Build WASM
-        run: cargo build --target wasm32-unknown-unknown --release
-
-      - name: Assemble dist
+      - name: Install trunk
         run: |
-          mkdir dist
-          cp web/index.html dist/
-          cp web/*.js dist/
-          cp target/wasm32-unknown-unknown/release/fetris.wasm dist/
+          if ! command -v trunk &> /dev/null; then
+            cargo install --locked trunk
+          fi
+
+      - name: Install wasm-bindgen-cli
+        run: |
+          WBG_VERSION=$(grep -A 1 'name = "wasm-bindgen"' Cargo.lock | grep version | head -1 | cut -d'"' -f2)
+          if ! wasm-bindgen --version 2>/dev/null | grep -q "$WBG_VERSION"; then
+            cargo install --locked wasm-bindgen-cli --version "$WBG_VERSION"
+          fi
+
+      - name: Install binaryen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+
+      - name: Build WASM via trunk
+        run: trunk build --release
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4

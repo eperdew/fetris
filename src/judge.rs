@@ -1,6 +1,8 @@
-use crate::types::{Grade, HiScoreEntry, JudgeEvent};
+use crate::data::{GameEvent, Grade, HiScoreEntry, JudgeEvent};
+use bevy::prelude::*;
 
-pub(crate) struct Judge {
+#[derive(Resource)]
+pub struct Judge {
     combo: u32,
     score: u32,
     best_grade: Grade,
@@ -8,7 +10,15 @@ pub(crate) struct Judge {
 }
 
 impl Judge {
-    // See https://tetris.wiki/Tetris_The_Grand_Master#Scoring_formula
+    pub fn new() -> Self {
+        Self {
+            combo: 1,
+            score: 0,
+            best_grade: Grade::Nine,
+            grade_ticks: 0,
+        }
+    }
+
     pub fn on_event(&mut self, event: &JudgeEvent) {
         match *event {
             JudgeEvent::LockedWithoutClear => self.combo = 1,
@@ -38,24 +48,35 @@ impl Judge {
     pub fn score(&self) -> u32 {
         self.score
     }
-
     pub fn grade(&self) -> Grade {
         Grade::of_score(self.score)
     }
-
     pub fn grade_entry(&self) -> HiScoreEntry {
         HiScoreEntry {
             grade: self.best_grade,
             ticks: self.grade_ticks,
         }
     }
+}
 
-    pub fn new() -> Self {
-        Self {
-            combo: 1,
-            score: 0,
-            best_grade: Grade::Nine,
-            grade_ticks: 0,
+impl Default for Judge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Bevy system: drains JudgeEvents and feeds them into the Judge resource.
+pub fn judge_system(
+    mut judge: ResMut<Judge>,
+    mut judge_events: MessageReader<JudgeEvent>,
+    mut game_events: MessageWriter<GameEvent>,
+) {
+    for event in judge_events.read() {
+        let before = judge.grade();
+        judge.on_event(event);
+        let after = judge.grade();
+        if after > before {
+            game_events.write(GameEvent::GradeAdvanced(after));
         }
     }
 }
@@ -78,30 +99,22 @@ mod tests {
     #[test]
     fn grade_entry_records_first_crossing() {
         let mut j = Judge::new();
-        // Score needs to reach 400 for Grade::Eight. Level 100 clears give
-        // ((100+3)/4) * lines * combo * 1 = 25 * 1 * 1 = 25 per single-line clear.
-        // Clearing 4 lines at once: 25 * 4 * (1 + 2*4-2) = 25 * 4 * 7 = 700 → Grade::Seven.
         j.on_event(&clear_event(100, 4, 1000));
         let entry = j.grade_entry();
-        assert!(entry.grade > Grade::Nine, "should have improved from Nine");
-        assert_eq!(entry.ticks, 1000, "ticks should be from the first crossing");
+        assert!(entry.grade > Grade::Nine);
+        assert_eq!(entry.ticks, 1000);
     }
 
     #[test]
     fn grade_entry_ticks_not_updated_on_same_grade() {
         let mut j = Judge::new();
-        // First clear: cross into a new grade at tick 500.
         j.on_event(&clear_event(100, 4, 500));
-        let grade_after_first = j.grade_entry().grade;
-        // Second clear at a higher tick that doesn't advance the grade.
+        let g1 = j.grade_entry().grade;
         j.on_event(&JudgeEvent::LockedWithoutClear);
         j.on_event(&clear_event(100, 1, 999));
         let entry = j.grade_entry();
-        assert_eq!(entry.grade, grade_after_first, "grade should be unchanged");
-        assert_eq!(
-            entry.ticks, 500,
-            "ticks should still reflect the first crossing"
-        );
+        assert_eq!(entry.grade, g1);
+        assert_eq!(entry.ticks, 500);
     }
 
     #[test]

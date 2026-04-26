@@ -1,199 +1,214 @@
-mod audio_player;
+use bevy::camera::visibility::RenderLayers;
+use bevy::camera::ScalingMode;
+use bevy::prelude::*;
+use bevy::window::{WindowPlugin, WindowResolution};
+use bevy_pkv::PkvStore;
+
+mod app_state;
+mod audio;
+mod components;
 mod constants;
-mod game;
+mod data;
 mod hiscores;
 mod judge;
 mod menu;
-mod renderer;
+mod randomizer;
+mod render;
+mod resources;
 mod rotation_system;
-mod storage;
+#[cfg(test)]
+mod snapshot;
+mod start_game;
+
+pub(crate) mod systems;
+
 #[cfg(test)]
 mod tests;
-mod types;
 
-use game::Game;
-use macroquad::prelude::*;
-use menu::Menu;
-use std::collections::HashSet;
-use std::sync::Arc;
-use types::{GameConfig, GameKey, InputState, MenuInput, MenuResult, MenuScreen};
+use crate::data::{GameConfig, GameEvent, JudgeEvent};
+use crate::judge::{judge_system, Judge};
+use crate::systems::active::active_phase_system;
+use crate::systems::game_over::game_over_check;
+use crate::systems::line_clear_delay::line_clear_delay_system;
+use crate::systems::spawning::spawning_system;
+use crate::systems::tick::tick_counter;
+use app_state::AppState;
 
-enum AppState {
-    Menu(Menu),
-    Ready { game: Game, ticks_left: u32 },
-    Playing(Game),
-}
-
-fn window_conf() -> Conf {
-    Conf {
-        window_title: String::from("fetris"),
-        window_width: 560,
-        window_height: 780,
-        window_resizable: false,
-        ..Default::default()
+fn reset_game_on_enter_menu(
+    mut commands: Commands,
+    mut board: ResMut<crate::resources::Board>,
+    mut judge: ResMut<crate::judge::Judge>,
+    mut progress: ResMut<crate::resources::GameProgress>,
+    mut das: ResMut<crate::resources::DasState>,
+    mut rot_buf: ResMut<crate::resources::RotationBuffer>,
+    mut pending: ResMut<crate::resources::PendingCompaction>,
+    mut drop_tracking: ResMut<crate::resources::DropTracking>,
+    mut tick_start: ResMut<crate::resources::TickStartPhase>,
+    render_entities: Query<
+        Entity,
+        Or<(
+            With<crate::components::ActivePiece>,
+            With<crate::render::particles::Particle>,
+            With<crate::render::board::BoardSprite>,
+            With<crate::render::piece::PieceSprite>,
+            With<crate::render::piece::NextPreviewSprite>,
+            With<crate::render::hud::HudNode>,
+            With<crate::render::overlays::StateText>,
+            With<crate::render::overlays::LineClearOverlay>,
+        )>,
+    >,
+) {
+    *board = Default::default();
+    *judge = Default::default();
+    *progress = Default::default();
+    *das = Default::default();
+    *rot_buf = Default::default();
+    *pending = Default::default();
+    *drop_tracking = Default::default();
+    *tick_start = Default::default();
+    for e in &render_entities {
+        commands.entity(e).despawn();
     }
 }
 
-fn build_input_state() -> InputState {
-    let mappings: &[(KeyCode, GameKey)] = &[
-        (KeyCode::Left, GameKey::Left),
-        (KeyCode::H, GameKey::Left),
-        (KeyCode::Right, GameKey::Right),
-        (KeyCode::L, GameKey::Right),
-        (KeyCode::Down, GameKey::SoftDrop),
-        (KeyCode::J, GameKey::SoftDrop),
-        (KeyCode::Space, GameKey::SonicDrop),
-        (KeyCode::X, GameKey::RotateCw),
-        (KeyCode::Z, GameKey::RotateCcw),
-    ];
-    let mut held = HashSet::new();
-    let mut just_pressed = HashSet::new();
-    for &(kc, gk) in mappings {
-        if is_key_down(kc) {
-            held.insert(gk);
-        }
-        if is_key_pressed(kc) {
-            just_pressed.insert(gk);
-        }
-    }
-    InputState { held, just_pressed }
-}
-
-fn build_menu_input() -> MenuInput {
-    MenuInput {
-        up: is_key_pressed(KeyCode::Up) || is_key_pressed(KeyCode::K),
-        down: is_key_pressed(KeyCode::Down) || is_key_pressed(KeyCode::J),
-        left: is_key_pressed(KeyCode::Left) || is_key_pressed(KeyCode::H),
-        right: is_key_pressed(KeyCode::Right) || is_key_pressed(KeyCode::L),
-        confirm: is_key_pressed(KeyCode::Space) || is_key_pressed(KeyCode::Enter),
-        back: is_key_pressed(KeyCode::Backspace),
-    }
-}
-
-#[macroquad::main(window_conf)]
-async fn main() {
-    macroquad::rand::srand(miniquad::date::now().to_bits());
-    let mut renderer = renderer::Renderer::new();
-    let mut storage = storage::Storage::new();
-    let audio: Arc<dyn audio_player::AudioPlayer> = {
-        use audio_player::AudioPlayer as _;
-        let player = audio_player::macroquad::Macroquad::create().await;
-        let muted = storage.get("muted").map(|v| v == "true").unwrap_or(false);
-        player.set_muted(muted);
-        Arc::new(player)
+fn start_game_on_ready(world: &mut World) {
+    let config = {
+        let pkv = world.resource::<PkvStore>();
+        let cfg: GameConfig = pkv.get("game_config").unwrap_or_default();
+        (cfg.game_mode, cfg.rotation)
     };
-    let mut state = AppState::Menu(Menu::new(GameConfig::load(&storage)));
-    let mut accumulator = 0.0f64;
-    let mut pending_just_pressed: HashSet<GameKey> = HashSet::new();
-    const TICK: f64 = 1.0 / 60.0;
+    crate::start_game::start_game(
+        world,
+        crate::start_game::StartGameOptions {
+            mode: config.0,
+            rotation: config.1,
+            seed: None,
+        },
+    );
+}
 
-    loop {
-        if is_key_pressed(KeyCode::M) {
-            let muted = !audio.is_muted();
-            audio.set_muted(muted);
-            storage.set("muted", if muted { "true" } else { "false" });
-        }
-        let escape = is_key_pressed(KeyCode::Escape);
-        let mut new_state: Option<AppState> = None;
+fn submit_score_on_game_over(
+    mut pkv: ResMut<PkvStore>,
+    judge: Res<crate::judge::Judge>,
+    game_mode: Res<crate::resources::GameModeRes>,
+    rotation: Res<crate::resources::RotationKind>,
+) {
+    let entry = judge.grade_entry();
+    crate::hiscores::submit(&mut pkv, game_mode.0, rotation.0, entry);
+}
 
-        match &mut state {
-            AppState::Menu(menu) => {
-                // Escape on the main screen quits; on a sub-screen it goes back.
-                let mut input = build_menu_input();
-                if escape {
-                    if menu.screen() == MenuScreen::Main {
-                        break;
-                    } else {
-                        input.back = true;
-                    }
-                }
-                if let MenuResult::StartGame { mode, rotation } = menu.tick(&input, &storage) {
-                    GameConfig {
-                        game_mode: mode,
-                        rotation,
-                    }
-                    .save(&mut storage);
-                    let game = Game::new(mode, rotation, rotation.create(), Arc::clone(&audio));
-                    game.audio.ready();
-                    new_state = Some(AppState::Ready {
-                        game,
-                        ticks_left: 90,
-                    });
-                }
-                renderer.render_menu(menu, audio.is_muted());
-            }
-            AppState::Ready { game, ticks_left } => {
-                if escape {
-                    break;
-                }
-                accumulator += get_frame_time() as f64;
-                let frame_input = build_input_state();
-                pending_just_pressed.extend(&frame_input.just_pressed);
-                while accumulator >= TICK {
-                    accumulator -= TICK;
-                    if *ticks_left > 0 {
-                        game.tick_ready(&frame_input);
-                        *ticks_left -= 1;
-                        if *ticks_left == 0 {
-                            game.apply_irs();
-                        }
-                    } else {
-                        let input = InputState {
-                            held: frame_input.held.clone(),
-                            just_pressed: std::mem::take(&mut pending_just_pressed),
-                        };
-                        game.tick(&input);
-                    }
-                }
-                renderer.render_ready(&game.snapshot());
-            }
-            AppState::Playing(game) => {
-                if escape {
-                    break;
-                }
-                accumulator += get_frame_time() as f64;
-                let frame_input = build_input_state();
-                pending_just_pressed.extend(&frame_input.just_pressed);
-                while accumulator >= TICK {
-                    let input = InputState {
-                        held: frame_input.held.clone(),
-                        just_pressed: std::mem::take(&mut pending_just_pressed),
-                    };
-                    game.tick(&input);
-                    accumulator -= TICK;
-                }
-                // Submit score exactly once on game end
-                if (game.game_over || game.game_won) && !game.score_submitted {
-                    hiscores::submit(
-                        &mut storage,
-                        game.game_mode,
-                        game.rotation_kind,
-                        game.judge.grade_entry(),
-                    );
-                    game.score_submitted = true;
-                }
-                if (game.game_over || game.game_won) && is_key_pressed(KeyCode::Space) {
-                    new_state = Some(AppState::Menu(Menu::new(GameConfig::load(&storage))));
-                }
-                let snapshot = game.snapshot();
-                let events = game.drain_events();
-                renderer.render(&snapshot, &events);
-            }
-        }
+fn init_menu_state(mut commands: Commands, pkv: Res<PkvStore>) {
+    commands.insert_resource(crate::menu::state::MenuState::new(&pkv));
+}
 
-        if matches!(state, AppState::Ready { ticks_left: 0, .. }) {
-            if let AppState::Ready { game, .. } = state {
-                pending_just_pressed.clear();
-                state = AppState::Playing(game);
-            }
-        } else if let Some(s) = new_state {
-            if matches!(s, AppState::Playing(_)) {
-                accumulator = 0.0;
-                pending_just_pressed.clear();
-            }
-            state = s;
-        }
+fn setup_camera(mut commands: Commands, mut egui_settings: ResMut<bevy_egui::EguiGlobalSettings>) {
+    // Disable auto-context so the overlay render-to-texture camera (spawned in
+    // RenderPlugin::build) doesn't steal the primary egui context.
+    egui_settings.auto_create_primary_context = false;
 
-        next_frame().await;
-    }
+    let mut projection = OrthographicProjection::default_2d();
+    projection.scaling_mode = ScalingMode::Fixed {
+        width: 560.0,
+        height: 780.0,
+    };
+    projection.viewport_origin = Vec2::new(0.0, 1.0); // top-left origin
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(projection),
+        Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)),
+        RenderLayers::layer(0),
+        bevy_egui::PrimaryEguiContext,
+    ));
+}
+
+fn main() {
+    let plugins = DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "fetris".into(),
+            resolution: WindowResolution::new(560, 780),
+            resizable: false,
+            ..default()
+        }),
+        ..default()
+    });
+
+    // WebGL2 is the only viable backend for broad browser compatibility.
+    // Explicitly force it so wgpu doesn't try WebGPU features WebGL2 lacks.
+    #[cfg(target_arch = "wasm32")]
+    let plugins = {
+        use bevy::asset::{AssetMetaCheck, AssetPlugin};
+        use bevy::render::{
+            settings::{Backends, RenderCreation, WgpuSettings, WgpuSettingsPriority},
+            RenderPlugin,
+        };
+        plugins
+            .set(AssetPlugin {
+                meta_check: AssetMetaCheck::Never,
+                ..default()
+            })
+            .set(RenderPlugin {
+                render_creation: RenderCreation::Automatic(WgpuSettings {
+                    backends: Some(Backends::GL),
+                    priority: WgpuSettingsPriority::WebGL2,
+                    ..default()
+                }),
+                ..default()
+            })
+    };
+
+    App::new()
+        .add_plugins(plugins)
+        .add_plugins(bevy_egui::EguiPlugin::default())
+        .add_plugins(render::RenderPlugin)
+        .add_plugins(menu::MenuPlugin)
+        .insert_resource(ClearColor(Color::srgba(0.04, 0.04, 0.07, 1.0)))
+        .insert_resource(PkvStore::new("fetris", "fetris"))
+        .insert_resource(Time::<Fixed>::from_hz(60.0))
+        .init_state::<AppState>()
+        .add_message::<JudgeEvent>()
+        .add_message::<GameEvent>()
+        .init_resource::<crate::resources::Board>()
+        .init_resource::<crate::resources::CurrentPhase>()
+        .init_resource::<crate::resources::GameProgress>()
+        .init_resource::<crate::resources::DasState>()
+        .init_resource::<crate::resources::RotationBuffer>()
+        .init_resource::<crate::resources::PendingCompaction>()
+        .init_resource::<crate::resources::DropTracking>()
+        .init_resource::<crate::resources::InputState>()
+        .init_resource::<crate::resources::TickStartPhase>()
+        .init_resource::<crate::randomizer::Randomizer>()
+        .init_resource::<Judge>()
+        // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
+        .add_systems(Startup, (setup_camera, init_menu_state, audio::setup_audio))
+        .add_systems(
+            OnEnter(AppState::Ready),
+            (start_game_on_ready, audio::play_ready_sound),
+        )
+        .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
+        .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)
+        .add_systems(Update, systems::global_input::handle_global_input)
+        .add_systems(Update, systems::post_game::return_to_menu_on_space)
+        .add_systems(
+            Update,
+            systems::input::sample_input.run_if(in_state(AppState::Playing)),
+        )
+        .add_systems(
+            Update,
+            audio::audio_event_system.run_if(in_state(AppState::Playing)),
+        )
+        .add_systems(
+            FixedUpdate,
+            (
+                tick_counter,
+                active_phase_system,
+                line_clear_delay_system,
+                spawning_system,
+                judge_system,
+                game_over_check,
+                systems::input::clear_just_pressed,
+            )
+                .chain()
+                .run_if(in_state(AppState::Playing)),
+        )
+        .run();
 }

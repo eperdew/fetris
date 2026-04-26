@@ -1,2 +1,0 @@
-# No special WASM configuration needed — macroquad's built-in rand handles
-# randomness on all targets without requiring getrandom or wasm-bindgen.

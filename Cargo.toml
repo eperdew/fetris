@@ -1,12 +1,22 @@
 [package]
 name = "fetris"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
-macroquad = { version = "0.4", features = ["audio"] }
+bevy = { version = "0.18", default-features = false, features = ["2d", "bevy_state", "bevy_audio", "vorbis", "wav", "webgl2"] }
+bevy_egui = "0.39"
+bevy_pkv = "0.15.0"
+getrandom = { version = "0.2", features = ["js"] }
+rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [dev-dependencies]
 insta = "1"
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1

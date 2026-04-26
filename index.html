@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>fetris</title>
+  <link data-trunk rel="rust" data-bin="fetris" data-wasm-opt="z" />
+  <link data-trunk rel="copy-dir" href="assets" />
+  <script>
+    // Safari creates AudioContext in "suspended" state at startup.
+    // Patch it to track all instances and resume on first user interaction.
+    (function () {
+      var Orig = window.AudioContext || window.webkitAudioContext;
+      if (!Orig) return;
+      var contexts = [];
+      function Patched() { var c = new Orig(...arguments); contexts.push(c); return c; }
+      Patched.prototype = Orig.prototype;
+      window.AudioContext = Patched;
+      if (window.webkitAudioContext) window.webkitAudioContext = Patched;
+      function resume() { contexts.forEach(function(c) { if (c.state === 'suspended') c.resume(); }); }
+      ['keydown', 'click', 'touchend'].forEach(function(e) { document.addEventListener(e, resume, { passive: true }); });
+    })();
+  </script>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0a0a12; height: 100%; overflow: hidden; }
+    body { display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+</body>
+</html>
