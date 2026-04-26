@@ -5,8 +5,8 @@
   <title>fetris</title>
   
 <script type="module">
-import init, * as bindings from '/fetris/fetris-e1d87cb1e29bebdc.js';
-const wasm = await init({ module_or_path: '/fetris/fetris-e1d87cb1e29bebdc_bg.wasm' });
+import init, * as bindings from '/fetris/fetris-491793a37502fef2.js';
+const wasm = await init({ module_or_path: '/fetris/fetris-491793a37502fef2_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -36,7 +36,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     body { display: flex; align-items: center; justify-content: center; }
     canvas { display: block; }
   </style>
-<link rel="modulepreload" href="/fetris/fetris-e1d87cb1e29bebdc.js" crossorigin="anonymous" integrity="sha384-nf+uAY2FTY7ON3IOzNcoSLgSJCfZ3uMVaKVikV3qw45xZoS6BSOIK6xPiFQjX6St"><link rel="preload" href="/fetris/fetris-e1d87cb1e29bebdc_bg.wasm" crossorigin="anonymous" integrity="sha384-qrc6hQmsjz1m/ywEJZrlD4GaITy4NEiGpxLoiKoJg8CiquAqjjeluHf6oF4sUGzE" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/fetris/fetris-491793a37502fef2.js" crossorigin="anonymous" integrity="sha384-LAwNrMr/JpD0moZ6dAg073TBin7nVtsMJaFXOj8ZcgDRFi9+4PjlxBbvKi8HtOE6"><link rel="preload" href="/fetris/fetris-491793a37502fef2_bg.wasm" crossorigin="anonymous" integrity="sha384-8Q8rVFQcFPpTr9xvOomBGUSgZZiIqhWd5Y5WJUqcEUS15jCjiNGzJg9ht5WygkcM" as="fetch" type="application/wasm"></head>
 <body>
 </body>
 </html>
