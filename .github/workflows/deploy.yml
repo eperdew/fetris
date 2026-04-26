@@ -43,11 +43,6 @@ jobs:
             cargo install --locked wasm-bindgen-cli --version "$WBG_VERSION"
           fi
 
-      - name: Install binaryen
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
-
       - name: Build WASM via trunk
         run: trunk build --release --public-url /fetris/
 
