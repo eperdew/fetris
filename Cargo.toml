@@ -18,5 +18,5 @@ insta = "1"
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
-lto = true
+lto = false
 codegen-units = 1
