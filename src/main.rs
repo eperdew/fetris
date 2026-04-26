@@ -1,7 +1,8 @@
 use bevy::camera::visibility::RenderLayers;
 use bevy::camera::ScalingMode;
 use bevy::prelude::*;
-use bevy::window::{WindowPlugin, WindowResolution};
+use bevy::camera::Viewport;
+use bevy::window::{PrimaryWindow, WindowPlugin, WindowResolution};
 use bevy_egui::{egui, EguiContexts};
 use bevy_pkv::PkvStore;
 
@@ -123,6 +124,45 @@ fn setup_egui_font(mut contexts: EguiContexts, mut done: Local<bool>) {
     *done = true;
 }
 
+#[derive(Component)]
+struct MainCamera;
+
+fn update_camera_viewport(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut cameras: Query<&mut Camera, With<MainCamera>>,
+    mut pixel_scale: ResMut<crate::resources::PixelScale>,
+) {
+    let Ok(window) = windows.single() else {
+        return;
+    };
+    let Ok(mut camera) = cameras.single_mut() else {
+        return;
+    };
+    let win_w = window.physical_width() as f32;
+    let win_h = window.physical_height() as f32;
+    if win_w == 0.0 || win_h == 0.0 {
+        return;
+    }
+    const GAME_W: f32 = 560.0;
+    const GAME_H: f32 = 780.0;
+    let (vp_w, vp_h) = if win_w / win_h > GAME_W / GAME_H {
+        let h = win_h;
+        (h * GAME_W / GAME_H, h)
+    } else {
+        let w = win_w;
+        (w, w * GAME_H / GAME_W)
+    };
+    pixel_scale.0 = vp_h / GAME_H;
+    camera.viewport = Some(Viewport {
+        physical_position: UVec2::new(
+            ((win_w - vp_w) / 2.0).round() as u32,
+            ((win_h - vp_h) / 2.0).round() as u32,
+        ),
+        physical_size: UVec2::new(vp_w.round() as u32, vp_h.round() as u32),
+        depth: 0.0..1.0,
+    });
+}
+
 fn setup_camera(mut commands: Commands, mut egui_settings: ResMut<bevy_egui::EguiGlobalSettings>) {
     // Disable auto-context so the overlay render-to-texture camera (spawned in
     // RenderPlugin::build) doesn't steal the primary egui context.
@@ -136,6 +176,7 @@ fn setup_camera(mut commands: Commands, mut egui_settings: ResMut<bevy_egui::Egu
     projection.viewport_origin = Vec2::new(0.0, 1.0); // top-left origin
     commands.spawn((
         Camera2d,
+        MainCamera,
         Projection::Orthographic(projection),
         Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)),
         RenderLayers::layer(0),
@@ -144,13 +185,23 @@ fn setup_camera(mut commands: Commands, mut egui_settings: ResMut<bevy_egui::Egu
 }
 
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let window = Window {
+        title: "fetris".into(),
+        mode: bevy::window::WindowMode::BorderlessFullscreen(
+            bevy::window::MonitorSelection::Current,
+        ),
+        ..default()
+    };
+    #[cfg(target_arch = "wasm32")]
+    let window = Window {
+        title: "fetris".into(),
+        resolution: WindowResolution::new(560, 780),
+        resizable: false,
+        ..default()
+    };
     let plugins = DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "fetris".into(),
-            resolution: WindowResolution::new(560, 780),
-            resizable: false,
-            ..default()
-        }),
+        primary_window: Some(window),
         ..default()
     });
 
@@ -198,6 +249,7 @@ fn main() {
         .init_resource::<crate::resources::DropTracking>()
         .init_resource::<crate::resources::InputState>()
         .init_resource::<crate::resources::TickStartPhase>()
+        .init_resource::<crate::resources::PixelScale>()
         .init_resource::<crate::randomizer::Randomizer>()
         .init_resource::<Judge>()
         // TODO: inserted by start_game (Task 17): NextPiece, RotationSystemRes, GameModeRes, RotationKind
@@ -209,6 +261,7 @@ fn main() {
         .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
         .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)
         .add_systems(Update, setup_egui_font)
+        .add_systems(Update, update_camera_viewport)
         .add_systems(Update, systems::global_input::handle_global_input)
         .add_systems(Update, systems::post_game::return_to_menu_on_space)
         .add_systems(

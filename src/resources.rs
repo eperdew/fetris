@@ -87,6 +87,16 @@ pub struct GameModeRes(pub GameMode);
 #[derive(Resource)]
 pub struct RotationKind(pub Kind);
 
+/// Scale factor: physical viewport pixels per world pixel (updated by update_camera_viewport).
+#[derive(Resource)]
+pub struct PixelScale(pub f32);
+
+impl Default for PixelScale {
+    fn default() -> Self {
+        PixelScale(1.0)
+    }
+}
+
 /// Captures the piece phase at the very start of each tick.
 ///
 /// Phase-specific systems gate on this value instead of the live `CurrentPhase`

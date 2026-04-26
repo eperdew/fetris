@@ -1,4 +1,5 @@
 use bevy::camera::visibility::RenderLayers;
+use bevy::image::ImageSampler;
 use bevy::prelude::*;
 use bevy::sprite_render::Material2dPlugin;
 
@@ -79,14 +80,7 @@ impl Plugin for RenderPlugin {
                 ),
         );
         app.add_systems(FixedUpdate, overlays::tick_line_clear_overlay);
-        app.add_systems(
-            Update,
-            update_overlay_material.run_if(
-                in_state(AppState::Playing)
-                    .or(in_state(AppState::Ready))
-                    .or(in_state(AppState::GameOver)),
-            ),
-        );
+        app.add_systems(Update, update_overlay_material);
     }
 }
 
@@ -102,12 +96,14 @@ fn setup_overlay_camera(
     // Rgba8Unorm + no view format: avoids DownlevelFlags::VIEW_FORMATS,
     // which WebGL2 does not support. The overlay is visual-effect-only
     // (scanlines, hue shift) so sRGB precision doesn't matter here.
-    let image_handle = images.add(Image::new_target_texture(
+    let mut overlay_image = Image::new_target_texture(
         WINDOW_W as u32,
         WINDOW_H as u32,
         TextureFormat::Rgba8Unorm,
         None,
-    ));
+    );
+    overlay_image.sampler = ImageSampler::nearest();
+    let image_handle = images.add(overlay_image);
 
     let mut projection = OrthographicProjection::default_2d();
     projection.scaling_mode = ScalingMode::Fixed {
@@ -147,10 +143,12 @@ fn update_overlay_material(
     mut overlay_materials: ResMut<Assets<overlay_material::OverlayMaterial>>,
     q: Query<&overlays::LineClearOverlay>,
     progress: Res<crate::resources::GameProgress>,
+    pixel_scale: Res<crate::resources::PixelScale>,
 ) {
     let Some(mat) = overlay_materials.get_mut(&overlay_setup.material) else {
         return;
     };
+    mat.uniforms.pixel_scale = pixel_scale.0.max(1.0);
     match q.single() {
         Ok(overlay) => {
             mat.uniforms.frame_parity = (progress.ticks_elapsed % 2) as f32;

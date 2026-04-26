@@ -116,7 +116,8 @@ pub fn main_menu_system(
         .frame(egui::Frame::default().fill(egui::Color32::from_rgb(10, 10, 18)))
         .show(ctx, |ui| {
             ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                ui.add_space(120.0);
+                const CONTENT_HEIGHT: f32 = 360.0;
+                ui.add_space(((ui.available_height() - CONTENT_HEIGHT) / 2.0).max(20.0));
                 let mode_str = match menu.game_mode {
                     GameMode::Master => "MASTER",
                     GameMode::TwentyG => "20G",
