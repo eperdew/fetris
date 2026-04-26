@@ -57,16 +57,18 @@ Build via trunk:
 trunk build --release
 ```
 
-Output is in `dist/` — `index.html`, `fetris-<hash>.js`, `fetris-<hash>.wasm`, `assets/`. The `wasm-release` cargo profile (in `Cargo.toml`) compiles with `opt-level = "z"`, `lto = true`, `codegen-units = 1`. Trunk runs `wasm-opt -Oz` post-build via the `data-wasm-opt` attribute in `index.html`.
+Output is in `dist/` — `index.html`, `fetris-<hash>.js`, `fetris-<hash>.wasm`, `assets/`. The `wasm-release` cargo profile (in `Cargo.toml`) compiles with `opt-level = "z"`, `lto = false`, `codegen-units = 1`. Trunk runs `wasm-opt -Oz` post-build via the `data-wasm-opt` attribute in `index.html`.
 
 For local iteration: `trunk serve --release` builds and serves at `http://127.0.0.1:8080`.
 
-`.github/workflows/deploy.yml` installs trunk + wasm-bindgen-cli + binaryen, runs `trunk build --release`, deploys `dist/` to GitHub Pages on every push to `master`.
+`.github/workflows/deploy.yml` installs trunk + wasm-bindgen-cli, runs `trunk build --release` (trunk downloads its own binaryen to run `wasm-opt`), deploys `dist/` to GitHub Pages on every push to `master`.
 
 **Gotchas**:
 - `wasm-bindgen-cli` must match the `wasm-bindgen` crate version in `Cargo.lock` exactly. Mismatches cause runtime errors. The CI workflow auto-detects and installs the right version.
 - `bevy_pkv` on WASM uses `localStorage`; data is per-origin and survives page reloads but not domain changes.
 - Bevy + wasm-opt-z produces a ~10MB binary. Acceptable trade-off for small fetris.
+- **Do not install binaryen via apt in CI.** Ubuntu's packaged binaryen is too old and mishandles reference-types, breaking the WASM. Trunk downloads its own binaryen binary and that version is correct. The `data-wasm-opt="z"` attribute in `index.html` triggers this; the apt install step is intentionally absent.
+- Rust ≥ 1.82 enables `reference-types` by default for `wasm32-unknown-unknown`, which causes Linux `wasm-ld` to export the funcref table as `__wbindgen_externrefs` instead of the externref table. `wasm-opt` (via trunk) re-emits the binary with correct indices, papering over this linker bug. If you ever remove `wasm-opt`, the game will fail to load on GitHub Pages with a `table.grow` RangeError.
 
 ## Build & test
 
