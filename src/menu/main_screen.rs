@@ -4,6 +4,42 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts};
 use bevy_pkv::PkvStore;
 
+fn make_bracketed(label: &str, active: bool, size: f32) -> egui::text::LayoutJob {
+    use egui::text::{LayoutJob, TextFormat};
+    let bg = egui::Color32::from_rgb(10, 10, 18);
+    let bracket_color = if active { egui::Color32::WHITE } else { bg };
+    let font_id = egui::FontId::proportional(size);
+    let mut job = LayoutJob::default();
+    job.append(
+        "< ",
+        0.0,
+        TextFormat {
+            color: bracket_color,
+            font_id: font_id.clone(),
+            ..Default::default()
+        },
+    );
+    job.append(
+        label,
+        0.0,
+        TextFormat {
+            color: egui::Color32::WHITE,
+            font_id: font_id.clone(),
+            ..Default::default()
+        },
+    );
+    job.append(
+        " >",
+        0.0,
+        TextFormat {
+            color: bracket_color,
+            font_id,
+            ..Default::default()
+        },
+    );
+    job
+}
+
 pub struct MenuInput {
     pub up: bool,
     pub down: bool,
@@ -89,52 +125,20 @@ pub fn main_menu_system(
                     Kind::Ars => "ARS",
                     Kind::Srs => "SRS",
                 };
-                let bracket = |s: &str, active: bool| -> String {
-                    if active {
-                        format!("< {} >", s)
-                    } else {
-                        format!("  {}  ", s)
-                    }
-                };
                 let row = |ui: &mut egui::Ui, label: &str, color: egui::Color32, size: f32| {
                     ui.label(egui::RichText::new(label).color(color).size(size));
                 };
 
                 row(ui, "GAME MODE", egui::Color32::GRAY, 18.0);
-                row(
-                    ui,
-                    &bracket(mode_str, menu.cursor == 0),
-                    egui::Color32::WHITE,
-                    24.0,
-                );
+                ui.label(make_bracketed(mode_str, menu.cursor == 0, 24.0));
                 ui.add_space(20.0);
                 row(ui, "ROTATION", egui::Color32::GRAY, 18.0);
-                row(
-                    ui,
-                    &bracket(rot_str, menu.cursor == 1),
-                    egui::Color32::WHITE,
-                    24.0,
-                );
+                ui.label(make_bracketed(rot_str, menu.cursor == 1, 24.0));
                 ui.add_space(20.0);
-                row(
-                    ui,
-                    &bracket("HI SCORES", menu.cursor == 2),
-                    egui::Color32::WHITE,
-                    24.0,
-                );
-                row(
-                    ui,
-                    &bracket("CONTROLS", menu.cursor == 3),
-                    egui::Color32::WHITE,
-                    24.0,
-                );
+                ui.label(make_bracketed("HI SCORES", menu.cursor == 2, 24.0));
+                ui.label(make_bracketed("CONTROLS", menu.cursor == 3, 24.0));
                 ui.add_space(20.0);
-                row(
-                    ui,
-                    &bracket("START", menu.cursor == 4),
-                    egui::Color32::WHITE,
-                    24.0,
-                );
+                ui.label(make_bracketed("START", menu.cursor == 4, 24.0));
                 ui.add_space(60.0);
                 let (label, color) = if pkv.get::<bool>("muted").unwrap_or(false) {
                     ("[M]  MUTED", egui::Color32::from_rgb(204, 102, 102))

@@ -78,11 +78,12 @@ pub fn controls_system(
         });
 }
 
-fn centered_row(ui: &mut egui::Ui, height: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
-    ui.horizontal(|ui| {
-        add_contents(ui);
-    });
-    let _ = height;
+fn centered_row(ui: &mut egui::Ui, _height: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::Vec2::new(2.0 * COL_W, ROW_H),
+        egui::Layout::left_to_right(egui::Align::Center),
+        add_contents,
+    );
 }
 
 fn centered_cell(ui: &mut egui::Ui, width: f32, add_contents: impl FnOnce(&mut egui::Ui)) {

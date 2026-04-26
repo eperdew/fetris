@@ -2,6 +2,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::camera::ScalingMode;
 use bevy::prelude::*;
 use bevy::window::{WindowPlugin, WindowResolution};
+use bevy_egui::{egui, EguiContexts};
 use bevy_pkv::PkvStore;
 
 mod app_state;
@@ -101,6 +102,27 @@ fn init_menu_state(mut commands: Commands, pkv: Res<PkvStore>) {
     commands.insert_resource(crate::menu::state::MenuState::new(&pkv));
 }
 
+fn setup_egui_font(mut contexts: EguiContexts, mut done: Local<bool>) {
+    if *done {
+        return;
+    }
+    let ctx = contexts.ctx_mut().expect("egui context");
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "oxanium".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+            "../assets/font/Oxanium-Regular.ttf"
+        ))),
+    );
+    fonts
+        .families
+        .get_mut(&egui::FontFamily::Proportional)
+        .unwrap()
+        .insert(0, "oxanium".to_owned());
+    ctx.set_fonts(fonts);
+    *done = true;
+}
+
 fn setup_camera(mut commands: Commands, mut egui_settings: ResMut<bevy_egui::EguiGlobalSettings>) {
     // Disable auto-context so the overlay render-to-texture camera (spawned in
     // RenderPlugin::build) doesn't steal the primary egui context.
@@ -186,6 +208,7 @@ fn main() {
         )
         .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
         .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)
+        .add_systems(Update, setup_egui_font)
         .add_systems(Update, systems::global_input::handle_global_input)
         .add_systems(Update, systems::post_game::return_to_menu_on_space)
         .add_systems(

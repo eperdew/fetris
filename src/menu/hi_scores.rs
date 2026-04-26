@@ -57,7 +57,7 @@ pub fn hi_scores_system(
                 let dark = egui::Color32::DARK_GRAY;
 
                 // Header row
-                ui.horizontal(|ui| {
+                table_row(ui, |ui| {
                     col(ui, COL_RANK, |ui| {
                         ui.label(egui::RichText::new("#").color(gray).size(15.0));
                     });
@@ -77,7 +77,7 @@ pub fn hi_scores_system(
                     } else {
                         egui::Color32::LIGHT_GRAY
                     };
-                    ui.horizontal(|ui| {
+                    table_row(ui, |ui| {
                         col(ui, COL_RANK, |ui| {
                             ui.label(
                                 egui::RichText::new(format!("{}", i + 1))
@@ -114,12 +114,20 @@ pub fn hi_scores_system(
 
                 ui.add_space(20.0);
                 ui.label(
-                    egui::RichText::new("← → to switch tab  •  BKSP to go back")
+                    egui::RichText::new("< > to switch tab    BKSP to go back")
                         .color(dark)
                         .size(14.0),
                 );
             });
         });
+}
+
+fn table_row(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::Vec2::new(COL_RANK + COL_GRADE + COL_TIME, ROW_H),
+        egui::Layout::left_to_right(egui::Align::Center),
+        add_contents,
+    );
 }
 
 fn col(ui: &mut egui::Ui, width: f32, add_contents: impl FnOnce(&mut egui::Ui)) {
