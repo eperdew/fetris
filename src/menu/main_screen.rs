@@ -142,6 +142,13 @@ pub fn main_menu_system(
                     ("[M]  SOUND ON", egui::Color32::GRAY)
                 };
                 row(ui, label, color, 14.0);
+                ui.add_space(8.0);
+                row(
+                    ui,
+                    env!("GIT_HASH"),
+                    egui::Color32::from_rgb(50, 50, 60),
+                    11.0,
+                );
             });
         });
 
