@@ -6,6 +6,7 @@ use crate::rotation_system::RotationSystem;
 use bevy::prelude::*;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct GameSnapshot {
     pub board: BoardGrid,
     pub active_kind: Option<PieceKind>,

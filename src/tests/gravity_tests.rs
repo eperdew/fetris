@@ -1,4 +1,3 @@
-use crate::constants::LOCK_DELAY;
 use crate::data::*;
 use crate::tests::harness::*;
 

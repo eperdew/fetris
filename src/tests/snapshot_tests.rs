@@ -1,5 +1,4 @@
 use crate::data::*;
-use crate::resources::PendingCompaction;
 use crate::tests::harness::*;
 
 /// Helper: fill all cells in a row on the given board.

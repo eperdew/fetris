@@ -4,7 +4,6 @@ use crate::data::{
     BoardGrid, GameEvent, GameKey, GameMode, InputSnapshot, Kind, PieceKind, PiecePhase,
     BOARD_COLS, BOARD_ROWS,
 };
-use crate::judge::Judge;
 use crate::resources::*;
 use crate::snapshot::GameSnapshot;
 use crate::start_game::{start_game, StartGameOptions};
@@ -173,21 +172,11 @@ pub fn piece_phase(app: &mut App) -> PiecePhase {
     app.world().resource::<CurrentPhase>().0
 }
 
-pub fn judge<'a>(app: &'a App) -> &'a Judge {
-    app.world().resource::<Judge>()
-}
-
 pub fn level(app: &App) -> u32 {
     app.world().resource::<GameProgress>().level
 }
-pub fn lines(app: &App) -> u32 {
-    app.world().resource::<GameProgress>().lines
-}
 pub fn ticks_elapsed(app: &App) -> u64 {
     app.world().resource::<GameProgress>().ticks_elapsed
-}
-pub fn game_over(app: &App) -> bool {
-    app.world().resource::<GameProgress>().game_over
 }
 pub fn game_won(app: &App) -> bool {
     app.world().resource::<GameProgress>().game_won
@@ -421,7 +410,6 @@ pub fn drop_to_floor(app: &mut App) {
         let b = board(app);
         let rs = app.world().resource::<RotationSystemRes>();
         let fits_below = rs.0.fits(&b, kind, pos.col, pos.row + 1, rot);
-        drop(rs);
         if fits_below {
             set_active_position(app, pos.col, pos.row + 1);
         } else {
