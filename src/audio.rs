@@ -83,19 +83,29 @@ pub fn audio_event_system(
     if pkv.get::<bool>("muted").unwrap_or(false) {
         return;
     }
-    for event in events.read() {
-        let handle: Handle<AudioSource> = match event {
-            GameEvent::PieceBeganLocking => handles.piece_begin_locking.clone(),
-            GameEvent::LineClear { count } => match count {
-                1 => handles.single.clone(),
-                2 => handles.double.clone(),
-                3 => handles.triple.clone(),
-                _ => handles.fetris.clone(),
-            },
-            GameEvent::GradeAdvanced(grade) => grade_handle(&handles, *grade),
-            GameEvent::GameEnded => handles.game_over.clone(),
+    let all: Vec<_> = events.read().collect();
+    let grade_advanced = all.iter().any(|e| matches!(e, GameEvent::GradeAdvanced(_)));
+    for event in &all {
+        let handle: Option<Handle<AudioSource>> = match event {
+            GameEvent::PieceBeganLocking => Some(handles.piece_begin_locking.clone()),
+            GameEvent::LineClear { count } => {
+                if grade_advanced {
+                    None
+                } else {
+                    Some(match count {
+                        1 => handles.single.clone(),
+                        2 => handles.double.clone(),
+                        3 => handles.triple.clone(),
+                        _ => handles.fetris.clone(),
+                    })
+                }
+            }
+            GameEvent::GradeAdvanced(grade) => Some(grade_handle(&handles, *grade)),
+            GameEvent::GameEnded => Some(handles.game_over.clone()),
         };
-        commands.spawn((AudioPlayer::new(handle), PlaybackSettings::DESPAWN));
+        if let Some(h) = handle {
+            commands.spawn((AudioPlayer::new(h), PlaybackSettings::DESPAWN));
+        }
     }
 }
 

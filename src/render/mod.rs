@@ -99,11 +99,14 @@ fn setup_overlay_camera(
     use bevy::camera::{RenderTarget, ScalingMode};
     use bevy::render::render_resource::TextureFormat;
 
+    // Rgba8Unorm + no view format: avoids DownlevelFlags::VIEW_FORMATS,
+    // which WebGL2 does not support. The overlay is visual-effect-only
+    // (scanlines, hue shift) so sRGB precision doesn't matter here.
     let image_handle = images.add(Image::new_target_texture(
         WINDOW_W as u32,
         WINDOW_H as u32,
         TextureFormat::Rgba8Unorm,
-        Some(TextureFormat::Rgba8UnormSrgb),
+        None,
     ));
 
     let mut projection = OrthographicProjection::default_2d();

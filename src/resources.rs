@@ -34,6 +34,7 @@ pub struct GameProgress {
     pub game_over: bool,
     pub game_won: bool,
     pub score_submitted: bool,
+    pub initial_delay_ticks: u32,
 }
 
 impl Default for GameProgress {
@@ -45,6 +46,7 @@ impl Default for GameProgress {
             game_over: false,
             game_won: false,
             score_submitted: false,
+            initial_delay_ticks: crate::constants::INITIAL_DELAY_TICKS,
         }
     }
 }

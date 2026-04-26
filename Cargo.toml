@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.18", default-features = false, features = ["2d", "bevy_state", "bevy_audio", "vorbis", "wav"] }
+bevy = { version = "0.18", default-features = false, features = ["2d", "bevy_state", "bevy_audio", "vorbis", "wav", "webgl2"] }
 bevy_egui = "0.39"
 bevy_pkv = "0.15.0"
 getrandom = { version = "0.2", features = ["js"] }

@@ -100,7 +100,14 @@ fn init_menu_state(mut commands: Commands, pkv: Res<PkvStore>) {
     commands.insert_resource(crate::menu::state::MenuState::new(&pkv));
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(
+    mut commands: Commands,
+    mut egui_settings: ResMut<bevy_egui::EguiGlobalSettings>,
+) {
+    // Disable auto-context so the overlay render-to-texture camera (spawned in
+    // RenderPlugin::build) doesn't steal the primary egui context.
+    egui_settings.auto_create_primary_context = false;
+
     let mut projection = OrthographicProjection::default_2d();
     projection.scaling_mode = ScalingMode::Fixed {
         width: 560.0,
@@ -112,20 +119,47 @@ fn setup_camera(mut commands: Commands) {
         Projection::Orthographic(projection),
         Transform::from_scale(Vec3::new(1.0, -1.0, 1.0)),
         RenderLayers::layer(0),
+        bevy_egui::PrimaryEguiContext,
     ));
 }
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "fetris".into(),
-                resolution: WindowResolution::new(560, 780),
-                resizable: false,
+    let mut plugins = DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "fetris".into(),
+            resolution: WindowResolution::new(560, 780),
+            resizable: false,
+            ..default()
+        }),
+        ..default()
+    });
+
+    // WebGL2 is the only viable backend for broad browser compatibility.
+    // Explicitly force it so wgpu doesn't try WebGPU features WebGL2 lacks.
+    #[cfg(target_arch = "wasm32")]
+    {
+        use bevy::asset::{AssetMetaCheck, AssetPlugin};
+        plugins = plugins.set(AssetPlugin {
+            meta_check: AssetMetaCheck::Never,
+            ..default()
+        });
+
+        use bevy::render::{
+            settings::{Backends, RenderCreation, WgpuSettings, WgpuSettingsPriority},
+            RenderPlugin,
+        };
+        plugins = plugins.set(RenderPlugin {
+            render_creation: RenderCreation::Automatic(WgpuSettings {
+                backends: Some(Backends::GL),
+                priority: WgpuSettingsPriority::WebGL2,
                 ..default()
             }),
             ..default()
-        }))
+        });
+    }
+
+    App::new()
+        .add_plugins(plugins)
         .add_plugins(bevy_egui::EguiPlugin::default())
         .add_plugins(render::RenderPlugin)
         .add_plugins(menu::MenuPlugin)

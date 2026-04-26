@@ -126,6 +126,9 @@ pub fn render_state_text(
         AppState::Ready => {
             mk(&mut commands, "READY".into(), 0.0, 28.0, Color::WHITE);
         }
+        AppState::Playing if progress.initial_delay_ticks > 0 => {
+            mk(&mut commands, "READY".into(), 0.0, 28.0, Color::WHITE);
+        }
         AppState::GameOver if progress.game_won => {
             mk(&mut commands, "LEVEL 999".into(), -16.0, 28.0, Color::WHITE);
             mk(

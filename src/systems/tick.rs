@@ -14,6 +14,11 @@ pub fn tick_counter(
         start.0 = None;
         return;
     }
+    if progress.initial_delay_ticks > 0 {
+        progress.initial_delay_ticks -= 1;
+        start.0 = None;
+        return;
+    }
     start.0 = Some(phase.0);
     progress.ticks_elapsed += 1;
 }
