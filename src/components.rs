@@ -36,15 +36,3 @@ impl ActivePieceBundle {
         }
     }
 }
-
-/// Convert ECS components into the value type used by RotationSystem.
-impl PiecePosition {
-    pub fn to_state(self, kind: PieceKind, rotation: usize) -> crate::rotation_system::PieceState {
-        crate::rotation_system::PieceState {
-            kind,
-            rotation,
-            col: self.col,
-            row: self.row,
-        }
-    }
-}

@@ -17,6 +17,7 @@ pub enum PieceKind {
     L,
 }
 
+#[cfg(test)]
 impl PieceKind {
     pub fn all() -> [Self; 7] {
         [
@@ -29,7 +30,9 @@ impl PieceKind {
             Self::L,
         ]
     }
+}
 
+impl PieceKind {
     /// Picks one of the 7 kinds uniformly using the supplied RNG.
     pub fn random<R: rand::Rng>(rng: &mut R) -> Self {
         match rng.gen_range(0..7) {
@@ -276,13 +279,6 @@ pub struct HiScoreEntry {
 // ---------------------------------------------------------------------------
 // Menu / Config (deferred to Plan 2; types defined for serde compat)
 // ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MenuScreen {
-    Main,
-    HiScores,
-    Controls,
-}
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct GameConfig {

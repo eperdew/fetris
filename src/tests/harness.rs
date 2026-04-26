@@ -69,7 +69,9 @@ pub fn start_with(app: &mut App, mode: GameMode, rotation: Kind, kind: PieceKind
     app.world_mut().resource_mut::<Board>().0 = [[None; BOARD_COLS]; BOARD_ROWS];
     app.world_mut().resource_mut::<NextPiece>().0 = kind;
     app.world_mut().resource_mut::<CurrentPhase>().0 = PiecePhase::Falling;
-    app.world_mut().resource_mut::<GameProgress>().initial_delay_ticks = 0;
+    app.world_mut()
+        .resource_mut::<GameProgress>()
+        .initial_delay_ticks = 0;
 }
 
 pub fn make_app(kind: PieceKind) -> App {

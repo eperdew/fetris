@@ -2,7 +2,7 @@ use crate::components::*;
 use crate::constants::{LINE_CLEAR_DELAY, SPAWN_DELAY_NORMAL};
 use crate::data::{
     GameEvent, GameKey, InputSnapshot, JudgeEvent, PieceKind, PiecePhase, RotationDirection,
-    BOARD_COLS, BOARD_ROWS,
+    BOARD_ROWS,
 };
 use crate::resources::*;
 use crate::rotation_system::RotationSystem;

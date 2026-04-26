@@ -1,6 +1,6 @@
 use crate::data::{Grade, BOARD_ROWS};
 use crate::render::assets::GameAssets;
-use crate::render::{BAR_WIDTH, BAR_X, BOARD_BG, BOARD_X, BOARD_Y, CELL, DIVIDER_X, SIDEBAR_X};
+use crate::render::{BAR_WIDTH, BAR_X, BOARD_BG, BOARD_Y, CELL, DIVIDER_X, SIDEBAR_X};
 use bevy::prelude::*;
 
 #[derive(Component, Clone, Copy)]
