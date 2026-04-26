@@ -4,7 +4,7 @@ struct OverlayUniforms {
     frame_parity: f32,
     hue_shift: f32,
     overlay_opacity: f32,
-    _pad: f32,
+    pixel_scale: f32,
 }
 
 @group(2) @binding(0) var<uniform> uniforms: OverlayUniforms;
@@ -23,7 +23,7 @@ fn hue_rotate(col: vec3<f32>, angle: f32) -> vec3<f32> {
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    if (floor(in.position.y) % 2.0) != uniforms.frame_parity {
+    if (floor(in.position.y / uniforms.pixel_scale) % 2.0) != uniforms.frame_parity {
         discard;
     }
     // UVs from the Rectangle mesh are vertically flipped relative to the render target
