@@ -5,8 +5,8 @@
   <title>fetris</title>
   
 <script type="module">
-import init, * as bindings from '/fetris/fetris-2b7d3a06c10a6441.js';
-const wasm = await init({ module_or_path: '/fetris/fetris-2b7d3a06c10a6441_bg.wasm' });
+import init, * as bindings from '/fetris/fetris-304176c286c55947.js';
+const wasm = await init({ module_or_path: '/fetris/fetris-304176c286c55947_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -46,7 +46,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       height: 100% !important;
     }
   </style>
-<link rel="modulepreload" href="/fetris/fetris-2b7d3a06c10a6441.js" crossorigin="anonymous" integrity="sha384-vBrgX+MVZMt4VSk0/tK0UrSzSygl+HwJSRt7tuobFpPNhh1TWM1K0euUojkpBFz6"><link rel="preload" href="/fetris/fetris-2b7d3a06c10a6441_bg.wasm" crossorigin="anonymous" integrity="sha384-EhKM59VKhJVRBCEZ+ZycachuSDag6dwI+2oYpSCBtPIeG56foV/Eol6lhQtHiQiW" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/fetris/fetris-304176c286c55947.js" crossorigin="anonymous" integrity="sha384-vBrgX+MVZMt4VSk0/tK0UrSzSygl+HwJSRt7tuobFpPNhh1TWM1K0euUojkpBFz6"><link rel="preload" href="/fetris/fetris-304176c286c55947_bg.wasm" crossorigin="anonymous" integrity="sha384-CLiGRlnoIzdpHAj2l7xVz+ikPfxpgZvjP9DUe6oNgBbeEUQIiuCeKf8dz3FS/h72" as="fetch" type="application/wasm"></head>
 <body>
   <canvas id="bevy-canvas"></canvas>
 </body>
