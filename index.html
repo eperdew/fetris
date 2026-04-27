@@ -21,11 +21,22 @@
     })();
   </script>
   <style>
-    html, body { margin: 0; padding: 0; background: #0a0a12; height: 100%; overflow: hidden; }
-    body { display: flex; align-items: center; justify-content: center; }
-    canvas { display: block; }
+    /* The Rust-side `clamp_window_to_max_texture_size` system sets the wgpu
+       surface (and therefore the canvas's framebuffer) to half the browser's
+       natural device-pixel resolution, capped at WebGL2's spec-minimum
+       2048x2048. winit will write the halved size to `canvas.style.width/height`
+       as part of that path; `!important` here forces the canvas DOM to keep
+       filling the tab regardless, so the browser GPU-upscales the smaller
+       framebuffer to full size. */
+    html, body { margin: 0; padding: 0; background: #0a0a12; width: 100%; height: 100%; overflow: hidden; }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
   </style>
 </head>
 <body>
+  <canvas id="bevy-canvas"></canvas>
 </body>
 </html>
