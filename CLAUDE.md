@@ -83,6 +83,7 @@ trunk serve --release       # WASM dev server at localhost:8080
 ## Conventions
 
 - Install the pre-commit hook: `cp hooks/pre-commit .git/hooks/pre-commit` (runs `cargo fmt`)
+- All three builds must be warning-free: `cargo build`, `cargo build --target wasm32-unknown-unknown`, and `cargo test`. Fix warnings rather than suppressing them.
 - Tests use `insta` for snapshot assertions — always inline (`@"..."`), never external `.snap` files. To accept new snapshots: `cargo insta accept` (never edit them by hand).
 - New feature work goes on a branch under `.worktrees/` (git-ignored)
 - Specs live in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`
