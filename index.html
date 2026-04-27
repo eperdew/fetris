@@ -5,8 +5,8 @@
   <title>fetris</title>
   
 <script type="module">
-import init, * as bindings from '/fetris/fetris-51edc085d5480d6c.js';
-const wasm = await init({ module_or_path: '/fetris/fetris-51edc085d5480d6c_bg.wasm' });
+import init, * as bindings from '/fetris/fetris-2b7d3a06c10a6441.js';
+const wasm = await init({ module_or_path: '/fetris/fetris-2b7d3a06c10a6441_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -32,11 +32,22 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     })();
   </script>
   <style>
-    html, body { margin: 0; padding: 0; background: #0a0a12; height: 100%; overflow: hidden; }
-    body { display: flex; align-items: center; justify-content: center; }
-    canvas { display: block; }
+    /* The Rust-side `clamp_window_to_max_texture_size` system sets the wgpu
+       surface (and therefore the canvas's framebuffer) to half the browser's
+       natural device-pixel resolution, capped at WebGL2's spec-minimum
+       2048x2048. winit will write the halved size to `canvas.style.width/height`
+       as part of that path; `!important` here forces the canvas DOM to keep
+       filling the tab regardless, so the browser GPU-upscales the smaller
+       framebuffer to full size. */
+    html, body { margin: 0; padding: 0; background: #0a0a12; width: 100%; height: 100%; overflow: hidden; }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
   </style>
-<link rel="modulepreload" href="/fetris/fetris-51edc085d5480d6c.js" crossorigin="anonymous" integrity="sha384-vXbYGcIuFnSWPxbOO6jjSFwtsjWTBtSQXTL56yN0hFIOKu3F6tEq/+o1M8ca57fd"><link rel="preload" href="/fetris/fetris-51edc085d5480d6c_bg.wasm" crossorigin="anonymous" integrity="sha384-zc3W8ukMkTgZsLJZFg/MSKeEfTGhCyZ62slBRKWj1BI9pa89h8xHagb3GZcNoceT" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/fetris/fetris-2b7d3a06c10a6441.js" crossorigin="anonymous" integrity="sha384-vBrgX+MVZMt4VSk0/tK0UrSzSygl+HwJSRt7tuobFpPNhh1TWM1K0euUojkpBFz6"><link rel="preload" href="/fetris/fetris-2b7d3a06c10a6441_bg.wasm" crossorigin="anonymous" integrity="sha384-EhKM59VKhJVRBCEZ+ZycachuSDag6dwI+2oYpSCBtPIeG56foV/Eol6lhQtHiQiW" as="fetch" type="application/wasm"></head>
 <body>
+  <canvas id="bevy-canvas"></canvas>
 </body>
 </html>
