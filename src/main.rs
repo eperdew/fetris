@@ -178,7 +178,9 @@ fn clamp_window_to_max_texture_size(mut windows: Query<&mut Window, With<Primary
     let cur_w = window.resolution.physical_width();
     let cur_h = window.resolution.physical_height();
     if (cur_w, cur_h) != (target_w, target_h) {
-        window.resolution.set_physical_resolution(target_w, target_h);
+        window
+            .resolution
+            .set_physical_resolution(target_w, target_h);
     }
 }
 
