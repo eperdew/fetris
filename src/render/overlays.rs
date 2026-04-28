@@ -100,6 +100,7 @@ pub fn render_state_text(
     state: Res<State<AppState>>,
     progress: Res<crate::resources::GameProgress>,
     assets: Res<GameAssets>,
+    debug_scene: Option<Res<crate::menu::debug::DebugSceneState>>,
 ) {
     for e in &existing {
         commands.entity(e).despawn();
@@ -121,6 +122,32 @@ pub fn render_state_text(
             Transform::from_xyz(cx, cy + dy, 150.0).with_scale(Vec3::new(1.0, -1.0, 1.0)),
         ));
     };
+
+    if matches!(state.get(), AppState::Debug) {
+        use crate::menu::debug::DebugStateOverlay;
+        if let Some(scene) = debug_scene {
+            match scene.state_overlay {
+                DebugStateOverlay::Ready => {
+                    mk(&mut commands, "READY".into(), 0.0, 28.0, Color::WHITE);
+                }
+                DebugStateOverlay::GameOver => {
+                    mk(&mut commands, "GAME OVER".into(), 0.0, 28.0, Color::WHITE);
+                }
+                DebugStateOverlay::Won => {
+                    mk(&mut commands, "LEVEL 999".into(), -16.0, 28.0, Color::WHITE);
+                    mk(
+                        &mut commands,
+                        crate::render::hud::format_time(progress.ticks_elapsed),
+                        20.0,
+                        22.0,
+                        Color::srgba(0.83, 0.83, 0.83, 1.0),
+                    );
+                }
+                DebugStateOverlay::None => {}
+            }
+        }
+        return;
+    }
 
     match state.get() {
         AppState::Ready => {

@@ -111,6 +111,17 @@ pub fn debug_input_system(
         apply_hud_preset(&mut judge, &mut progress, new_idx);
     }
 
+    if keys.just_pressed(KeyCode::KeyQ) {
+        scene.state_overlay = DebugStateOverlay::Ready;
+        scene.state_overlay_ticks_left = 90;
+    } else if keys.just_pressed(KeyCode::KeyW) {
+        scene.state_overlay = DebugStateOverlay::GameOver;
+        scene.state_overlay_ticks_left = 90;
+    } else if keys.just_pressed(KeyCode::KeyR) {
+        scene.state_overlay = DebugStateOverlay::Won;
+        scene.state_overlay_ticks_left = 90;
+    }
+
     let count = if keys.just_pressed(KeyCode::Digit1) {
         Some(1u32)
     } else if keys.just_pressed(KeyCode::Digit2) {
@@ -154,6 +165,13 @@ pub fn debug_tick_system(
                 }
             }
             pending.0.clear();
+        }
+    }
+
+    if scene.state_overlay_ticks_left > 0 {
+        scene.state_overlay_ticks_left -= 1;
+        if scene.state_overlay_ticks_left == 0 {
+            scene.state_overlay = DebugStateOverlay::None;
         }
     }
 }
