@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::EguiPrimaryContextPass;
 pub mod controls;
+pub mod debug;
 pub mod hi_scores;
 pub mod main_screen;
 pub mod state;

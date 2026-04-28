@@ -331,6 +331,15 @@ fn main() {
         )
         .add_systems(OnEnter(AppState::Menu), reset_game_on_enter_menu)
         .add_systems(OnEnter(AppState::GameOver), submit_score_on_game_over)
+        .add_systems(OnEnter(AppState::Debug), menu::debug::on_enter_debug)
+        .add_systems(
+            Update,
+            menu::debug::debug_input_system.run_if(in_state(AppState::Debug)),
+        )
+        .add_systems(
+            FixedUpdate,
+            menu::debug::debug_tick_system.run_if(in_state(AppState::Debug)),
+        )
         .add_systems(Update, setup_egui_font)
         .add_systems(Update, update_camera_viewport)
         .add_systems(Update, systems::global_input::handle_global_input)
