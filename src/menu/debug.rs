@@ -88,6 +88,8 @@ pub fn debug_input_system(
     mut board: ResMut<Board>,
     mut pending: ResMut<PendingCompaction>,
     mut events: bevy::ecs::message::MessageWriter<crate::data::GameEvent>,
+    mut judge: ResMut<Judge>,
+    mut progress: ResMut<GameProgress>,
     mut next_state: ResMut<NextState<AppState>>,
     mut menu: ResMut<crate::menu::state::MenuState>,
 ) {
@@ -95,6 +97,18 @@ pub fn debug_input_system(
         menu.screen = crate::menu::state::MenuScreen::Main;
         next_state.set(AppState::Menu);
         return;
+    }
+
+    if keys.just_pressed(KeyCode::ArrowDown) || keys.just_pressed(KeyCode::ArrowUp) {
+        let delta: i32 = if keys.just_pressed(KeyCode::ArrowDown) {
+            1
+        } else {
+            -1
+        };
+        let len = HUD_PRESETS.len() as i32;
+        let new_idx = (scene.hud_preset as i32 + delta).rem_euclid(len) as usize;
+        scene.hud_preset = new_idx;
+        apply_hud_preset(&mut judge, &mut progress, new_idx);
     }
 
     let count = if keys.just_pressed(KeyCode::Digit1) {
