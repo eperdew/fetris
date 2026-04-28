@@ -83,12 +83,17 @@ pub fn on_enter_debug(world: &mut World) {
 }
 
 pub fn debug_input_system(
-    _keys: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     _scene: ResMut<DebugSceneState>,
     _board: ResMut<Board>,
     _pending: ResMut<PendingCompaction>,
-    _next_state: ResMut<NextState<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut menu: ResMut<crate::menu::state::MenuState>,
 ) {
+    if keys.just_pressed(KeyCode::Backspace) {
+        menu.screen = crate::menu::state::MenuScreen::Main;
+        next_state.set(AppState::Menu);
+    }
 }
 
 pub fn debug_tick_system(_scene: ResMut<DebugSceneState>) {}
