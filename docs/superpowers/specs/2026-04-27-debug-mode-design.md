@@ -8,12 +8,17 @@ A "DEBUG" entry on the main menu opens a dedicated visual test bench for inspect
 
 ## Scope
 
-In scope:
+In scope (limited to overlays/effects that actually exist in the codebase today):
 
 - A single static T-piece sitting in a fixed position on the board.
-- Line-clear particle bursts: single, double, triple, tetris.
-- Overlays: READY, GO, GRADE UP flash, GAME OVER, EXCELLENT, NEW RECORD.
-- HUD: next-piece preview, score, level, grade, section/grade bar — cyclable through representative values.
+- Line-clear particle bursts: single, double, triple, tetris (4 lines). Particle spawn reads the cells of the cleared rows from `Board`, so the debug screen populates synthetic cells in those rows + sets `PendingCompaction.0 = vec![row_indices]` + emits `GameEvent::LineClear { count }`.
+- Line-clear text overlays — DOUBLE / TRIPLE / FETRIS — driven by the same `GameEvent::LineClear { count }` for `count` of 2/3/4. (Single-line clears emit no overlay; this is the existing behavior.)
+- State-text overlays: READY (used during the pre-game countdown) and GAME OVER. Plus the LEVEL 999 win-screen variant (which shows when `progress.game_won`).
+- HUD: next-piece preview, score, level, grade, grade bar — cyclable through representative presets.
+
+Not in scope (these don't exist in the current renderer; out for now):
+
+- "GO", "GRADE UP" flash, "EXCELLENT", "NEW RECORD" — the spec previously listed these but the code has no such overlays. `GameEvent::GradeAdvanced` is currently audio-only.
 
 Out of scope:
 
@@ -45,28 +50,28 @@ Add `AppState::Debug` as a peer to `Playing` / `Ready` / `GameOver`.
 A new module `src/menu/debug.rs` registered in `src/menu/mod.rs`. It contains:
 
 - `DebugSceneState` resource: holds the synthetic state needed by the HUD demo cycle (current `Grade`, score, level, section), plus a small cursor for which preset is shown.
-- `OnEnter(AppState::Debug)` system: spawn the active-piece entity with a `T` piece at a fixed board position; populate `Board` with an empty grid; insert `DebugSceneState::default()`; set `Judge` / `GameProgress` / `NextPiece` to the first preset values.
-- `OnExit(AppState::Debug)` system: despawn the active-piece entity and any leftover particles/overlays; remove `DebugSceneState`.
+- `OnEnter(AppState::Debug)` system: insert the resources that gameplay normally inserts via `start_game` but that the renderer needs (`RotationSystemRes`, `NextPiece`); spawn the active-piece entity at a fixed mid-board position with `PieceKind::T`; set `CurrentPhase(PiecePhase::Falling)` so `render_active_piece` doesn't early-return; insert `DebugSceneState::default()`; apply the first HUD preset to `Judge` / `GameProgress`.
+- `OnExit(AppState::Debug)` system: despawn the active-piece entity and any leftover particles / overlays / state-text / HUD / board / piece / next-preview entities (same set as `reset_game_on_enter_menu`); remove `DebugSceneState`. The existing `reset_game_on_enter_menu` runs on entry to `Menu` and already does this — we just need to make sure leaving Debug routes through `Menu`.
 - `debug_input_system` running in `Update` with `run_if(in_state(AppState::Debug))`. Reads `ButtonInput<KeyCode>` and dispatches:
-  - `Digit1` / `Digit2` / `Digit3` / `Digit4`: emit `GameEvent::LineClear { count }` with `count` of 1/2/3/4 so the existing particle system spawns the corresponding burst. The debug screen does NOT populate synthetic rows on the board — the particle spawn system is event-driven and reads `count`, not board state, so re-triggering just works.
-  - `Q`: trigger READY overlay.
-  - `W`: trigger GO overlay.
-  - `E`: emit `GameEvent::GradeAdvanced(grade)` (the grade-up flash is driven by this event).
-  - `R`: trigger GAME OVER overlay.
-  - `T`: trigger EXCELLENT overlay.
-  - `Y`: trigger NEW RECORD overlay.
+  - `Digit1` / `Digit2` / `Digit3` / `Digit4`: populate `Board.0` with synthetic T-colored cells in the bottom 1/2/3/4 rows, set `PendingCompaction.0` to those row indices, then emit `GameEvent::LineClear { count }`. Particles spawn (reading the synthetic cells), overlay text spawns for counts 2/3/4. After `OVERLAY_LIFETIME` ticks (~45) the debug screen wipes the synthetic rows + clears `PendingCompaction.0` so re-triggering works on a clean board.
+  - `Q`: show "READY" state-text overlay (via the override flag described below) for ~90 ticks.
+  - `W`: show "GAME OVER" state-text overlay for ~90 ticks.
+  - `R`: show "LEVEL 999" win-screen state-text overlay for ~90 ticks.
   - `ArrowUp` / `ArrowDown`: cycle the HUD preset (mutates `Judge` and `GameProgress`).
   - `Backspace`: `next_state.set(AppState::Menu)` and reset `MenuState::screen` to `Main`.
 - An egui side panel listing the keymap so the user does not need to memorize it.
 
 ## Triggering overlays
 
-The existing overlay code already has state it reads (e.g. game-over flag, ready countdown). Two paths depending on how each overlay is currently driven:
+Two distinct paths in this codebase:
 
-- If the overlay is event-driven, the debug system writes the same event the real game writes.
-- If the overlay reads a resource flag (e.g. `IsGameOver(bool)`), the debug system flips that flag, then unflips it after a fixed display duration (tracked by a small per-overlay timer in `DebugSceneState`).
+- **Line-clear overlays** (DOUBLE / TRIPLE / FETRIS) are event-driven by `GameEvent::LineClear { count }`, same path as the particles. Emit the event; the existing `spawn_line_clear_overlay` system handles it.
+- **State-text overlays** (READY / GAME OVER / LEVEL 999) are AppState-driven. `render_state_text` in `src/render/overlays.rs` matches on `Res<State<AppState>>` and `progress.game_won`. To trigger them from the debug screen without leaving `AppState::Debug`, add a debug-only override:
+  - New enum `DebugStateOverlay { None, Ready, GameOver, Won }` carried on `DebugSceneState`.
+  - `render_state_text` is broadened to also run in `AppState::Debug` and, when in Debug, branches on `DebugStateOverlay` instead of the regular AppState match.
+  - The debug input system sets the override on Q/W/R and clears it after a per-overlay tick countdown.
 
-The plan step that wires each overlay will inspect the existing trigger path and choose the right one — no new overlay rendering code is added.
+No new overlay rendering code is introduced — only a new branch in `render_state_text`.
 
 ## HUD presets
 
