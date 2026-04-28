@@ -35,6 +35,18 @@ pub fn overlay_hue_shift(kind: OverlayKind, ticks_elapsed: u64) -> f32 {
     }
 }
 
+/// Text color for the overlay label.
+///
+/// FETRIS uses a saturated red so the shader's hue-shift visibly cycles the
+/// text through ROYGBIV; rotating pure white's hue is a no-op (white sits on
+/// the achromatic axis).
+fn overlay_text_color(kind: OverlayKind) -> Color {
+    match kind {
+        OverlayKind::Fetris => Color::srgba_u8(255, 60, 60, 255),
+        OverlayKind::Double | OverlayKind::Triple => Color::WHITE,
+    }
+}
+
 pub fn spawn_line_clear_overlay(
     mut commands: Commands,
     mut events: MessageReader<GameEvent>,
@@ -70,7 +82,7 @@ pub fn spawn_line_clear_overlay(
                 font_size: 40.0,
                 ..default()
             },
-            TextColor(Color::WHITE),
+            TextColor(overlay_text_color(kind)),
             bevy::sprite::Anchor::CENTER,
             Transform::from_xyz(cx, cy, 200.0).with_scale(Vec3::new(1.0, -1.0, 1.0)),
             RenderLayers::layer(OVERLAY_RENDER_LAYER),
