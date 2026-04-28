@@ -156,7 +156,13 @@ pub fn debug_tick_system(
     mut scene: ResMut<DebugSceneState>,
     mut board: ResMut<Board>,
     mut pending: ResMut<PendingCompaction>,
+    mut progress: ResMut<GameProgress>,
 ) {
+    // The render pipeline drives shader effects (FETRIS hue-shift, scanline parity)
+    // off `progress.ticks_elapsed`. Gameplay's `tick_counter` doesn't run in Debug,
+    // so advance time here to keep the visuals animating.
+    progress.ticks_elapsed = progress.ticks_elapsed.wrapping_add(1);
+
     if scene.line_clear_cleanup_ticks_left > 0 {
         scene.line_clear_cleanup_ticks_left -= 1;
         if scene.line_clear_cleanup_ticks_left == 0 {
