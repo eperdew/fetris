@@ -31,11 +31,14 @@ Add `AppState::Debug` as a peer to `Playing` / `Ready` / `GameOver`.
 - Entry: from `MenuScreen::Debug` confirm, transition to `AppState::Debug`.
 - Exit: Backspace returns to `AppState::Menu` and `MenuScreen::Main`.
 
-## Menu Entry (`src/menu/main_screen.rs`, `src/data.rs`)
+## Menu Entry (`src/menu/main_screen.rs`, `src/menu/state.rs`, `src/data.rs`)
 
 - Add `MenuScreen::Debug` to the `MenuScreen` enum in `src/data.rs`.
-- Insert a "DEBUG" row on the main menu between "CONTROLS" and "START". Cursor max becomes 5 (was 4).
+- Add `debug_unlocked: bool` field to `MenuState` in `src/menu/state.rs`, default `false`. Not persisted via `bevy_pkv` — resets on each app launch.
+- In `main_menu_system`, when on `MenuScreen::Main` and `KeyCode::KeyD` is just-pressed, set `menu.debug_unlocked = true`.
+- The "DEBUG" row only renders when `debug_unlocked` is true; insert it between "CONTROLS" and "START". Cursor max is 4 when locked, 5 when unlocked.
 - Confirm on the DEBUG row sets `next_state` to `AppState::Debug`.
+- No toggle-off: once revealed for the session, it stays. Closing and re-opening the app re-locks it.
 
 ## Debug Screen (`src/menu/debug.rs`, new file)
 
