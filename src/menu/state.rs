@@ -17,6 +17,7 @@ pub enum MenuScreen {
     Main,
     HiScores,
     Controls,
+    #[allow(dead_code)]
     Debug,
 }
 

@@ -47,6 +47,7 @@ pub struct MenuInput {
     pub right: bool,
     pub confirm: bool,
     pub back: bool,
+    pub unlock_debug: bool,
 }
 
 pub fn read_input(keys: &ButtonInput<KeyCode>) -> MenuInput {
@@ -57,6 +58,7 @@ pub fn read_input(keys: &ButtonInput<KeyCode>) -> MenuInput {
         right: keys.just_pressed(KeyCode::ArrowRight) || keys.just_pressed(KeyCode::KeyL),
         confirm: keys.just_pressed(KeyCode::Space) || keys.just_pressed(KeyCode::Enter),
         back: keys.just_pressed(KeyCode::Backspace),
+        unlock_debug: keys.just_pressed(KeyCode::KeyD),
     }
 }
 
@@ -72,14 +74,20 @@ pub fn main_menu_system(
     }
     let input = read_input(&keys);
 
+    if input.unlock_debug {
+        menu.debug_unlocked = true;
+    }
+
     if input.up {
         menu.cursor = menu.cursor.saturating_sub(1);
     }
+    let cursor_max = if menu.debug_unlocked { 5 } else { 4 };
     if input.down {
-        menu.cursor = (menu.cursor + 1).min(4);
+        menu.cursor = (menu.cursor + 1).min(cursor_max);
     }
 
     let mut start_game = false;
+    let mut enter_debug = false;
     match menu.cursor {
         0 if input.left || input.right => {
             menu.game_mode = match menu.game_mode {
@@ -106,6 +114,13 @@ pub fn main_menu_system(
             menu.screen = MenuScreen::Controls;
         }
         4 if input.confirm => {
+            if menu.debug_unlocked {
+                enter_debug = true;
+            } else {
+                start_game = true;
+            }
+        }
+        5 if input.confirm => {
             start_game = true;
         }
         _ => {}
@@ -138,8 +153,12 @@ pub fn main_menu_system(
                 ui.add_space(20.0);
                 ui.label(make_bracketed("HI SCORES", menu.cursor == 2, 24.0));
                 ui.label(make_bracketed("CONTROLS", menu.cursor == 3, 24.0));
+                if menu.debug_unlocked {
+                    ui.label(make_bracketed("DEBUG", menu.cursor == 4, 24.0));
+                }
                 ui.add_space(20.0);
-                ui.label(make_bracketed("START", menu.cursor == 4, 24.0));
+                let start_idx = if menu.debug_unlocked { 5 } else { 4 };
+                ui.label(make_bracketed("START", menu.cursor == start_idx, 24.0));
                 ui.add_space(60.0);
                 let (label, color) = if pkv.get::<bool>("muted").unwrap_or(false) {
                     ("[M]  MUTED", egui::Color32::from_rgb(204, 102, 102))
@@ -156,6 +175,10 @@ pub fn main_menu_system(
                 );
             });
         });
+
+    if enter_debug {
+        next_state.set(crate::app_state::AppState::Debug);
+    }
 
     if start_game {
         let _ = pkv.set(

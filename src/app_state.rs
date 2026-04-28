@@ -7,6 +7,5 @@ pub enum AppState {
     Ready,
     Playing,
     GameOver,
-    #[allow(dead_code)]
     Debug,
 }
