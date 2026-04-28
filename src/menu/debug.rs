@@ -84,16 +84,62 @@ pub fn on_enter_debug(world: &mut World) {
 
 pub fn debug_input_system(
     keys: Res<ButtonInput<KeyCode>>,
-    _scene: ResMut<DebugSceneState>,
-    _board: ResMut<Board>,
-    _pending: ResMut<PendingCompaction>,
+    mut scene: ResMut<DebugSceneState>,
+    mut board: ResMut<Board>,
+    mut pending: ResMut<PendingCompaction>,
+    mut events: bevy::ecs::message::MessageWriter<crate::data::GameEvent>,
     mut next_state: ResMut<NextState<AppState>>,
     mut menu: ResMut<crate::menu::state::MenuState>,
 ) {
     if keys.just_pressed(KeyCode::Backspace) {
         menu.screen = crate::menu::state::MenuScreen::Main;
         next_state.set(AppState::Menu);
+        return;
+    }
+
+    let count = if keys.just_pressed(KeyCode::Digit1) {
+        Some(1u32)
+    } else if keys.just_pressed(KeyCode::Digit2) {
+        Some(2)
+    } else if keys.just_pressed(KeyCode::Digit3) {
+        Some(3)
+    } else if keys.just_pressed(KeyCode::Digit4) {
+        Some(4)
+    } else {
+        None
+    };
+
+    if let Some(count) = count {
+        if scene.line_clear_cleanup_ticks_left > 0 {
+            return;
+        }
+        let n = count as usize;
+        let rows: Vec<usize> = (crate::data::BOARD_ROWS - n..crate::data::BOARD_ROWS).collect();
+        for &r in &rows {
+            for c in 0..crate::data::BOARD_COLS {
+                board.0[r][c] = Some(PieceKind::T);
+            }
+        }
+        pending.0 = rows;
+        events.write(crate::data::GameEvent::LineClear { count });
+        scene.line_clear_cleanup_ticks_left = 3;
     }
 }
 
-pub fn debug_tick_system(_scene: ResMut<DebugSceneState>) {}
+pub fn debug_tick_system(
+    mut scene: ResMut<DebugSceneState>,
+    mut board: ResMut<Board>,
+    mut pending: ResMut<PendingCompaction>,
+) {
+    if scene.line_clear_cleanup_ticks_left > 0 {
+        scene.line_clear_cleanup_ticks_left -= 1;
+        if scene.line_clear_cleanup_ticks_left == 0 {
+            for r in &pending.0 {
+                for c in 0..crate::data::BOARD_COLS {
+                    board.0[*r][c] = None;
+                }
+            }
+            pending.0.clear();
+        }
+    }
+}
