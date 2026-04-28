@@ -5,6 +5,7 @@
 //! debug-only `state_overlay` override on `render_state_text`.
 
 use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts};
 
 use crate::app_state::AppState;
 use crate::components::ActivePieceBundle;
@@ -174,4 +175,43 @@ pub fn debug_tick_system(
             scene.state_overlay = DebugStateOverlay::None;
         }
     }
+}
+
+pub fn debug_keymap_panel(mut contexts: EguiContexts) {
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+    egui::SidePanel::right("debug_keymap")
+        .resizable(false)
+        .default_width(220.0)
+        .frame(egui::Frame::default().fill(egui::Color32::from_rgba_unmultiplied(10, 10, 18, 220)))
+        .show(ctx, |ui| {
+            ui.add_space(12.0);
+            ui.label(
+                egui::RichText::new("DEBUG")
+                    .color(egui::Color32::WHITE)
+                    .size(20.0),
+            );
+            ui.add_space(8.0);
+            let row = |ui: &mut egui::Ui, k: &str, what: &str| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new(k)
+                            .color(egui::Color32::from_rgb(180, 180, 220))
+                            .size(14.0),
+                    );
+                    ui.label(
+                        egui::RichText::new(what)
+                            .color(egui::Color32::GRAY)
+                            .size(14.0),
+                    );
+                });
+            };
+            row(ui, "1 / 2 / 3 / 4", "line-clear bursts");
+            row(ui, "Q", "READY");
+            row(ui, "W", "GAME OVER");
+            row(ui, "R", "LEVEL 999 win");
+            row(ui, "↑ / ↓", "cycle HUD preset");
+            row(ui, "Backspace", "back to menu");
+        });
 }

@@ -340,6 +340,10 @@ fn main() {
             FixedUpdate,
             menu::debug::debug_tick_system.run_if(in_state(AppState::Debug)),
         )
+        .add_systems(
+            bevy_egui::EguiPrimaryContextPass,
+            menu::debug::debug_keymap_panel.run_if(in_state(AppState::Debug)),
+        )
         .add_systems(Update, setup_egui_font)
         .add_systems(Update, update_camera_viewport)
         .add_systems(Update, systems::global_input::handle_global_input)
