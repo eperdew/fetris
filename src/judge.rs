@@ -57,6 +57,12 @@ impl Judge {
             ticks: self.grade_ticks,
         }
     }
+
+    /// Debug-only: directly set the score and re-derive the best grade.
+    pub fn set_score_for_debug(&mut self, score: u32) {
+        self.score = score;
+        self.best_grade = Grade::of_score(score);
+    }
 }
 
 impl Default for Judge {

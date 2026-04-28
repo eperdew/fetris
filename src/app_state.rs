@@ -7,4 +7,5 @@ pub enum AppState {
     Ready,
     Playing,
     GameOver,
+    Debug,
 }

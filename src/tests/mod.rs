@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod debug_tests;
+#[cfg(test)]
 mod gravity_tests;
 #[cfg(test)]
 pub mod harness;

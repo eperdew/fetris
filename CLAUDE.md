@@ -18,14 +18,14 @@ Reimplementation of [TGM1](https://tetris.wiki/Tetris_The_Grand_Master) in Rust 
 | `src/audio.rs` | `bevy_audio` event-driven sound system; `AudioHandles` resource; mute via `PkvStore` |
 | `src/systems/` | Game-logic systems running in `FixedUpdate` at 60 Hz: `input`, `gravity`, `lock`, `line_clear`, `spawn`, `judge`, `game_over_check`, `global_input`, `post_game` |
 | `src/render/` | Rendering systems running in `Update`: `board`, `piece`, `particles`, `overlays`, `hud`, `assets` |
-| `src/menu/` | bevy_egui menu screens: `main_screen`, `hi_scores`, `controls`, `state` |
+| `src/menu/` | bevy_egui menu screens: `main_screen`, `hi_scores`, `controls`, `state`, `debug` (visual test bench, gated behind `D` keypress on main menu) |
 | `src/tests/` | Headless tests using `MinimalPlugins` + `GameSnapshot::from_world`; `insta` inline snapshots only |
 
 ## Architecture
 
 **Bevy `App`** with `DefaultPlugins`, `bevy_egui::EguiPlugin`, and game-logic plugins. Game state lives in resources (`Board`, `Judge`, `Randomizer`, `InputState`, `GameProgress`, `Box<dyn RotationSystem>`) plus an active-piece *entity* with `PieceKindComp` / `PiecePosition` / `PieceRotation` / `PiecePhase` components.
 
-**`AppState` machine** uses bevy `States`: `Menu` → `Ready` → `Playing` → `GameOver` → `Menu`. Systems are gated with `run_if(in_state(...))`.
+**`AppState` machine** uses bevy `States`: `Menu` → `Ready` → `Playing` → `GameOver` → `Menu`, plus a `Debug` peer entered from the menu (visual test bench). Systems are gated with `run_if(in_state(...))`.
 
 **Schedules:**
 - `FixedUpdate` at 60 Hz — all game logic.
