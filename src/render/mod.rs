@@ -47,24 +47,32 @@ impl Plugin for RenderPlugin {
             board::render_board.run_if(
                 in_state(AppState::Playing)
                     .or(in_state(AppState::GameOver))
-                    .or(in_state(AppState::Ready)),
+                    .or(in_state(AppState::Ready))
+                    .or(in_state(AppState::Debug)),
             ),
         );
         app.add_systems(
             Update,
-            (piece::render_active_piece, piece::render_next_preview)
-                .run_if(in_state(AppState::Playing).or(in_state(AppState::GameOver))),
+            (piece::render_active_piece, piece::render_next_preview).run_if(
+                in_state(AppState::Playing)
+                    .or(in_state(AppState::GameOver))
+                    .or(in_state(AppState::Debug)),
+            ),
         );
         app.add_systems(
             Update,
-            hud::render_hud.run_if(in_state(AppState::Playing).or(in_state(AppState::GameOver))),
+            hud::render_hud.run_if(
+                in_state(AppState::Playing)
+                    .or(in_state(AppState::GameOver))
+                    .or(in_state(AppState::Debug)),
+            ),
         );
         app.add_systems(
             FixedUpdate,
             particles::spawn_particles_on_line_clear
                 .after(active_phase_system)
                 .before(line_clear_delay_system)
-                .run_if(in_state(AppState::Playing)),
+                .run_if(in_state(AppState::Playing).or(in_state(AppState::Debug))),
         );
         app.add_systems(FixedUpdate, particles::update_particles);
         app.add_systems(
@@ -76,7 +84,8 @@ impl Plugin for RenderPlugin {
                 .run_if(
                     in_state(AppState::Playing)
                         .or(in_state(AppState::Ready))
-                        .or(in_state(AppState::GameOver)),
+                        .or(in_state(AppState::GameOver))
+                        .or(in_state(AppState::Debug)),
                 ),
         );
         app.add_systems(FixedUpdate, overlays::tick_line_clear_overlay);
